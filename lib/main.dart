@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:recycle_go/verify_recycle_item.dart';
 
 void main() {
   runApp(const MainApp());
