@@ -34,12 +34,12 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       // Use the auto-generated delegates and locales
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       // Default locale
-      locale: Locale('en'),
+      locale: const Locale('en'),
       home: Scaffold(
         body: _screens[_selectedIndex],
         bottomNavigationBar: BottomNavBar(
