@@ -6,17 +6,6 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image/image.dart' as img;
 
-late List<CameraDescription> cameras;
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  cameras = await availableCameras();
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: VerifyRecycleItem(),
-  ));
-}
-
 class VerifyRecycleItem extends StatefulWidget {
   const VerifyRecycleItem({super.key});
 
@@ -32,18 +21,31 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   List<Map<String, dynamic>> detections = [];
   bool isProcessing = false;
   bool isLoaded = false;
+  bool isCameraInitialized = false;
   double userWallet = 0.0;
 
   final Map<String, double> materialDensity = {
-    'plastic': 1.38, 'glass': 2.50, 'paper': 0.80, 'metal': 2.70, 'cardboard': 0.60,
+    'plastic': 1.38,
+    'glass': 2.50,
+    'paper': 0.80,
+    'metal': 2.70,
+    'cardboard': 0.60,
   };
 
   final Map<String, double> baseWeights = {
-    'plastic': 18.0, 'glass': 200.0, 'paper': 5.0, 'metal': 15.0, 'cardboard': 50.0,
+    'plastic': 18.0,
+    'glass': 200.0,
+    'paper': 5.0,
+    'metal': 15.0,
+    'cardboard': 50.0,
   };
 
   final Map<String, int> pointValues = {
-    'plastic': 10, 'glass': 15, 'paper': 5, 'metal': 20, 'cardboard': 8,
+    'plastic': 10,
+    'glass': 15,
+    'paper': 5,
+    'metal': 20,
+    'cardboard': 8,
   };
 
   @override
@@ -59,13 +61,24 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       labels = labelsData.split('\n').map((e) => e.trim().toLowerCase()).toList();
       interpreter = await Interpreter.fromAsset('assets/best_model.tflite');
       setState(() => isLoaded = true);
-    } catch (e) { debugPrint("Model Load Error: $e"); }
+    } catch (e) {
+      debugPrint("Model Load Error: $e");
+    }
   }
 
   Future<void> initCamera() async {
-    controller = CameraController(cameras[0], ResolutionPreset.high, enableAudio: false);
-    await controller!.initialize();
-    if (mounted) setState(() {});
+    try {
+      final cameras = await availableCameras();
+      controller = CameraController(cameras[0], ResolutionPreset.high, enableAudio: false);
+      await controller!.initialize();
+      if (mounted) {
+        setState(() {
+          isCameraInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Camera init error: $e");
+    }
   }
 
   Map<String, Map<String, dynamic>> _calculateStats() {
@@ -106,8 +119,11 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   }
 
   Future<void> captureAndDetect() async {
-    if (controller == null || !isLoaded) return;
-    setState(() { isProcessing = true; detections = []; });
+    if (controller == null || !isLoaded || !isCameraInitialized) return;
+    setState(() {
+      isProcessing = true;
+      detections = [];
+    });
 
     try {
       XFile file = await controller!.takePicture();
@@ -122,8 +138,13 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       interpreter!.run(input, output);
       _parseResults(output[0]);
 
-      setState(() { capturedImage = File(file.path); isProcessing = false; });
-    } catch (e) { setState(() => isProcessing = false); }
+      setState(() {
+        capturedImage = File(file.path);
+        isProcessing = false;
+      });
+    } catch (e) {
+      setState(() => isProcessing = false);
+    }
   }
 
   void _parseResults(List<List<double>> raw) {
@@ -149,7 +170,9 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
     for (var y = 0; y < 640; y++) {
       for (var x = 0; x < 640; x++) {
         var p = imgData.getPixel(x, y);
-        buffer[idx++] = p.r / 255.0; buffer[idx++] = p.g / 255.0; buffer[idx++] = p.b / 255.0;
+        buffer[idx++] = p.r / 255.0;
+        buffer[idx++] = p.g / 255.0;
+        buffer[idx++] = p.b / 255.0;
       }
     }
     return buffer.reshape([1, 640, 640, 3]);
@@ -157,6 +180,12 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
 
   @override
   Widget build(BuildContext context) {
+    if (!isCameraInitialized || !isLoaded) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final stats = _calculateStats();
     double currentPoints = stats.values.fold(0.0, (sum, item) => sum + (item['points'] as double));
 
@@ -167,27 +196,45 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       ),
       body: Stack(
         children: [
-          Positioned.fill(child: capturedImage != null ? Image.file(capturedImage!, fit: BoxFit.cover) : CameraPreview(controller!)),
+          Positioned.fill(
+            child: capturedImage != null
+                ? Image.file(capturedImage!, fit: BoxFit.cover)
+                : CameraPreview(controller!),
+          ),
           if (capturedImage != null && !isProcessing)
             Positioned(
-              bottom: 110, left: 15, right: 15,
+              bottom: 110,
+              left: 15,
+              right: 15,
               child: Card(
                 elevation: 10,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
-                      const Text("Calculation Breakdown", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text(
+                        "Calculation Breakdown",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
                       const Divider(),
                       ...stats.entries.map((e) => Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text("${e.key.toUpperCase()} (x${e.value['count']})"),
-                          Text("${(e.value['weightKg'] as double).toStringAsFixed(3)}kg × ${pointValues[e.key]} = ${(e.value['points'] as double).toStringAsFixed(2)} pts"),
+                          Text(
+                            "${(e.value['weightKg'] as double).toStringAsFixed(3)}kg × ${pointValues[e.key]} = ${(e.value['points'] as double).toStringAsFixed(2)} pts",
+                          ),
                         ],
                       )),
                       const Divider(),
-                      Text("SESSION TOTAL: ${currentPoints.toStringAsFixed(2)} PTS", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 18)),
+                      Text(
+                        "SESSION TOTAL: ${currentPoints.toStringAsFixed(2)} PTS",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                          fontSize: 18,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -199,14 +246,19 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       floatingActionButton: isProcessing
           ? const CircularProgressIndicator()
           : (capturedImage == null
-          ? FloatingActionButton.extended(onPressed: captureAndDetect, label: const Text("Scan Items"), icon: const Icon(Icons.scale))
+          ? FloatingActionButton.extended(
+        onPressed: captureAndDetect,
+        label: const Text("Scan Items"),
+        icon: const Icon(Icons.scale),
+      )
           : FloatingActionButton.extended(
-          onPressed: () => setState(() {
-            userWallet += currentPoints;
-            capturedImage = null;
-          }),
-          label: const Text("Collect Points"),
-          icon: const Icon(Icons.stars))),
+        onPressed: () => setState(() {
+          userWallet += currentPoints;
+          capturedImage = null;
+        }),
+        label: const Text("Collect Points"),
+        icon: const Icon(Icons.stars),
+      )),
     );
   }
 
