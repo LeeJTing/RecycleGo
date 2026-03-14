@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:recycle_go/bottom_nav_bar.dart';
-import 'package:recycle_go/home_screen.dart';
-import 'package:recycle_go/l10n/app_localizations.dart';
-import 'package:recycle_go/verify_recycle_item.dart';
+import 'package:recycle_go/l10n/app_localization.dart';
 
 void main() {
   runApp(const MainApp());
@@ -35,21 +32,33 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-/*        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,*/
-      ],
-      supportedLocales: const [
-        Locale('en'), // English
-      ],
-      home: Scaffold(
-        body: _screens[_selectedIndex],
-        bottomNavigationBar: BottomNavBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
+    return const MaterialApp(
+      // Use the auto-generated delegates and locales
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // Default locale
+      locale: Locale('en'),
+      home: HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Now context is BELOW MaterialApp, so AppLocalizations.of(context) will work
+    final l10n = AppLocalizations.of(context);
+    
+    return Scaffold(
+      body: Center(
+        child: Text(
+          l10n?.hello_world ?? 'Hello World!',
+          style: const TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
