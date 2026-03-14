@@ -22,3 +22,10 @@ dev_dependencies:
 flutter:
   generate: true
   uses-material-design: true
+l10n:
+  arb-dir: lib/l10n        # or your custom path
+  template-arb-file: app_en.arb
+  output-localization-file: app_localizations.dart
+  assets:
+    - assets/models/best_model.tflite
+    - assets/models/labels.txt
