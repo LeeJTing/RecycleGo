@@ -1,10 +1,11 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/models/Connector.dart';
 
-Future<void> initialize() async{
-  await Supabase.initialize(
-    url: 'https://ngcrvuzbxzwinnzmcwxj.supabase.co',
-    anonKey: 'sb_publishable_1yK9-NCtNnVTIEiJWU8zUg_zEE9AdFa',
-  );
+// entity
+class Users {
+
 }
 
-const supabaseURL = 'https://ngcrvuzbxzwinnzmcwxj.supabase.co';
+// supabase connector
+class UsersModel extends Connector{
+// _client is the variable to connect db the ModelI alrd connected
+}
