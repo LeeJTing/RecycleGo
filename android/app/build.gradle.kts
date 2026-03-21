@@ -5,6 +5,30 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+configurations.all {
+    resolutionStrategy {
+        // Force the main and API versions
+        force("com.google.ai.edge.litert:litert:1.4.0")
+        force("com.google.ai.edge.litert:litert-api:1.4.0")
+        // Force the GPU version to match
+        force("com.google.ai.edge.litert:litert-gpu:1.4.0")
+        
+        dependencySubstitution {
+            // Substitute main libraries
+            substitute(module("org.tensorflow:tensorflow-lite"))
+                .using(module("com.google.ai.edge.litert:litert:1.4.0"))
+            substitute(module("org.tensorflow:tensorflow-lite-api"))
+                .using(module("com.google.ai.edge.litert:litert-api:1.4.0"))
+                
+            // Substitute GPU libraries (This fixes the new error)
+            substitute(module("org.tensorflow:tensorflow-lite-gpu"))
+                .using(module("com.google.ai.edge.litert:litert-gpu:1.4.0"))
+            substitute(module("org.tensorflow:tensorflow-lite-gpu-api"))
+                .using(module("com.google.ai.edge.litert:litert-gpu:1.4.0"))
+        }
+    }
+}
+
 android {
     namespace = "com.tarumt.recyclego.recycle_go"
     compileSdk = flutter.compileSdkVersion
