@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/l10n/app_localization.dart';
 import 'package:recycle_go/services/supabase_service.dart';
+import 'package:recycle_go/view/autho/login_screen.dart';
+
+
+import 'home_screen.dart';
 
 Future<void> main() async {
-  final supabase = SupabaseService();
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService.initialize();
   runApp(const MainApp());
@@ -23,7 +27,7 @@ class _MainAppState extends State<MainApp> {
   static const List<Widget> _screens = [
     Center(child: HomeScreen()),
     Center(child: Text('Scan Screen')),
-    Center(child: VerifyRecycleItem()),
+    // Center(child: VerifyRecycleItem()),
     Center(child: Text('Rewards Screen')),
     Center(child: Text('Profile Screen')),
   ];
@@ -36,13 +40,17 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       // Use the auto-generated delegates and locales
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       // Default locale
-      locale: Locale('en'),
-      home: HomePage(),
+      locale: const Locale('en'),
+      initialRoute: Routes.login,
+      routes: {
+        Routes.login: (context) => const LoginScreen(),
+        Routes.userHomePage: (context) => const HomePage(),
+      },
     );
   }
 }
