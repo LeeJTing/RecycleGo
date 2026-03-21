@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:recycle_go/l10n/app_localization.dart';
+import 'package:recycle_go/services/supabase_service.dart';
 
-void main() {
+Future<void> main() async {
+  final supabase = SupabaseService();
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseService.initialize();
   runApp(const MainApp());
 }
 
