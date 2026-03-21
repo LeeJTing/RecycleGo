@@ -10,8 +10,29 @@ Future<void> main() async {
   runApp(const MainApp());
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends StatefulWidget {
   const MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> {
+  int _selectedIndex = 0;
+
+  static const List<Widget> _screens = [
+    Center(child: HomeScreen()),
+    Center(child: Text('Scan Screen')),
+    Center(child: VerifyRecycleItem()),
+    Center(child: Text('Rewards Screen')),
+    Center(child: Text('Profile Screen')),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,3 +68,4 @@ class HomePage extends StatelessWidget {
     );
   }
 }
+
