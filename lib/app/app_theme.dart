@@ -1,103 +1,88 @@
 import 'package:flutter/material.dart';
+class AppColors {
+  final Color primary;
+  final Color secondary;
+  final Color background;
+  final Color surface;
+  final Color error;
+
+  final Color onPrimary;
+  final Color onSecondary;
+  final Color onBackground;
+  final Color onSurface;
+  final Color onError;
+
+  final Color border;
+  final Color shadow;
+
+  const AppColors({
+    required this.primary,
+    required this.secondary,
+    required this.background,
+    required this.surface,
+    required this.error,
+    required this.onPrimary,
+    required this.onSecondary,
+    required this.onBackground,
+    required this.onSurface,
+    required this.onError,
+    required this.border,
+    required this.shadow,
+  });
+}
 
 class AppThemes {
-  // ========== LIGHT THEME ==========
-  // Used when the device is in light mode or user explicitly selects light theme.
-  static final ThemeData lightTheme = ThemeData(
-    brightness: Brightness.light,
 
-    // Primary color: Forest Green (#2E7D32)
-    // Represents nature, recycling, and sustainability. Used for:
-    // - App bar background
-    // - FAB (Floating Action Button)
-    // - Selected tab indicators
-    // - Primary buttons
-    primaryColor: const Color(0xFF2E7D32),
+  static String _currentTheme = 'light';
 
-    // ColorScheme is the modern theming system in Flutter.
-    // It defines a set of colors that work together harmoniously.
-    colorScheme: const ColorScheme.light(
-      // Main brand color – green for eco-friendliness
-      primary: Color(0xFF2E7D32),
+  static final AppThemes _instance = AppThemes._internal();
 
-      // Secondary color – ocean blue (#0288D1)
-      // Symbolizes clean water and environment. Used for:
-      // - Secondary buttons
-      // - Links
-      // - Selection controls (checkboxes, switches)
-      secondary: Color(0xFF0288D1),
+  static AppColors get color => (_currentTheme == 'light' ? _light : _dark);
 
-      // Background color – light gray (#F5F5F5)
-      // Used behind scrollable content (scaffold background)
-      background: Color(0xFFF5F5F5),
+  factory AppThemes() {
+    return _instance;
+  }
 
-      // Surface color – pure white (#FFFFFF)
-      // Used for cards, dialogs, menus, and bottom sheets
-      surface: Color(0xFFFFFFFF),
+  AppThemes._internal();
 
-      // Error color – standard Material red (#B00020)
-      error: Color(0xFFB00020),
 
-      // ===== "on" colors =====
-      // These are foreground colors (text/icons) painted on top of the corresponding background.
-      // They must have enough contrast for readability.
+  void toggleTheme() {
+    _currentTheme = _currentTheme == 'light' ? 'dark' : 'light';
+  }
 
-      // Text/icons on primary-colored surfaces (e.g., app bar title)
-      onPrimary: Colors.white,
+  static const _light = AppColors(
+    primary: Color(0xFF0BB110),
+    secondary: Color(0xFF0288D1),
+    background: Color(0xFFF5F5F5),
+    surface: Color(0xFFFFFFFF),
+    error: Color(0xFFB00020),
 
-      // Text/icons on secondary-colored surfaces
-      onSecondary: Colors.white,
+    onPrimary: Color(0xFFFFFFFF),
+    onSecondary: Color(0xFFFFFFFF),
+    onBackground: Color(0xDD000000),
+    onSurface: Color(0xDD000000),
+    onError: Color(0xFFFFFFFF),
 
-      // Text/icons on background (e.g., body text)
-      onBackground: Colors.black87, // High-emphasis text
-
-      // Text/icons on surface (cards, dialogs)
-      onSurface: Colors.black87,
-
-      // Text/icons on error color (e.g., error message inside a red toast)
-      onError: Colors.white,
-    ),
-
-    // AppBar theme – applies to all AppBars unless overridden
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF2E7D32), // Same as primary
-      foregroundColor: Colors.white,      // Title and icons
-      elevation: 0, // Optional: removes shadow for cleaner look
-    ),
-
-    // You can also customize:
-    // - TextTheme (font sizes, weights)
-    // - Button themes
-    // - Input decoration themes
+    border: Color(0xFFDFE2DF),
+    shadow: Color(0x12000000),
   );
 
-  // ========== DARK THEME ==========
-  // Used when the device is in dark mode or user selects dark theme.
-  static final ThemeData darkTheme = ThemeData(
-    brightness: Brightness.dark,
+  static const _dark = AppColors(
+    primary: Color(0xFF1B5E20),
+    secondary: Color(0xFF4FC3F7),
+    background: Color(0xFF121212),
+    surface: Color(0xFF1E1E1E),
+    error: Color(0xFFCF6679),
 
-    // Primary color in dark mode: lighter green (#4CAF50)
-    // Brighter colors work better on dark backgrounds while keeping the eco identity.
-    primaryColor: const Color(0xFF4CAF50),
+    onPrimary: Color(0xFFFFFFFF),
+    onSecondary: Color(0xFF000000),
+    onBackground: Color(0xFFFFFFFF),
+    onSurface: Color(0xFFFFFFFF),
+    onError: Color(0xFF000000),
 
-    colorScheme: const ColorScheme.dark(
-      primary: Color(0xFF4CAF50),   // Lighter green
-      secondary: Color(0xFF4FC3F7), // Sky blue – brighter for dark mode
-      background: Color(0xFF121212), // Standard dark background (Material Design)
-      surface: Color(0xFF1E1E1E),    // Slightly lighter than background for cards
-      error: Color(0xFFCF6679),      // Recommended error color for dark themes
-
-      // "on" colors for dark mode:
-      onPrimary: Colors.black,       // Dark text on light green primary
-      onSecondary: Colors.black,     // Dark text on secondary
-      onBackground: Colors.white,    // Light text on dark background
-      onSurface: Colors.white,       // Light text on surface
-      onError: Colors.black,         // Dark text on error color
-    ),
-
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF1E1E1E), // Surface color for app bar
-      foregroundColor: Colors.white,
-    ),
+    border: Color(0xFF2E2E2E),
+    shadow: Color(0x12000000),
   );
 }
+
+
