@@ -23,6 +23,9 @@ dev_dependencies:
 flutter:
   generate: true
   uses-material-design: true
+  assets:
+    - assets/images/
+
 l10n:
   arb-dir: lib/l10n        # or your custom path
   template-arb-file: app_en.arb
