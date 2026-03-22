@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 class AppColors {
+  final Color appbarBackground;
+  final Color appbarTitle;
+
   final Color primary;
   final Color secondary;
   final Color background;
@@ -32,6 +35,8 @@ class AppColors {
     required this.shadow,
     required this.hint,
     required this.onHint,
+    required this.appbarBackground,
+    required this.appbarTitle,
   });
 }
 
@@ -55,6 +60,9 @@ class AppThemes {
   }
 
   static const _light = AppColors(
+    appbarBackground: Color(0xFFB5B5B5),
+    appbarTitle: Color(0xFFFFFFFF),
+
     primary: Color(0xFF0BB110),
     secondary: Color(0xFF0288D1),
     background: Color(0xFFF5F5F5),
@@ -73,6 +81,9 @@ class AppThemes {
   );
 
   static const _dark = AppColors(
+    appbarBackground: Color(0xFFFFFFFF),
+    appbarTitle: Color(0xFF000000),
+
     primary: Color(0xFF1B5E20),
     secondary: Color(0xFF4FC3F7),
     background: Color(0xFF121212),
