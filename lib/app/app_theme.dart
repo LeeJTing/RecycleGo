@@ -3,12 +3,14 @@ class AppColors {
   final Color primary;
   final Color secondary;
   final Color background;
+  final Color hint;
   final Color surface;
   final Color error;
 
   final Color onPrimary;
   final Color onSecondary;
   final Color onBackground;
+  final Color onHint;
   final Color onSurface;
   final Color onError;
 
@@ -28,6 +30,8 @@ class AppColors {
     required this.onError,
     required this.border,
     required this.shadow,
+    required this.hint,
+    required this.onHint,
   });
 }
 
@@ -55,16 +59,17 @@ class AppThemes {
     secondary: Color(0xFF0288D1),
     background: Color(0xFFF5F5F5),
     surface: Color(0xFFFFFFFF),
+    hint: Color(0xFF878787),
     error: Color(0xFFB00020),
 
     onPrimary: Color(0xFFFFFFFF),
     onSecondary: Color(0xFFFFFFFF),
     onBackground: Color(0xDD000000),
     onSurface: Color(0xDD000000),
-    onError: Color(0xFFFFFFFF),
-
+    onError: Color(0xFFD30000),
+    onHint: Color(0xFF878787),
     border: Color(0xFFDFE2DF),
-    shadow: Color(0x12000000),
+    shadow: Color(0xFFB00020),
   );
 
   static const _dark = AppColors(
@@ -72,6 +77,7 @@ class AppThemes {
     secondary: Color(0xFF4FC3F7),
     background: Color(0xFF121212),
     surface: Color(0xFF1E1E1E),
+    hint: Color(0xFF878787),
     error: Color(0xFFCF6679),
 
     onPrimary: Color(0xFFFFFFFF),
@@ -79,9 +85,9 @@ class AppThemes {
     onBackground: Color(0xFFFFFFFF),
     onSurface: Color(0xFFFFFFFF),
     onError: Color(0xFF000000),
-
+    onHint: Color(0xFF878787),
     border: Color(0xFF2E2E2E),
-    shadow: Color(0x12000000),
+    shadow: Color(0xFF8C001C),
   );
 }
 
