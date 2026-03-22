@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -13,7 +14,7 @@ class LoginScreen extends StatelessWidget {
         title: Text('Login', style: TextStyle(color: theme.onPrimary)
         )
       ),
-      body: Row(
+      body: Column(
         mainAxisAlignment: .center,
         children: [
           Image.asset(
@@ -22,6 +23,7 @@ class LoginScreen extends StatelessWidget {
           ),
           Text(
             'Welcome',
+            style: TextDesign.headingOne(),
           )
         ],
       ),
