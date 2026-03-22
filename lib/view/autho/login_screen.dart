@@ -11,21 +11,25 @@ class LoginScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(centerTitle: true,
-        title: Text('Login', style: TextStyle(color: theme.onPrimary)
-        )
+        title: Text('Login', style: TextDesign.normalText()),
       ),
-      body: Column(
-        mainAxisAlignment: .center,
-        children: [
-          Image.asset(
-              'assets/images/logo.webp',
-              width: 80
-          ),
-          Text(
-            'Welcome',
-            style: TextDesign.headingOne(),
-          )
-        ],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: .start,
+          children: [
+            Image.asset(
+                'assets/images/logo.webp',
+                width: 80
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Welcome Back!',
+              style: TextDesign.headingOne(),
+            ),
+            const SizedBox(height: 20,),
+
+          ],
+        ),
       ),
     );
   }
