@@ -4,8 +4,7 @@ import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/l10n/app_localization.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/view/autho/login_screen.dart';
-
-
+import 'package:recycle_go/view/admin/admin_home.dart';
 import 'home_screen.dart';
 
 Future<void> main() async {
@@ -50,6 +49,7 @@ class _MainAppState extends State<MainApp> {
       routes: {
         Routes.login: (context) => const LoginScreen(),
         Routes.userHomePage: (context) => const HomePage(),
+        Routes.adminDashboard: (context) => const AdminHome(),
       },
     );
   }

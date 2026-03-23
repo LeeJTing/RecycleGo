@@ -8,5 +8,4 @@ class Routes {
   static const String adminDashboard = '/admin/dashboard';
   static const String userHomePage = '/user/homePage';
 
-
 }

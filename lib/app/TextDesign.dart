@@ -41,5 +41,10 @@ class TextDesign {
     color: color ?? theme.onSurface.withOpacity(0.7),
   );
 
-
+  static TextStyle appBarTitle({Color? color, double fontSize = 18}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.w600,
+    color: color ?? theme.onSurface,
+    letterSpacing: 0.2,
+  );
 }
