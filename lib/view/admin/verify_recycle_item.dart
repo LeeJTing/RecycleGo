@@ -57,9 +57,9 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
 
   Future<void> loadModel() async {
     try {
-      final labelsData = await rootBundle.loadString('assets/labels.txt');
+      final labelsData = await rootBundle.loadString('assets/models/labels.txt');
       labels = labelsData.split('\n').map((e) => e.trim().toLowerCase()).toList();
-      interpreter = await Interpreter.fromAsset('assets/best_model.tflite');
+      interpreter = await Interpreter.fromAsset('assets/models/best_model.tflite');
       setState(() => isLoaded = true);
     } catch (e) {
       debugPrint("Model Load Error: $e");
@@ -69,15 +69,32 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   Future<void> initCamera() async {
     try {
       final cameras = await availableCameras();
-      controller = CameraController(cameras[0], ResolutionPreset.high, enableAudio: false);
+      if (cameras.isEmpty) {
+        debugPrint("No cameras found on device");
+        return;
+      }
+
+      // Use cameras[0] for rear, cameras[1] for front
+      controller = CameraController(
+        cameras[0],
+        ResolutionPreset.medium, // Start with medium to reduce memory pressure
+        enableAudio: false,
+      );
+
       await controller!.initialize();
+
+      // Add this to catch errors during initialization
+      controller!.addListener(() {
+        if (controller!.value.hasError) {
+          debugPrint("Camera Error: ${controller!.value.errorDescription}");
+        }
+      });
+
       if (mounted) {
-        setState(() {
-          isCameraInitialized = true;
-        });
+        setState(() => isCameraInitialized = true);
       }
     } catch (e) {
-      debugPrint("Camera init error: $e");
+      debugPrint("Camera Initialization Failed: $e");
     }
   }
 

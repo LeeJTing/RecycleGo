@@ -47,4 +47,46 @@ class TextDesign {
     color: color ?? theme.onSurface,
     letterSpacing: 0.2,
   );
+
+  static TextStyle mediumText({Color? color, double fontSize = 16}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.w500, // Medium weight
+    color: color ?? theme.onSurface,
+  );
+
+  // For the RM 45.00 price display in your History Cards
+  static TextStyle priceText({Color? color, double fontSize = 18}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.bold,
+    color: color ?? theme.primary, // Defaults to your Eco-Green
+    letterSpacing: 0.5,
+  );
+
+  // For "Plastic", "Metal", or "Completed" status chips
+  static TextStyle badgeText({Color? color, double fontSize = 12}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.bold,
+    color: color ?? theme.onSurface,
+    letterSpacing: 0.8,
+  );
+
+  static TextStyle hintText({Color? color, double fontSize = 14}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.w400,
+    color: color ?? theme.hint,
+  );
+
+  static TextStyle buttonText({Color? color, double fontSize = 16}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.bold,
+    color: color ?? Colors.white,
+    letterSpacing: 0.5,
+  );
+
+  static TextStyle label({Color? color, double fontSize = 12}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.bold,
+    color: color ?? theme.onSurface.withOpacity(0.5),
+    letterSpacing: 1.1, // Spaced out for a modern "Label" look
+  );
 }
