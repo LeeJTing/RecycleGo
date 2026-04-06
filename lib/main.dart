@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/l10n/app_localization.dart';
+import 'package:recycle_go/provider/AdminProvider.dart';
+import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/view/admin/admin_add_inventory.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
@@ -11,11 +14,21 @@ import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
 import 'package:recycle_go/view/admin/admin_purchase_update.dart';
 import 'package:recycle_go/view/admin/admin_view_inventory.dart';
 import 'package:recycle_go/view/admin/admin_update_inventory.dart';
+import 'package:recycle_go/view/autho/register_screen.dart';
+import 'package:recycle_go/view/profile/profile_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService.initialize();
-  runApp(const MainApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => AdminProvider()),
+      ],
+      child: const MainApp(),
+    ),
+  );
 }
 
 class MainApp extends StatefulWidget {
@@ -31,22 +44,22 @@ class _MainAppState extends State<MainApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // Use the auto-generated delegates and locales
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      // Default locale
       locale: const Locale('en'),
       initialRoute: Routes.login,
       routes: {
         Routes.login: (context) => const LoginScreen(),
+        Routes.register: (context) => const RegisterScreen(),
         Routes.userHomePage: (context) => const HomePage(),
+        Routes.userProfile: (context) => const ProfileScreen(),
         Routes.adminHome: (context) => const AdminHome(),
-        Routes.adminPurchaseDetail: (context) => const AdminPurchaseDetail(purchase: {},items: []),
-        Routes.adminPurchaseUpdate: (context) => const AdminPurchaseUpdate(purchase: {},items: [],),
+        Routes.adminPurchaseDetail: (context) => const AdminPurchaseDetail(purchase: {}, items: []),
+        Routes.adminPurchaseUpdate: (context) => const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
         Routes.adminViewInventory: (context) => const AdminViewInventory(),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
-        Routes.adminUpdateInventory: (context) => const AdminUpdateInventory(item: {},),
+        Routes.adminUpdateInventory: (context) => const AdminUpdateInventory(item: {}),
       },
     );
   }
@@ -57,10 +70,11 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Now context is BELOW MaterialApp, so AppLocalizations.of(context) will work
     final l10n = AppLocalizations.of(context);
+    final user = Provider.of<UserProvider>(context).user;
 
     return Scaffold(
+      appBar: AppBar(title: Text(user?.userName ?? 'User')),
       body: Center(
         child: Text(
           l10n?.hello_world ?? 'Hello World!',
@@ -73,4 +87,3 @@ class HomePage extends StatelessWidget {
     );
   }
 }
-

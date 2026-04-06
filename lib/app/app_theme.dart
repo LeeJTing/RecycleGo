@@ -47,7 +47,7 @@ class AppColors {
     required this.successContainer,
     required this.onSuccessContainer,
     required this.warning,
-    required this.warningContainer
+    required this.warningContainer, required this.appbarBackground, required this.appbarTitle
   });
 }
 
@@ -98,6 +98,9 @@ class AppThemes {
   );
 
   static const _dark = AppColors(
+    appbarBackground: Color(0xFFB5B5B5),
+    appbarTitle: Color(0xFFFFFFFF),
+
     warning: Color(0xFFFBBF24),
     primary: Color(0xFF1B5E20),
     secondary: Color(0xFF4FC3F7),
