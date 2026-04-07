@@ -15,11 +15,8 @@ dependencies:
   image: ^4.8.0
   intl: ^0.20.2
   provider: ^6.1.2
-<<<<<<< Updated upstream
-=======
   supabase_flutter: ^2.12.0
   tflite_flutter: ^0.12.1
->>>>>>> Stashed changes
 
 dev_dependencies:
   flutter_test:
@@ -29,3 +26,12 @@ dev_dependencies:
 flutter:
   generate: true
   uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/models/best_model.tflite
+    - assets/models/labels.txt
+
+l10n:
+  arb-dir: lib/l10n        # or your custom path
+  template-arb-file: app_en.arb
+  output-localization-file: app_localizations.dart

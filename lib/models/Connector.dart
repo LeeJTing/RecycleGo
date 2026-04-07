@@ -1,0 +1,7 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/services/supabase_service.dart';
+
+class Connector {
+  // Use the singleton client from your SupabaseService
+  final SupabaseClient client = SupabaseService().client;
+}
