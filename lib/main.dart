@@ -20,7 +20,7 @@ import 'package:recycle_go/view/recycle/map_screen.dart';
 import 'package:recycle_go/view/recycle/station_detail_screen.dart';
 import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
-import 'package:recycle_go/view/admin/admin_station_edit.dart.';
+import 'package:recycle_go/view/admin/admin_station_edit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
