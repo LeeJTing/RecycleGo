@@ -87,11 +87,11 @@ class VouchersModel extends Connector {
     await _supabaseService.insertVoucher(vouchers.toMap());
   }
 
-  Future<void> updateVouchers(int id, Vouchers vouchers) async {
+  Future<void> updateVouchers(String id, Vouchers vouchers) async {
     await _supabaseService.updateVoucher(id, vouchers.toMap());
   }
 
-  Future<void> deleteVouchers(int id) async {
+  Future<void> deleteVouchers(String id) async {
     await _supabaseService.deleteVoucher(id);
   }
 }

@@ -19,7 +19,10 @@ import 'package:recycle_go/view/profile/profile_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Supabase
   await SupabaseService.initialize();
+
   runApp(
     MultiProvider(
       providers: [
