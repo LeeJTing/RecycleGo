@@ -16,6 +16,11 @@ import 'package:recycle_go/view/admin/admin_view_inventory.dart';
 import 'package:recycle_go/view/admin/admin_update_inventory.dart';
 import 'package:recycle_go/view/autho/register_screen.dart';
 import 'package:recycle_go/view/profile/profile_screen.dart';
+import 'package:recycle_go/view/recycle/map_screen.dart';
+import 'package:recycle_go/view/recycle/station_detail_screen.dart';
+import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
+import 'package:recycle_go/view/admin/admin_station_registry.dart';
+import 'package:recycle_go/view/admin/admin_station_edit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,7 +55,7 @@ class _MainAppState extends State<MainApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
-      initialRoute: Routes.login,
+      initialRoute: Routes.adminStationRegistry,
       routes: {
         Routes.login: (context) => const LoginScreen(),
         Routes.register: (context) => const RegisterScreen(),
@@ -63,6 +68,8 @@ class _MainAppState extends State<MainApp> {
         Routes.adminViewInventory: (context) => const AdminViewInventory(),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) => const AdminUpdateInventory(item: {}),
+        Routes.map: (context) => const MapScreen(),
+        Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
       },
     );
   }
