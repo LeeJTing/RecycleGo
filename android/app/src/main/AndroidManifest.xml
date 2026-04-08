@@ -20,9 +20,6 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
-            <meta-data
-                android:name="com.google.android.geo.API_KEY"
-                android:value="AIzaSyCpKVaF6ku0yKq-SV__pK8pCsrbao_k5pQ" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -33,6 +30,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCpKVaF6ku0yKq-SV__pK8pCsrbao_k5pQ" />
 
     </application>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
