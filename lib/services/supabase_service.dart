@@ -1,22 +1,25 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const String _supabaseURL = 'https://ngcrvuzbxzwinnzmcwxj.supabase.co';
-const String _supabaseKey = 'sb_publishable_1yK9-NCtNnVTIEiJWU8zUg_zEE9AdFa';
+const String _supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nY3J2dXpieHp3aW5uem1jd3hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4Njc3NzgsImV4cCI6MjA4ODQ0Mzc3OH0.uyJm3x5VgRVQ0YFjMExEw8r9cB-r7rIp2MHZcUkw4ZI';
 
 class SupabaseService {
-  // generate Singleton
   static final SupabaseService _instance = SupabaseService._internal();
 
   factory SupabaseService() => _instance;
 
-  // naming the constructor as _internal
   SupabaseService._internal();
 
   static Future<void> initialize() async{
-    await Supabase.initialize(
-      url: _supabaseURL,
-      anonKey: _supabaseKey,
-    );
+    try {
+      await Supabase.initialize(
+        url: _supabaseURL,
+        anonKey: _supabaseKey,
+      );
+      print('DEBUG: Supabase initialized successfully');
+    } catch (e) {
+      print('DEBUG: Supabase initialization failed: $e');
+    }
   }
 
   SupabaseClient get client => Supabase.instance.client;
@@ -24,20 +27,17 @@ class SupabaseService {
   Future<List<Map<String, dynamic>>> fetchVouchers() async {
     try {
       final data = await client.from('vouchers').select();
-      if (data is List) {
-        return data.map((row) => Map<String, dynamic>.from(row as Map)).toList();
-      }
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to fetch vouchers: ${e.message}');
+      return List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      throw Exception('Failed to fetch vouchers: $e');
     }
   }
 
-  //Redeemed vouchers
   static const String _redeemedVouchersTable = 'redeemed_vouchers';
 
   Future<List<Map<String, dynamic>>> fetchRedeemedVouchers({
     String? user_id,
-    int? voucher_id,
+    String? voucher_id,
     String? voucher_code,
   }) async {
     try {
@@ -47,19 +47,17 @@ class SupabaseService {
       if (voucher_code != null) query = query.eq('voucher_code', voucher_code);
 
       final data = await query;
-      if (data is List) {
-        return data.map((row) => Map<String, dynamic>.from(row as Map)).toList();
-      }
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to fetch redeemed vouchers: ${e.message}');
+      return List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      throw Exception('Failed to fetch redeemed vouchers: $e');
     }
   }
 
   Future<void> insertRedeemedVoucher(Map<String, dynamic> redeemedVoucher) async {
     try {
       await client.from(_redeemedVouchersTable).insert(redeemedVoucher);
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to insert redeemed voucher: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to insert redeemed voucher: $e');
     }
   }
 
@@ -72,40 +70,40 @@ class SupabaseService {
           .from(_redeemedVouchersTable)
           .update(redeemedVoucher)
           .eq('voucher_code', voucherCode);
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to update redeemed voucher $voucherCode: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to update redeemed voucher $voucherCode: $e');
     }
   }
 
   Future<void> deleteRedeemedVoucherByCode(String voucherCode) async {
     try {
       await client.from(_redeemedVouchersTable).delete().eq('voucher_code', voucherCode);
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to delete redeemed voucher $voucherCode: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to delete redeemed voucher $voucherCode: $e');
     }
   }
-//Vouchers
+
   Future<void> insertVoucher(Map<String, dynamic> voucher) async {
     try {
       await client.from('vouchers').insert(voucher);
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to insert voucher: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to insert voucher: $e');
     }
   }
 
-  Future<void> updateVoucher(int voucher_id, Map<String, dynamic> voucher) async {
+  Future<void> updateVoucher(String voucher_id, Map<String, dynamic> voucher) async {
     try {
       await client.from('vouchers').update(voucher).eq('voucher_id', voucher_id);
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to update voucher $voucher_id: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to update voucher $voucher_id: $e');
     }
   }
 
-  Future<void> deleteVoucher(int voucher_id) async {
+  Future<void> deleteVoucher(String voucher_id) async {
     try {
       await client.from('vouchers').delete().eq('voucher_id', voucher_id);
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to delete voucher $voucher_id: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to delete voucher $voucher_id: $e');
     }
   }
 }

@@ -24,7 +24,10 @@ import 'package:recycle_go/view/admin/admin_station_edit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Supabase
   await SupabaseService.initialize();
+
   runApp(
     MultiProvider(
       providers: [

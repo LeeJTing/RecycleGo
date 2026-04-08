@@ -34,7 +34,7 @@ class LoginCtrl {
     try {
       // 1. Authenticate as User
       final user = await _usersModel.authenticate(email, password);
-      
+
       if (user != null) {
         if (context.mounted) {
           Provider.of<UserProvider>(context, listen: false).setUser(user);

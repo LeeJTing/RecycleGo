@@ -54,28 +54,36 @@ class Users {
 
 class UsersModel extends Connector {
   Future<Users?> authenticate(String email, String password) async {
-    final response = await client
-        .from('users')
-        .select()
-        .eq('email', email)
-        .eq('hashed_password', password)
-        .maybeSingle();
+    try {
+      final response = await client
+          .from('users')
+          .select()
+          .eq('email', email)
+          .eq('hashed_password', password)
+          .maybeSingle();
 
-    if (response != null) {
-      return Users.fromJson(response);
+      if (response != null) {
+        return Users.fromJson(response);
+      }
+    } catch (e) {
+      print('DEBUG: Users authentication error: $e');
     }
     return null;
   }
 
   Future<Users?> getFirstUser() async {
-    final response = await client
-        .from('users')
-        .select()
-        .limit(1)
-        .maybeSingle();
+    try {
+      final response = await client
+          .from('users')
+          .select()
+          .limit(1)
+          .maybeSingle();
 
-    if (response != null) {
-      return Users.fromJson(response);
+      if (response != null) {
+        return Users.fromJson(response);
+      }
+    } catch (e) {
+      print('DEBUG: Error getting first user: $e');
     }
     return null;
   }
