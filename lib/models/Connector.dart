@@ -3,5 +3,5 @@ import 'package:recycle_go/services/supabase_service.dart';
 
 class Connector {
   // Use the singleton client from your SupabaseService
-  final SupabaseClient client = SupabaseService().client;
+  final client = SupabaseService().client;
 }
