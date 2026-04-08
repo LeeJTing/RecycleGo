@@ -136,7 +136,8 @@ class RecycleStation {
     longitude: (map['longitude'] ?? map['longitude'] ?? 0).toDouble(),
     description: map['description'],
     stationStatus: StationStatus.values.firstWhere(
-          (s) => s.name.toLowerCase() ==
+          (s) =>
+      s.name.toLowerCase() ==
           (map['station_status'] ?? '').toString().toLowerCase(),
       orElse: () => StationStatus.active,
     ),
@@ -147,7 +148,7 @@ class RecycleStation {
     metalStorage: (map['metal_storage'] ?? 0).toDouble(),
     qrCodeValue: map['qr_code_value'] ?? '',
     createdAt: DateTime.tryParse(map['created_at'] ?? '') ?? DateTime.now(),
-    imageUrl: map['image_url'],
+    imageUrl: map['image_url']?.toString(),
   );
 
   factory RecycleStation.fromJson(Map<String, dynamic> json) {
