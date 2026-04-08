@@ -52,7 +52,7 @@ class _MainAppState extends State<MainApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
-      initialRoute: Routes.adminStationRegistry,
+      initialRoute: Routes.map,
       routes: {
         Routes.login: (context) => const LoginScreen(),
         Routes.register: (context) => const RegisterScreen(),
@@ -66,7 +66,7 @@ class _MainAppState extends State<MainApp> {
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) => const AdminUpdateInventory(item: {}),
         Routes.map: (context) => const MapScreen(),
-        Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
+        //Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
       },
     );
   }
