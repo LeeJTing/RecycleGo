@@ -87,7 +87,7 @@ class RedeemedVouchersModel extends Connector{
 
 	Future<List<RedeemedVouchers>> fetchRedeemedVouchers({
 		String? user_id,
-		int? voucher_id,
+		String? voucher_id,
 		String? voucher_code,
 	}) async {
 		final response = await _supabaseService.fetchRedeemedVouchers(
