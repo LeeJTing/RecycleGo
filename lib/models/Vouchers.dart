@@ -1,26 +1,32 @@
 import 'package:recycle_go/models/Connector.dart';
-import 'package:recycle_go/services/supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // entity
 class Vouchers {
-  final int? voucher_id;
-  final String voucher_name;
+  final String? voucherId;
+  final String voucherName;
   final String description;
-  final int points_required;
-  final String voucher_status;
-  final String voucher_category;
-  final int number_of_vouchers;
-  final DateTime? created_at;
+  final int pointsRequired;
+  final String voucherStatus;
+  final String voucherCategory;
+  final int numberOfVouchers;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final bool isInfinite;
+  final int? voucherDuration;
 
   Vouchers({
-    this.voucher_id,
-    required this.voucher_name,
+    this.voucherId,
+    required this.voucherName,
     required this.description,
-    required this.points_required,
-    required this.voucher_status,
-    required this.voucher_category,
-    required this.number_of_vouchers,
-    this.created_at,
+    required this.pointsRequired,
+    required this.voucherStatus,
+    required this.voucherCategory,
+    required this.numberOfVouchers,
+    this.createdAt,
+    this.updatedAt,
+    this.isInfinite = false,
+    this.voucherDuration,
   });
 
   static int _asInt(dynamic value, {int defaultValue = 0}) {
@@ -38,60 +44,88 @@ class Vouchers {
 
   factory Vouchers.fromJson(Map<String, dynamic> data) {
     return Vouchers(
-      voucher_id: _asInt(data['voucher_id'], defaultValue: 0) == 0
-          ? null
-          : _asInt(data['voucher_id']),
-      voucher_name: (data['voucher_name'] ?? '').toString(),
+      voucherId: data['voucher_id'] != null
+          ? data['voucher_id'].toString()
+          : null,
+      voucherName: (data['voucher_name'] ?? '').toString(),
       description: (data['description'] ?? '').toString(),
-      points_required: _asInt(data['points_required']),
-      voucher_status: (data['voucher_status'] ?? '').toString(),
-      voucher_category: (data['voucher_category'] ?? '').toString(),
-      number_of_vouchers: _asInt(data['number_of_vouchers']),
-      created_at: _asDateTime(data['created_at']),
+      pointsRequired: _asInt(data['points_required']),
+      voucherStatus: (data['voucher_status'] ?? '').toString(),
+      voucherCategory: (data['voucher_category'] ?? '').toString(),
+      numberOfVouchers: _asInt(data['number_of_vouchers']),
+      createdAt: _asDateTime(data['created_at']),
+      updatedAt: _asDateTime(data['updated_at']),
+      isInfinite: data['is_infinite'] == true || data['is_infinite'] == 1,
+      voucherDuration: _asInt(data['voucher_duration'], defaultValue: 0) == 0
+          ? null
+          : _asInt(data['voucher_duration']),
     );
   }
 
-  Map<String, dynamic> toMap({
-    bool includeId = false,
-    bool includeCreatedAt = false,
-  }) {
-    final map = <String, dynamic>{
-      'voucher_name': voucher_name,
+  Map<String, dynamic> toJson() {
+    return {
+      'voucher_id': voucherId,
+      'voucher_name': voucherName,
       'description': description,
-      'points_required': points_required,
-      'voucher_status': voucher_status,
-      'voucher_category': voucher_category,
-      'number_of_vouchers': number_of_vouchers,
+      'points_required': pointsRequired,
+      'voucher_status': voucherStatus,
+      'voucher_category': voucherCategory,
+      'number_of_vouchers': numberOfVouchers,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'is_infinite': isInfinite,
+      'voucher_duration': voucherDuration,
     };
-
-    if (includeId && voucher_id != null) {
-      map['voucher_id'] = voucher_id;
-    }
-    if (includeCreatedAt && created_at != null) {
-      map['created_at'] = created_at!.toIso8601String();
-    }
-
-    return map;
   }
 }
 
 class VouchersModel extends Connector {
-  final _supabaseService = SupabaseService();
-
   Future<List<Vouchers>> fetchVouchers() async {
-    final response = await _supabaseService.fetchVouchers();
-    return response.map((e) => Vouchers.fromJson(e)).toList();
+    try {
+      final response = await Supabase.instance.client.from('vouchers').select();
+      return (response as List)
+          .map((e) => Vouchers.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch vouchers: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch vouchers: $e');
+    }
   }
 
   Future<void> insertVouchers(Vouchers vouchers) async {
-    await _supabaseService.insertVoucher(vouchers.toMap());
+    try {
+      await Supabase.instance.client.from('vouchers').insert(vouchers.toJson());
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to insert voucher: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to insert voucher: $e');
+    }
   }
 
   Future<void> updateVouchers(String id, Vouchers vouchers) async {
-    await _supabaseService.updateVoucher(id, vouchers.toMap());
+    try {
+      await Supabase.instance.client
+          .from('vouchers')
+          .update(vouchers.toJson())
+          .eq('voucher_id', id);
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to update voucher: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to update voucher: $e');
+    }
   }
 
   Future<void> deleteVouchers(String id) async {
-    await _supabaseService.deleteVoucher(id);
+    try {
+      await Supabase.instance.client
+          .from('vouchers')
+          .delete()
+          .eq('voucher_id', id);
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to delete voucher: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to delete voucher: $e');
+    }
   }
 }
