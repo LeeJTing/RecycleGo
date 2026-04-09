@@ -58,4 +58,13 @@ class AdminsModel extends Connector {
     }
     return null;
   }
+
+  Future<bool> emailIsExist(String email) async{
+      final response = await client
+      .from('admins')
+      .select(['email'] as String)
+      .eq('email', email);
+
+    return response.isNotEmpty;
+  }
 }
