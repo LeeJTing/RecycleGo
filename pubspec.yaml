@@ -24,6 +24,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   salomon_bottom_bar: ^3.3.2
   tflite_flutter: ^0.12.1
+  google_maps_flutter: ^2.6.0
+  mobile_scanner: ^3.5.5
+  geolocator: ^11.0.0
 
 dev_dependencies:
   flutter_test:
