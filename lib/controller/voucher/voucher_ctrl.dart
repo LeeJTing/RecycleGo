@@ -8,58 +8,42 @@ class VoucherCtrl {
 
   factory VoucherCtrl() => _instance;
 
-  // Sample voucher data - replace with API calls later
-  List<Vouchers> vouchers = [
-    Vouchers(
-      voucherId: '1',
-      voucherName: 'Voucher 1',
-      description: 'Discount 5%',
-      pointsRequired: 800,
-      voucherStatus: 'active',
-      voucherCategory: 'Food',
-      numberOfVoucher: 50,
-      createdAt: DateTime.now().subtract(const Duration(days: 5)),
-      isInfinite: true,
-    ),
-    Vouchers(
-      voucherId: '2',
-      voucherName: 'Voucher 2',
-      description: 'Discount 10%',
-      pointsRequired: 500,
-      voucherStatus: 'active',
-      voucherCategory: 'Shopping',
-      numberOfVoucher: 30,
-      createdAt: DateTime.now().subtract(const Duration(days: 3)),
-      isInfinite: false,
-      voucherDuration: 7,
-    ),
-    Vouchers(
-      voucherId: '3',
-      voucherName: 'Voucher 3',
-      description: 'Free Drink',
-      pointsRequired: 300,
-      voucherStatus: 'inactive',
-      voucherCategory: 'Food',
-      numberOfVoucher: 100,
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      isInfinite: false,
-      voucherDuration: 30,
-    ),
-  ];
+  final VouchersModel _vouchersModel = VouchersModel();
+  List<Vouchers> vouchers = [];
 
-  // Add new voucher
-  void addVoucher(Vouchers voucher) {
-    vouchers.add(voucher);
-  }
-
-  // Update voucher
-  void updateVoucher(int index, Vouchers voucher) {
-    if (index >= 0 && index < vouchers.length) {
-      vouchers[index] = voucher;
+  // Fetch vouchers from Supabase
+  Future<void> fetchVouchers() async {
+    try {
+      vouchers = await _vouchersModel.fetchVouchers();
+    } catch (e) {
+      throw Exception('Failed to fetch vouchers: $e');
     }
   }
 
-  // Toggle voucher status
+  // Add new voucher to Supabase
+  Future<void> addVoucher(Vouchers voucher) async {
+    try {
+      await _vouchersModel.insertVouchers(voucher);
+      vouchers.add(voucher);
+    } catch (e) {
+      throw Exception('Failed to add voucher: $e');
+    }
+  }
+
+  // Update voucher in Supabase
+  Future<void> updateVoucher(String voucherId, Vouchers voucher) async {
+    try {
+      await _vouchersModel.updateVouchers(voucherId, voucher);
+      final index = vouchers.indexWhere((v) => v.voucherId == voucherId);
+      if (index >= 0) {
+        vouchers[index] = voucher;
+      }
+    } catch (e) {
+      throw Exception('Failed to update voucher: $e');
+    }
+  }
+
+  // Toggle voucher status (currently local, should sync to Supabase)
   void toggleVoucherStatus(int index) {
     if (index >= 0 && index < vouchers.length) {
       final voucher = vouchers[index];
@@ -73,7 +57,7 @@ class VoucherCtrl {
         pointsRequired: voucher.pointsRequired,
         voucherStatus: newStatus,
         voucherCategory: voucher.voucherCategory,
-        numberOfVoucher: voucher.numberOfVoucher,
+        numberOfVouchers: voucher.numberOfVouchers,
         createdAt: voucher.createdAt,
         updatedAt: DateTime.now(),
         voucherDuration: voucher.voucherDuration,
@@ -82,10 +66,13 @@ class VoucherCtrl {
     }
   }
 
-  // Delete voucher
-  void deleteVoucher(int index) {
-    if (index >= 0 && index < vouchers.length) {
-      vouchers.removeAt(index);
+  // Delete voucher from Supabase
+  Future<void> deleteVoucher(String voucherId) async {
+    try {
+      await _vouchersModel.deleteVouchers(voucherId);
+      vouchers.removeWhere((v) => v.voucherId == voucherId);
+    } catch (e) {
+      throw Exception('Failed to delete voucher: $e');
     }
   }
 }
