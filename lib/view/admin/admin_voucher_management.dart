@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
+import 'package:recycle_go/provider/AdminProvider.dart';
 import 'admin_add_voucher.dart';
 import 'admin_edit_voucher.dart';
 
@@ -17,6 +19,38 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
   final VoucherCtrl voucherCtrl = VoucherCtrl();
   String filterStatus = 'all';
   TextEditingController searchController = TextEditingController();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAndLoadVouchers();
+  }
+
+  Future<void> _initializeAndLoadVouchers() async {
+    // Check if admin is logged in
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+    if (adminProvider.admin != null) {
+      await _loadVouchers();
+    } else {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Admin not authenticated")),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadVouchers() async {
+    setState(() => _isLoading = true);
+    try {
+      await voucherCtrl.fetchVouchers();
+    } catch (e) {
+      // Handle error silently
+    }
+    setState(() => _isLoading = false);
+  }
 
   @override
   void dispose() {
@@ -46,6 +80,27 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if admin is authenticated
+    final admin = Provider.of<AdminProvider>(context).admin;
+
+    if (admin == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("Admin not authenticated"),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Go Back"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final theme = AppThemes.color;
     final filteredVouchers = getFilteredVouchers();
 
@@ -102,13 +157,22 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                   'Vouchers',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                GestureDetector(
-                  onTap: () => setState(() => filterStatus = 'all'),
-                  child: Text(
-                    'View All',
-                    style: TextStyle(
-                      color: theme.primary,
-                      fontWeight: FontWeight.w600,
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminAddVoucher(),
+                      ),
+                    ).then((_) => _loadVouchers());
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
                   ),
                 ),
@@ -117,7 +181,9 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: filteredVouchers.isEmpty
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredVouchers.isEmpty
                 ? const Center(child: Text('No vouchers found'))
                 : ListView.builder(
                     itemCount: filteredVouchers.length,
@@ -155,7 +221,7 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                             const SizedBox(height: 4),
                             Text(
                               voucher.createdAt != null
-                                  ? 'Created: ${voucher.createdAt!.toString().split(' ')[0]}'
+                                  ? 'Voucher Created At: ${voucher.createdAt!.toString().split(' ')[0]}'
                                   : 'Date not available',
                               style: TextDesign.smallText(
                                 color: Colors.grey[500],
@@ -220,7 +286,7 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                                           index: voucherIndex,
                                         ),
                                       ),
-                                    ).then((_) => setState(() {}));
+                                    ).then((_) => _loadVouchers());
                                   },
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
@@ -242,16 +308,6 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                   ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminAddVoucher()),
-          ).then((_) => setState(() {}));
-        },
-        backgroundColor: theme.primary,
-        child: const Icon(Icons.add),
       ),
     );
   }
