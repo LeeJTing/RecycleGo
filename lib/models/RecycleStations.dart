@@ -110,6 +110,33 @@ class RecycleStation {
         imageUrl: imageUrl ?? this.imageUrl,
       );
 
+  bool get isActive => stationStatus == 'active';
+
+  // Distance in km from a given point (Haversine formula)
+  double distanceFrom(double lat, double lng) {
+    const R = 6371.0;
+    final dLat = _toRad(latitude - lat);
+    final dLng = _toRad(longitude - lng);
+    final a = _sin2(dLat / 2) +
+        _cos(lat) * _cos(latitude) * _sin2(dLng / 2);
+    return R * 2 * _asin(_sqrt(a));
+  }
+
+  static double _toRad(double deg) => deg * 3.141592653589793 / 180;
+  static double _sin2(double x) => _sin(x) * _sin(x);
+  static double _sin(double x) => x - x * x * x / 6;
+  static double _cos(double deg) {
+    final r = _toRad(deg);
+    return 1 - r * r / 2;
+  }
+  static double _asin(double x) => x + x * x * x / 6;
+  static double _sqrt(double x) {
+    if (x <= 0) return 0;
+    double r = x;
+    for (int i = 0; i < 20; i++) r = (r + x / r) / 2;
+    return r;
+  }
+
   Map<String, dynamic> toMap() => {
     'station_id': stationId,
     'station_name': stationName,
