@@ -14,6 +14,7 @@ class AdminAddVoucher extends StatefulWidget {
 class _AdminAddVoucherState extends State<AdminAddVoucher> {
   final _formKey = GlobalKey<FormState>();
   final voucherCtrl = VoucherCtrl();
+  bool _isLoading = false;
 
   late TextEditingController nameController;
   late TextEditingController descController;
@@ -190,16 +191,21 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
               SizedBox(
                 width: double.infinity,
                 height: 55,
-                child: ElevatedButton(
-                  onPressed: _handleAdd,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text("Add Voucher", style: TextDesign.buttonText()),
-                ),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: _handleAdd,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          "Add Voucher",
+                          style: TextDesign.buttonText(),
+                        ),
+                      ),
               ),
             ],
           ),
@@ -207,7 +213,6 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
       ),
     );
   }
-
 
   Widget _buildLabel(String text) => Padding(
     padding: const EdgeInsets.only(left: 4, bottom: 8),
@@ -231,28 +236,44 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
     );
   }
 
-  void _handleAdd() {
+  Future<void> _handleAdd() async {
     if (_formKey.currentState!.validate()) {
-      final newVoucher = Vouchers(
-        voucherId: '${voucherCtrl.vouchers.length + 1}',
-        voucherName: nameController.text,
-        description: descController.text,
-        pointsRequired: int.parse(pointsController.text),
-        voucherStatus: 'active',
-        voucherCategory: selectedCategory,
-        numberOfVoucher: int.parse(qtyController.text),
-        createdAt: DateTime.now(),
-        isInfinite: isInfinite,
-        voucherDuration: isInfinite
-            ? null
-            : int.tryParse(durationController.text),
-      );
+      setState(() => _isLoading = true);
 
-      voucherCtrl.addVoucher(newVoucher);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Voucher added successfully!")),
-      );
-      Navigator.pop(context, true);
+      try {
+        final newVoucher = Vouchers(
+          voucherName: nameController.text,
+          description: descController.text,
+          pointsRequired: int.parse(pointsController.text),
+          voucherStatus: 'active',
+          voucherCategory: selectedCategory,
+          numberOfVouchers: int.parse(qtyController.text),
+          createdAt: DateTime.now(),
+          isInfinite: isInfinite,
+          voucherDuration: isInfinite
+              ? null
+              : int.tryParse(durationController.text),
+        );
+
+        await voucherCtrl.addVoucher(newVoucher);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Voucher added successfully!")),
+          );
+          Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 }

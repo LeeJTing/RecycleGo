@@ -21,10 +21,11 @@ import 'package:recycle_go/view/recycle/station_detail_screen.dart';
 import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
 import 'package:recycle_go/view/admin/admin_station_edit.dart';
+import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Supabase
   await SupabaseService.initialize();
 
@@ -47,7 +48,6 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> {
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -62,14 +62,19 @@ class _MainAppState extends State<MainApp> {
         Routes.userHomePage: (context) => const HomePage(),
         Routes.userProfile: (context) => const ProfileScreen(),
         Routes.adminHome: (context) => const AdminHome(),
-        Routes.adminPurchaseDetail: (context) => const AdminPurchaseDetail(purchase: {}, items: []),
-        Routes.adminPurchaseUpdate: (context) => const AdminPurchaseUpdate(purchase: {}, items: []),
+        Routes.adminPurchaseDetail: (context) =>
+            const AdminPurchaseDetail(purchase: {}, items: []),
+        Routes.adminPurchaseUpdate: (context) =>
+            const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
         Routes.adminViewInventory: (context) => const AdminViewInventory(),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
-        Routes.adminUpdateInventory: (context) => const AdminUpdateInventory(item: {}),
+        Routes.adminUpdateInventory: (context) =>
+            const AdminUpdateInventory(item: {}),
         Routes.map: (context) => const MapScreen(),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
+        Routes.adminVoucherManagement: (context) =>
+            const AdminVoucherManagement(),
       },
     );
   }
@@ -88,10 +93,7 @@ class HomePage extends StatelessWidget {
       body: Center(
         child: Text(
           l10n?.hello_world ?? 'Hello World!',
-          style: const TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
         ),
       ),
     );

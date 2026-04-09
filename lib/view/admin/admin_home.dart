@@ -9,6 +9,10 @@ import 'package:recycle_go/view/admin/request_admin.dart';
 import 'package:recycle_go/view/admin/admin_view_purchase.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/services/supabase_service.dart';
+import 'package:recycle_go/models/Vouchers.dart';
+import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
+import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
 
@@ -66,7 +70,10 @@ class _AdminHomeState extends State<AdminHome> {
             onTap: (index) => setState(() => _currentIndex = index),
             selectedItemColor: theme.primary,
             unselectedItemColor: theme.hint,
-            itemPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            itemPadding: const EdgeInsets.symmetric(
+              vertical: 10,
+              horizontal: 16,
+            ),
             items: [
               SalomonBottomBarItem(
                 icon: const Icon(Icons.home_outlined),
@@ -92,7 +99,7 @@ class _AdminHomeState extends State<AdminHome> {
                   backgroundColor: theme.error,
                   child: const Icon(Icons.receipt_long_outlined),
                 ),
-                activeIcon:Badge(
+                activeIcon: Badge(
                   label: const Text("9"),
                   backgroundColor: theme.error,
                   child: const Icon(Icons.receipt_long),
@@ -140,10 +147,7 @@ class _AdminHomeState extends State<AdminHome> {
       actions: [
         IconButton(
           onPressed: () {
-            Navigator.pushNamed(
-              context,
-              Routes.adminNotification,
-            );
+            Navigator.pushNamed(context, Routes.adminNotification);
           },
           icon: Badge(
             label: const Text('9'), // Matches the "9" pending items in your UI
@@ -152,7 +156,9 @@ class _AdminHomeState extends State<AdminHome> {
         ),
         const SizedBox(width: 2),
         Padding(
-          padding: const EdgeInsets.only(right: 10.0), // Moves the button away from the screen edge
+          padding: const EdgeInsets.only(
+            right: 10.0,
+          ), // Moves the button away from the screen edge
           child: IconButton(
             onPressed: () {
               print("Profile Clicked");
@@ -173,17 +179,42 @@ class _AdminHomeState extends State<AdminHome> {
       backgroundColor: theme.onPrimary,
       centerTitle: true,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
     );
   }
 }
 
 // Separate widget for the 'Verify' body to keep code clean
-class AdminDashboard extends StatelessWidget {
+class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
+
+  @override
+  State<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _AdminDashboardState extends State<AdminDashboard> {
+  final VoucherCtrl _voucherCtrl = VoucherCtrl();
+  List<Vouchers> _sampleVouchers = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVouchers();
+  }
+
+  Future<void> _loadVouchers() async {
+    try {
+      await _voucherCtrl.fetchVouchers();
+      setState(() {
+        _sampleVouchers = _voucherCtrl.vouchers.take(2).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,11 +230,163 @@ class AdminDashboard extends StatelessWidget {
               prefixIcon: const Icon(Icons.search),
               filled: true,
               fillColor: theme.onPrimary,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          // Add your 'Review Queue' Cards here...
+          const SizedBox(height: 24),
+
+          // Vouchers Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Vouchers', style: TextDesign.appBarTitle()),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AdminVoucherManagement(),
+                    ),
+                  );
+                },
+                child: Text(
+                  'View All',
+                  style: TextStyle(
+                    color: theme.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_sampleVouchers.isEmpty)
+            Center(
+              child: Text(
+                'No vouchers available',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            )
+          else
+            Column(
+              children: _sampleVouchers.map((voucher) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: theme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.card_giftcard,
+                              color: theme.primary,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  voucher.voucherName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (voucher.description != null)
+                                  Text(
+                                    voucher.description!,
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${voucher.pointsRequired} POINTS',
+                            style: TextStyle(
+                              color: theme.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      voucher.voucherStatus == 'active'
+                                      ? Colors.red
+                                      : Colors.green,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                ),
+                                child: Text(
+                                  voucher.voucherStatus == 'active'
+                                      ? 'Inactivate'
+                                      : 'Activate',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: () {},
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Edit',
+                                  style: TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );

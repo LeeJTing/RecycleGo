@@ -44,7 +44,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
       text: widget.voucher.pointsRequired.toString(),
     );
     qtyController = TextEditingController(
-      text: widget.voucher.numberOfVoucher.toString(),
+      text: widget.voucher.numberOfVouchers.toString(),
     );
     durationController = TextEditingController(
       text: widget.voucher.voucherDuration?.toString() ?? '',
@@ -258,7 +258,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
         pointsRequired: int.parse(pointsController.text),
         voucherStatus: widget.voucher.voucherStatus,
         voucherCategory: selectedCategory,
-        numberOfVoucher: int.parse(qtyController.text),
+        numberOfVouchers: int.parse(qtyController.text),
         createdAt: widget.voucher.createdAt,
         updatedAt: DateTime.now(),
         isInfinite: isInfinite,
@@ -267,7 +267,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
             : int.tryParse(durationController.text),
       );
 
-      voucherCtrl.updateVoucher(widget.index, updatedVoucher);
+      voucherCtrl.updateVoucher(widget.voucher.voucherId ?? '', updatedVoucher);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Voucher updated successfully!")),
       );
