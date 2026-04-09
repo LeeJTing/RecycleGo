@@ -1,5 +1,6 @@
 import 'package:recycle_go/models/Connector.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/services/supabase_service.dart';
 
 // entity
 enum RedeemedVoucherStatus { unused, used, shared }
@@ -83,15 +84,31 @@ class RedeemedVouchersModel extends Connector {
     String? voucherCode,
   }) async {
     try {
-      var query = Supabase.instance.client.from('redeemed_vouchers').select();
-      if (userId != null) query = query.eq('user_id', userId);
-      if (voucherId != null) query = query.eq('voucher_id', voucherId);
-      if (voucherCode != null) query = query.eq('voucher_code', voucherCode);
+      // Start with base query
+      var query = client.from('redeemedvouchers').select();
+
+      // Apply filters if provided
+      if (userId != null) {
+        query = query.eq('user_id', userId);
+      }
+      if (voucherId != null) {
+        query = query.eq('voucher_id', voucherId);
+      }
+      if (voucherCode != null) {
+        query = query.eq('voucher_code', voucherCode);
+      }
 
       final data = await query;
-      return (data as List)
-          .map((e) => RedeemedVouchers.fromJson(e as Map<String, dynamic>))
-          .toList();
+
+      if (data == null || (data is List && data.isEmpty)) {
+        return [];
+      }
+
+      final result = (data as List).map((e) {
+        return RedeemedVouchers.fromJson(e as Map<String, dynamic>);
+      }).toList();
+
+      return result;
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch redeemed vouchers: ${e.message}');
     } catch (e) {
@@ -101,9 +118,7 @@ class RedeemedVouchersModel extends Connector {
 
   Future<void> insertRedeemedVoucher(RedeemedVouchers redeemedVoucher) async {
     try {
-      await Supabase.instance.client
-          .from('redeemed_vouchers')
-          .insert(redeemedVoucher.toJson());
+      await client.from('redeemedvouchers').insert(redeemedVoucher.toJson());
     } on PostgrestException catch (e) {
       throw Exception('Failed to insert redeemed voucher: ${e.message}');
     } catch (e) {
@@ -116,8 +131,8 @@ class RedeemedVouchersModel extends Connector {
     RedeemedVouchers redeemedVoucher,
   ) async {
     try {
-      await Supabase.instance.client
-          .from('redeemed_vouchers')
+      await client
+          .from('redeemedvouchers')
           .update(redeemedVoucher.toJson())
           .eq('voucher_code', voucherCode);
     } on PostgrestException catch (e) {
@@ -129,8 +144,8 @@ class RedeemedVouchersModel extends Connector {
 
   Future<void> deleteRedeemedVoucherByCode(String voucherCode) async {
     try {
-      await Supabase.instance.client
-          .from('redeemed_vouchers')
+      await client
+          .from('redeemedvouchers')
           .delete()
           .eq('voucher_code', voucherCode);
     } on PostgrestException catch (e) {

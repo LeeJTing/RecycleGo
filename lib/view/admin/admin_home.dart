@@ -12,6 +12,9 @@ import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+import 'package:recycle_go/widgets/voucher_card.dart';
+import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart';
+import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -197,23 +200,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final VoucherCtrl _voucherCtrl = VoucherCtrl();
   List<Vouchers> _sampleVouchers = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadVouchers();
+    _loadData();
   }
 
-  Future<void> _loadVouchers() async {
+  Future<void> _loadData() async {
     try {
       await _voucherCtrl.fetchVouchers();
       setState(() {
-        _sampleVouchers = _voucherCtrl.vouchers.take(2).toList();
+        _sampleVouchers = _voucherCtrl.vouchers.take(1).toList();
         _isLoading = false;
+        _errorMessage = null;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading data: ${e.toString()}'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
+  }
+
+  Future<void> _loadVouchers() async {
+    await _loadData();
   }
 
   @override
@@ -267,6 +287,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
+          else if (_errorMessage != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Error loading vouchers:',
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(color: Colors.red[700], fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _loadData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
           else if (_sampleVouchers.isEmpty)
             Center(
               child: Text(
@@ -277,113 +328,113 @@ class _AdminDashboardState extends State<AdminDashboard> {
           else
             Column(
               children: _sampleVouchers.map((voucher) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: theme.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.card_giftcard,
-                              color: theme.primary,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  voucher.voucherName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (voucher.description != null)
-                                  Text(
-                                    voucher.description!,
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                              ],
+                return VoucherCard(
+                  voucher: voucher,
+                  theme: theme,
+                  showIcon: true,
+                  showDescription: true,
+                  showCreatedDate: false,
+                  showDuration: false,
+                  onToggleStatus: () async {
+                    try {
+                      final wasActive = voucher.voucherStatus == 'active';
+                      await _voucherCtrl.toggleVoucherStatus(
+                        voucher.voucherId ?? '',
+                      );
+                      await _voucherCtrl.fetchVouchers();
+                      setState(() {
+                        _sampleVouchers = _voucherCtrl.vouchers
+                            .take(1)
+                            .toList();
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              wasActive
+                                  ? 'Voucher inactivated'
+                                  : 'Voucher activated',
                             ),
                           ),
-                        ],
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: ${e.toString()}')),
+                        );
+                      }
+                    }
+                  },
+                  onEdit: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AdminEditVoucher(voucher: voucher, index: 0),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${voucher.pointsRequired} POINTS',
-                            style: TextStyle(
-                              color: theme.primary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
+                    ).then((_) => _loadVouchers());
+                  },
+                  onDelete: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Delete Voucher'),
+                          content: Text(
+                            'Are you sure you want to delete "${voucher.voucherName}"?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
                             ),
-                          ),
-                          Row(
-                            children: [
-                              ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      voucher.voucherStatus == 'active'
-                                      ? Colors.red
-                                      : Colors.green,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                ),
-                                child: Text(
-                                  voucher.voucherStatus == 'active'
-                                      ? 'Inactivate'
-                                      : 'Activate',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                  ),
-                                ),
+                            TextButton(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                try {
+                                  await _voucherCtrl.deleteVoucher(
+                                    voucher.voucherId ?? '',
+                                  );
+                                  await _loadVouchers();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Voucher deleted successfully',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error: ${e.toString()}'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
                               ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Edit',
-                                  style: TextStyle(fontSize: 11),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  onViewDetails: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AdminVoucherDetails(voucher: voucher),
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               }).toList(),
             ),

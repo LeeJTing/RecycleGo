@@ -1,5 +1,6 @@
 import 'package:recycle_go/models/Connector.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/services/supabase_service.dart';
 
 // entity
 class Vouchers {
@@ -36,6 +37,14 @@ class Vouchers {
     return int.tryParse(value.toString()) ?? defaultValue;
   }
 
+  static bool _asBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is int) return value != 0;
+    if (value is String) return value.toLowerCase() == 'true' || value == '1';
+    return false;
+  }
+
   static DateTime? _asDateTime(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
@@ -55,7 +64,7 @@ class Vouchers {
       numberOfVouchers: _asInt(data['number_of_vouchers']),
       createdAt: _asDateTime(data['created_at']),
       updatedAt: _asDateTime(data['updated_at']),
-      isInfinite: data['is_infinite'] == true || data['is_infinite'] == 1,
+      isInfinite: _asBool(data['is_infinite']),
       voucherDuration: _asInt(data['voucher_duration'], defaultValue: 0) == 0
           ? null
           : _asInt(data['voucher_duration']),
@@ -63,8 +72,7 @@ class Vouchers {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'voucher_id': voucherId,
+    final map = <String, dynamic>{
       'voucher_name': voucherName,
       'description': description,
       'points_required': pointsRequired,
@@ -76,13 +84,57 @@ class Vouchers {
       'is_infinite': isInfinite,
       'voucher_duration': voucherDuration,
     };
+
+    if (voucherId != null) {
+      map['voucher_id'] = voucherId;
+    }
+
+    return map;
   }
 }
 
 class VouchersModel extends Connector {
+  // Generate next sequential voucher ID
+  Future<String> _generateNextVoucherId() async {
+    try {
+      // Fetch all vouchers to find the highest sequence
+      final response = await SupabaseService().client.from('vouchers').select();
+      final vouchers = (response as List)
+          .map((e) => Vouchers.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      if (vouchers.isEmpty) {
+        // First voucher starts at 1
+        return '55555555-5555-5555-5555-000000000001';
+      }
+
+      // Extract sequence numbers from existing IDs
+      int maxSequence = 0;
+      for (var voucher in vouchers) {
+        if (voucher.voucherId != null) {
+          // Extract last part: 55555555-5555-5555-5555-XXXXXXXXXXXX
+          final parts = voucher.voucherId!.split('-');
+          if (parts.length == 5) {
+            final sequence = int.tryParse(parts[4]) ?? 0;
+            if (sequence > maxSequence) {
+              maxSequence = sequence;
+            }
+          }
+        }
+      }
+
+      // Generate next ID
+      final nextSequence = maxSequence + 1;
+      final sequenceStr = nextSequence.toString().padLeft(12, '0');
+      return '55555555-5555-5555-5555-$sequenceStr';
+    } catch (e) {
+      throw Exception('Failed to generate voucher ID: $e');
+    }
+  }
+
   Future<List<Vouchers>> fetchVouchers() async {
     try {
-      final response = await Supabase.instance.client.from('vouchers').select();
+      final response = await SupabaseService().client.from('vouchers').select();
       return (response as List)
           .map((e) => Vouchers.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -95,7 +147,26 @@ class VouchersModel extends Connector {
 
   Future<void> insertVouchers(Vouchers vouchers) async {
     try {
-      await Supabase.instance.client.from('vouchers').insert(vouchers.toJson());
+      // Generate sequential ID if not provided
+      final voucherToInsert = vouchers.voucherId == null
+          ? Vouchers(
+              voucherId: await _generateNextVoucherId(),
+              voucherName: vouchers.voucherName,
+              description: vouchers.description,
+              pointsRequired: vouchers.pointsRequired,
+              voucherStatus: vouchers.voucherStatus,
+              voucherCategory: vouchers.voucherCategory,
+              numberOfVouchers: vouchers.numberOfVouchers,
+              createdAt: vouchers.createdAt,
+              updatedAt: vouchers.updatedAt,
+              isInfinite: vouchers.isInfinite,
+              voucherDuration: vouchers.voucherDuration,
+            )
+          : vouchers;
+
+      await SupabaseService().client
+          .from('vouchers')
+          .insert(voucherToInsert.toJson());
     } on PostgrestException catch (e) {
       throw Exception('Failed to insert voucher: ${e.message}');
     } catch (e) {
@@ -105,7 +176,7 @@ class VouchersModel extends Connector {
 
   Future<void> updateVouchers(String id, Vouchers vouchers) async {
     try {
-      await Supabase.instance.client
+      await SupabaseService().client
           .from('vouchers')
           .update(vouchers.toJson())
           .eq('voucher_id', id);
@@ -118,7 +189,7 @@ class VouchersModel extends Connector {
 
   Future<void> deleteVouchers(String id) async {
     try {
-      await Supabase.instance.client
+      await SupabaseService().client
           .from('vouchers')
           .delete()
           .eq('voucher_id', id);
