@@ -1,40 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/models/RecycleInventory.dart';
 
 class AdminViewInventory extends StatelessWidget {
-  const AdminViewInventory({super.key});
+  const AdminViewInventory({super.key}); // removed required item
 
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
 
-    // --- 1. EXTRACT ARGUMENTS SAFELY ---
-    // This pulls the 'item' you passed in Navigator.pushNamed
-    final dynamic args = ModalRoute.of(context)?.settings.arguments;
-
-    // If arguments are missing (e.g., direct navigation error), show a fallback
-    if (args == null || args is! Map<String, dynamic>) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args == null || args is! RecycleInventory) {
       return Scaffold(
         appBar: AppBar(title: const Text("Error")),
-        body: const Center(child: Text("No item data found.")),
+        body: const Center(child: Text("No inventory item data found.")),
       );
     }
+    final RecycleInventory item = args;
 
-    final Map<String, dynamic> item = args;
-
-    // --- 2. SANITIZE DATA (Prevent Null-to-String Errors) ---
-    final String name = item['inventory_name']?.toString() ?? "Unknown Item";
-    final String description = item['description']?.toString() ?? "No description provided.";
-    final String? imagePath = item['url_image']?.toString();
-    final double weight = double.tryParse(item['total_weight']?.toString() ?? '0') ?? 0.0;
-    final double price = double.tryParse(item['price_per_kg']?.toString() ?? '0') ?? 0.0;
+    final String name = item.inventoryName;
+    final String description = item.description ?? "No description provided.";
+    final String? imagePath = item.urlImage;
+    final double weight = item.totalWeight;
+    final double price = item.pricePerKg;
 
     return Scaffold(
       backgroundColor: theme.background,
       body: CustomScrollView(
         slivers: [
-          // COLLAPSING HEADER
           SliverAppBar(
             expandedHeight: 280,
             pinned: true,
@@ -48,10 +42,12 @@ class AdminViewInventory extends StatelessWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Null-safe Image display
                   imagePath != null && imagePath.isNotEmpty
                       ? Image.asset(imagePath, fit: BoxFit.cover)
-                      : Container(color: theme.surfaceVariant, child: Icon(Icons.inventory_2, size: 50, color: theme.primary)),
+                      : Container(
+                    color: theme.surfaceVariant,
+                    child: Icon(Icons.inventory_2, size: 50, color: theme.primary),
+                  ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -65,14 +61,12 @@ class AdminViewInventory extends StatelessWidget {
               ),
             ),
           ),
-
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // KEY STATS
                   Row(
                     children: [
                       _buildInfoCard("Price/KG", "RM ${price.toStringAsFixed(2)}", Icons.payments_outlined, theme),
@@ -81,19 +75,14 @@ class AdminViewInventory extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 32),
-
                   Text("Description", style: TextDesign.label()),
                   const SizedBox(height: 8),
                   Text(description, style: TextDesign.normalText()),
-
                   const SizedBox(height: 32),
-
-                  // TECHNICAL DATA
                   Text("Inventory Information", style: TextDesign.label()),
                   const SizedBox(height: 12),
-                  _buildDetailRow("Inventory ID: ", item['inventory_id']?.toString() ?? "N/A", theme),
-                  _buildDetailRow("Category", name, theme),
-
+                  _buildDetailRow("Inventory ID: ", item.inventoryId, theme),
+                  _buildDetailRow("Category: ", item.categoryId.toString(), theme),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -133,7 +122,7 @@ class AdminViewInventory extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextDesign.smallText()),
-          Text(value, style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(value, style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold, fontSize: 10)),
         ],
       ),
     );
