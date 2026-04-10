@@ -9,6 +9,13 @@ import 'package:recycle_go/view/admin/request_admin.dart';
 import 'package:recycle_go/view/admin/admin_view_purchase.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/services/supabase_service.dart';
+import 'package:recycle_go/models/Vouchers.dart';
+import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
+import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+import 'package:recycle_go/widgets/voucher_card.dart';
+import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart';
+import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
+
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
 
@@ -61,7 +68,10 @@ class _AdminHomeState extends State<AdminHome> {
             onTap: (index) => setState(() => _currentIndex = index),
             selectedItemColor: theme.primary,
             unselectedItemColor: theme.hint,
-            itemPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            itemPadding: const EdgeInsets.symmetric(
+              vertical: 10,
+              horizontal: 16,
+            ),
             items: [
               SalomonBottomBarItem(
                 icon: const Icon(Icons.home_outlined),
@@ -87,7 +97,7 @@ class _AdminHomeState extends State<AdminHome> {
                   backgroundColor: theme.error,
                   child: const Icon(Icons.receipt_long_outlined),
                 ),
-                activeIcon:Badge(
+                activeIcon: Badge(
                   label: const Text("9"),
                   backgroundColor: theme.error,
                   child: const Icon(Icons.receipt_long),
@@ -136,10 +146,7 @@ class _AdminHomeState extends State<AdminHome> {
       actions: [
         IconButton(
           onPressed: () {
-            Navigator.pushNamed(
-              context,
-              Routes.adminNotification,
-            );
+            Navigator.pushNamed(context, Routes.adminNotification);
           },
           icon: Badge(
             label: const Text('9'), // Matches the "9" pending items in your UI
@@ -148,7 +155,9 @@ class _AdminHomeState extends State<AdminHome> {
         ),
         const SizedBox(width: 2),
         Padding(
-          padding: const EdgeInsets.only(right: 10.0), // Moves the button away from the screen edge
+          padding: const EdgeInsets.only(
+            right: 10.0,
+          ), // Moves the button away from the screen edge
           child: IconButton(
             onPressed: () {
               print("Profile Clicked");
@@ -169,9 +178,7 @@ class _AdminHomeState extends State<AdminHome> {
       backgroundColor: theme.onPrimary,
       centerTitle: true,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
     );
   }
@@ -179,6 +186,50 @@ class _AdminHomeState extends State<AdminHome> {
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
+
+  @override
+  State<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _AdminDashboardState extends State<AdminDashboard> {
+  final VoucherCtrl _voucherCtrl = VoucherCtrl();
+  List<Vouchers> _sampleVouchers = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      await _voucherCtrl.fetchVouchers();
+      setState(() {
+        _sampleVouchers = _voucherCtrl.vouchers.take(1).toList();
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading data: ${e.toString()}'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadVouchers() async {
+    await _loadData();
+  }
 
   @override
   Widget build(BuildContext context) {

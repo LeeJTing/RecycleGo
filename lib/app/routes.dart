@@ -18,4 +18,12 @@ class Routes {
   static const String adminUpdateInventory = 'admin/inventory/update';
   static const String adminRecycleCategory = 'admin/recycle_category';
 
+  static const String map = '/map';
+  static const String stationDetail = '/station-detail';
+  static const String qrScan = '/qr-scan';
+
+  static const adminStationRegistry = '/admin-station-registry';
+  static const String adminVoucherManagement = '/admin/voucher-management';
+  static const String adminAddVoucher = '/admin/voucher/add';
+  static const String adminEditVoucher = '/admin/voucher/edit';
 }
