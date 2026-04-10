@@ -63,18 +63,18 @@ class _MainAppState extends State<MainApp> {
         Routes.userProfile: (context) => const ProfileScreen(),
         Routes.adminHome: (context) => const AdminHome(),
         Routes.adminPurchaseDetail: (context) =>
-            const AdminPurchaseDetail(purchase: {}, items: []),
+        const AdminPurchaseDetail(purchase: {}, items: []),
         Routes.adminPurchaseUpdate: (context) =>
-            const AdminPurchaseUpdate(purchase: {}, items: []),
+        const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
         Routes.adminViewInventory: (context) => const AdminViewInventory(),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) =>
-            const AdminUpdateInventory(item: {}),
+        const AdminUpdateInventory(item: {}),
         Routes.map: (context) => const MapScreen(),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
         Routes.adminVoucherManagement: (context) =>
-            const AdminVoucherManagement(),
+        const AdminVoucherManagement(),
       },
     );
   }

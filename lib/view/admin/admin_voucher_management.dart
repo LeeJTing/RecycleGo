@@ -5,8 +5,10 @@ import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
+import 'package:recycle_go/widgets/voucher_card.dart';
 import 'admin_add_voucher.dart';
 import 'admin_edit_voucher.dart';
+import 'voucher_details/admin_voucher_details.dart';
 
 class AdminVoucherManagement extends StatefulWidget {
   const AdminVoucherManagement({super.key});
@@ -192,117 +194,122 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                       final voucherIndex = voucherCtrl.vouchers.indexOf(
                         voucher,
                       );
+                      final theme = AppThemes.color;
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey[200]!),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              voucher.voucherName,
-                              style: TextDesign.normalText(),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              voucher.description ?? '',
-                              style: TextDesign.smallText(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              voucher.createdAt != null
-                                  ? 'Voucher Created At: ${voucher.createdAt!.toString().split(' ')[0]}'
-                                  : 'Date not available',
-                              style: TextDesign.smallText(
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              voucher.isInfinite
-                                  ? 'Duration: Infinite'
-                                  : 'Duration: ${voucher.voucherDuration ?? 'N/A'} days',
-                              style: TextDesign.smallText(
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${voucher.pointsRequired} POINTS',
-                                    style: TextStyle(
-                                      color: Colors.green[600],
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                      return VoucherCard(
+                        voucher: voucher,
+                        theme: theme,
+                        showIcon: true,
+                        showDescription: true,
+                        showCreatedDate: true,
+                        showDuration: true,
+                        onToggleStatus: () async {
+                          try {
+                            final wasActive = voucher.voucherStatus == 'active';
+                            await voucherCtrl.toggleVoucherStatus(
+                              voucher.voucherId ?? '',
+                            );
+                            // Reload vouchers to update UI with new status
+                            await voucherCtrl.fetchVouchers();
+                            setState(() {});
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    wasActive
+                                        ? 'Voucher inactivated'
+                                        : 'Voucher activated',
                                   ),
                                 ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    voucherCtrl.toggleVoucherStatus(
-                                      voucherIndex,
-                                    );
-                                    setState(() {});
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        voucher.voucherStatus == 'active'
-                                        ? Colors.red
-                                        : Colors.green,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    voucher.voucherStatus == 'active'
-                                        ? 'Inactivate'
-                                        : 'Activate',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: ${e.toString()}'),
                                 ),
-                                const SizedBox(width: 8),
-                                OutlinedButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => AdminEditVoucher(
-                                          voucher: voucher,
-                                          index: voucherIndex,
-                                        ),
-                                      ),
-                                    ).then((_) => _loadVouchers());
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Edit',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              ],
+                              );
+                            }
+                          }
+                        },
+                        onEdit: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AdminEditVoucher(
+                                voucher: voucher,
+                                index: voucherIndex,
+                              ),
                             ),
-                          ],
-                        ),
+                          ).then((_) => _loadVouchers());
+                        },
+                        onDelete: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text('Delete Voucher'),
+                                content: Text(
+                                  'Are you sure you want to delete "${voucher.voucherName}"?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      Navigator.pop(context);
+                                      try {
+                                        await voucherCtrl.deleteVoucher(
+                                          voucher.voucherId ?? '',
+                                        );
+                                        await _loadVouchers();
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Voucher deleted successfully',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error: ${e.toString()}',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                        onViewDetails: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  AdminVoucherDetails(voucher: voucher),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

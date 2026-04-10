@@ -30,7 +30,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
   late String selectedCategory;
   bool isInfinite = false;
 
-  final List<String> categories = ['Food', 'Shopping'];
+  final List<String> categories = ['Food', 'Shopping', 'Exchange'];
 
   @override
   void initState() {

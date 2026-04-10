@@ -12,6 +12,9 @@ import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+import 'package:recycle_go/widgets/voucher_card.dart';
+import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart';
+import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -21,11 +24,11 @@ class AdminHome extends StatefulWidget {
 }
 
 class _AdminHomeState extends State<AdminHome> {
-  // Keeps track of the active tab
-  int _currentIndex = 1; // Default to 'Verify' as per your UI
+  int _currentIndex = 0; // Default to 'Verify' as per your UI
+  final _supabase = SupabaseService().client;
   // A list of the different 'Bodies' for each navigation button
   final List<Widget> _pages = [
-    const AdminDashboard(),
+    const AdminDashboard(), //AdminDashboard()
     const AdminInventory(),
     const RequestAdmin(),
     const AdminViewPurchase(),
@@ -38,12 +41,8 @@ class _AdminHomeState extends State<AdminHome> {
 
     return Scaffold(
       backgroundColor: theme.surface,
-      // 1. FIXED HEADER
       appBar: appBar(theme),
-
-      // 2. DYNAMIC BODY (This is the only part that changes)
       body: _pages[_currentIndex],
-
       bottomNavigationBar: bottomNavigator(theme),
     );
   }
@@ -125,6 +124,7 @@ class _AdminHomeState extends State<AdminHome> {
 
   AppBar appBar(AppColors theme) {
     return AppBar(
+      automaticallyImplyLeading: false,
       title: Row(
         children: [
           IconButton(
@@ -185,8 +185,7 @@ class _AdminHomeState extends State<AdminHome> {
   }
 }
 
-// Separate widget for the 'Verify' body to keep code clean
-class AdminDashboard extends StatefulWidget {
+class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
 
   @override
@@ -197,23 +196,40 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final VoucherCtrl _voucherCtrl = VoucherCtrl();
   List<Vouchers> _sampleVouchers = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadVouchers();
+    _loadData();
   }
 
-  Future<void> _loadVouchers() async {
+  Future<void> _loadData() async {
     try {
       await _voucherCtrl.fetchVouchers();
       setState(() {
-        _sampleVouchers = _voucherCtrl.vouchers.take(2).toList();
+        _sampleVouchers = _voucherCtrl.vouchers.take(1).toList();
         _isLoading = false;
+        _errorMessage = null;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading data: ${e.toString()}'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
+  }
+
+  Future<void> _loadVouchers() async {
+    await _loadData();
   }
 
   @override
@@ -236,157 +252,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-
-          // Vouchers Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Vouchers', style: TextDesign.appBarTitle()),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AdminVoucherManagement(),
-                    ),
-                  );
-                },
-                child: Text(
-                  'View All',
-                  style: TextStyle(
-                    color: theme.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const VerifyRecycleItem()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (_sampleVouchers.isEmpty)
-            Center(
-              child: Text(
-                'No vouchers available',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            )
-          else
-            Column(
-              children: _sampleVouchers.map((voucher) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: theme.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.card_giftcard,
-                              color: theme.primary,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  voucher.voucherName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (voucher.description != null)
-                                  Text(
-                                    voucher.description!,
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${voucher.pointsRequired} POINTS',
-                            style: TextStyle(
-                              color: theme.primary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      voucher.voucherStatus == 'active'
-                                      ? Colors.red
-                                      : Colors.green,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                ),
-                                child: Text(
-                                  voucher.voucherStatus == 'active'
-                                      ? 'Inactivate'
-                                      : 'Activate',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Edit',
-                                  style: TextStyle(fontSize: 11),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
+            child: const Text("Verify Recycle Item"),
+          ),
         ],
       ),
     );
