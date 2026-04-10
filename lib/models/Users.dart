@@ -53,6 +53,12 @@ class Users {
 }
 
 class UsersModel extends Connector {
+  static final UsersModel _instance = UsersModel._internal();
+
+  UsersModel._internal();
+
+  factory UsersModel() => _instance;
+
   Future<Users?> authenticate(String email, String password) async {
     try {
       final response = await client
@@ -71,20 +77,12 @@ class UsersModel extends Connector {
     return null;
   }
 
-  Future<Users?> getFirstUser() async {
-    try {
-      final response = await client
-          .from('users')
-          .select()
-          .limit(1)
-          .maybeSingle();
+  Future<bool> emailIsExist(String email) async {
+    final response = await client
+        .from('users')
+        .select(['email'] as String)
+        .eq('email', email);
 
-      if (response != null) {
-        return Users.fromJson(response);
-      }
-    } catch (e) {
-      print('DEBUG: Error getting first user: $e');
-    }
-    return null;
+    return response.isEmpty;
   }
 }

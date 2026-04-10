@@ -39,6 +39,8 @@ flutter:
   assets:
     - assets/images/
     - assets/models/model.tflite
+    - assets/images/background_image/
+    - assets/models/best_model.tflite
     - assets/models/labels.txt
 
 l10n:

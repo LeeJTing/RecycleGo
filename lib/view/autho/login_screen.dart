@@ -3,6 +3,10 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/controller/autho/login_ctrl.dart';
+import 'package:recycle_go/utils/validators.dart';
+import 'package:recycle_go/view/autho/widgets/auth_label.dart';
+import 'package:recycle_go/view/autho/widgets/auth_text_field.dart';
+import 'package:recycle_go/view/autho/widgets/social_auth_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,30 +18,34 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final LoginCtrl ctrl = LoginCtrl();
   final _formKey = GlobalKey<FormState>();
+  
+  bool _isEmailValid = false;
+  bool _isPasswordValid = false;
+  bool _obscurePassword = true;
 
   @override
-  void dispose() {
-    // TODO: implement dispose
-    super.dispose();
+  void initState() {
+    super.initState();
+    _validateFields();
   }
+
+  void _validateFields() {
+    setState(() {
+      _isEmailValid = Validators.isValidEmail(ctrl.emailCtrl.text);
+      _isPasswordValid = ctrl.passwordCtrl.text.isNotEmpty;
+    });
+  }
+
+  bool get _isFormValid => _isEmailValid && _isPasswordValid;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
     final Size size = MediaQuery.of(context).size;
+    const String imagePath = 'assets/images/';
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        title: Text('Login', style: TextDesign.appBarTitle()),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: theme.border.withOpacity(0.2), height: 1),
-        ),
-      ),
+      backgroundColor: theme.surface,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -47,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  SizedBox(height: size.height * 0.05),
+                  SizedBox(height: size.height * 0.08),
                   
                   // Logo with circular background
                   Container(
@@ -69,7 +77,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   const SizedBox(height: 24),
                   
-                  // Welcome Text
                   Text(
                     'Welcome Back!', 
                     style: TextDesign.headingOne(fontSize: 28),
@@ -86,39 +93,45 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(height: size.height * 0.06),
                   
                   // Email Field
-                  _buildLabel('Email Address'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
+                  AuthLabel(text: 'Email Address', isValid: _isEmailValid),
+                  AuthTextField(
                     controller: ctrl.emailCtrl,
+                    onChanged: (_) => _validateFields(),
                     hintText: 'user@example.com',
                     keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.email_outlined,
+                    prefixIcon: Icon(Icons.email_outlined, color: theme.onHint, size: 20),
                   ),
                   
                   const SizedBox(height: 20),
                   
                   // Password Field
-                  _buildLabel('Password'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
+                  AuthLabel(text: 'Password', isValid: _isPasswordValid),
+                  AuthTextField(
                     controller: ctrl.passwordCtrl,
+                    onChanged: (_) => _validateFields(),
                     hintText: '••••••••',
-                    obscureText: true,
-                    prefixIcon: Icons.lock_outline,
+                    obscureText: _obscurePassword,
+                    prefixIcon: Icon(Icons.lock_outline, color: theme.onHint, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        color: theme.onHint,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
                   ),
                   
                   const SizedBox(height: 12),
                   
-                  // Forgot Password
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {},
                       child: Text(
                         'Forgot Password?',
-                        style: TextDesign.smallText(
-                          color: theme.primary, 
-                        ).copyWith(fontWeight: FontWeight.bold),
+                        style: TextDesign.smallText(color: theme.primary)
+                            .copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -130,10 +143,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () => ctrl.login(context),
+                      onPressed: _isFormValid ? () => ctrl.login(context) : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: theme.onPrimary,
+                        disabledBackgroundColor: theme.border,
+                        disabledForegroundColor: theme.onHint,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -146,9 +161,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   
+                  const SizedBox(height: 30),
+                  
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: theme.border, thickness: 1)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('OR CONTINUE WITH', style: TextDesign.label(fontSize: 10, color: theme.onHint)),
+                      ),
+                      Expanded(child: Divider(color: theme.border, thickness: 1)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  SocialAuthButton(
+                    text: 'Google',
+                    assetIcon: '${imagePath}google_logo.png',
+                    onPressed: () {},
+                  ),
+                  
                   const SizedBox(height: 24),
                   
-                  // Register Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -158,71 +192,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       InkWell(
                         onTap: () {
-                          // Navigate to the registration screen
-                          Navigator.pushNamed(context, Routes.userProfile);
+                          Navigator.pushNamed(context, Routes.register);
                         },
                         child: Text(
                           "Sign Up",
-                          style: TextDesign.smallText(
-                            color: theme.primary,
-                          ).copyWith(fontWeight: FontWeight.bold),
+                          style: TextDesign.smallText(color: theme.primary)
+                              .copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
-                  
                   SizedBox(height: size.height * 0.05),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        text,
-        style: TextDesign.label(),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hintText,
-    bool obscureText = false,
-    TextInputType keyboardType = TextInputType.text,
-    required IconData prefixIcon,
-  }) {
-    final theme = AppThemes.color;
-    
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      style: TextDesign.normalText(),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: TextDesign.hintText(),
-        prefixIcon: Icon(prefixIcon, color: theme.onHint, size: 22),
-        filled: true,
-        fillColor: theme.border.withOpacity(0.05),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: theme.border.withOpacity(0.3)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: theme.primary, width: 1.5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: theme.onError),
-          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );

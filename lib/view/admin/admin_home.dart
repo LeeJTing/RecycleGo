@@ -48,6 +48,7 @@ class _AdminHomeState extends State<AdminHome> {
   }
 
   Container bottomNavigator(AppColors theme) {
+    Size size = MediaQuery.of(context).size;
     return Container(
       decoration: BoxDecoration(
         color: theme.surface,
@@ -62,15 +63,15 @@ class _AdminHomeState extends State<AdminHome> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: size.width * 0.02, vertical: size.height * 0.01),
           child: SalomonBottomBar(
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),
             selectedItemColor: theme.primary,
             unselectedItemColor: theme.hint,
-            itemPadding: const EdgeInsets.symmetric(
-              vertical: 10,
-              horizontal: 16,
+            itemPadding: EdgeInsets.symmetric(
+              vertical: size.height * 0.02,
+              horizontal: size.width * 0.02,
             ),
             items: [
               SalomonBottomBarItem(
