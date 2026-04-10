@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/controller/admin/inventory_controller.dart';
+import 'package:recycle_go/models/RecycleInventory.dart';
+import 'package:recycle_go/utils/async_task_runner.dart';
 
 class AdminUpdateInventory extends StatefulWidget {
-  final Map<String, dynamic> item;
+  final RecycleInventory item;
 
   const AdminUpdateInventory({super.key, required this.item});
 
@@ -13,24 +17,23 @@ class AdminUpdateInventory extends StatefulWidget {
 
 class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
   final _formKey = GlobalKey<FormState>();
-
-  // Controllers initialized with existing data
   late TextEditingController nameController;
   late TextEditingController priceController;
   late TextEditingController weightController;
   late TextEditingController descController;
-  String? selectedCategory;
 
-  final List<String> categories = ["Plastic", "Paper", "Glasses", "CardBoard", "Metal"];
-
+  bool _isUpdating = false;
   @override
   void initState() {
     super.initState();
-    // 2. Initialize the controllers with the EXISTING data
-    nameController = TextEditingController(text: widget.item['inventory_name'] ?? "");
-    priceController = TextEditingController(text: widget.item['price_per_kg']?.toString() ?? "0.0");
-    weightController = TextEditingController(text: widget.item['total_weight']?.toString() ?? "0.0");
-    descController = TextEditingController(text: widget.item['description'] ?? "");
+    nameController = TextEditingController(text: widget.item.inventoryName);
+    priceController = TextEditingController(
+      text: widget.item.pricePerKg.toString(),
+    );
+    weightController = TextEditingController(
+      text: widget.item.totalWeight.toString(),
+    );
+    descController = TextEditingController(text: widget.item.description ?? "");
   }
 
   @override
@@ -62,14 +65,12 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
         padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- 1. CURRENT IMAGE PREVIEW ---
               _buildImagePreview(theme),
               const SizedBox(height: 32),
-
-              // --- 2. ITEM NAME (Disabled/Read-only if needed) ---
               _buildLabel("Item Name"),
               TextFormField(
                 controller: nameController,
@@ -78,31 +79,56 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
                 validator: (v) => v!.isEmpty ? "Name cannot be empty" : null,
               ),
               const SizedBox(height: 20),
-
-              // --- 3. PRICE PER KG ---
               _buildLabel("Price per KG (RM)"),
               TextFormField(
                 controller: priceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: TextDesign.mediumText().copyWith(color: theme.success, fontWeight: FontWeight.bold),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: TextDesign.mediumText().copyWith(
+                  color: theme.success,
+                  fontWeight: FontWeight.bold,
+                ),
                 decoration: _inputStyle("0.00", theme),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "Price required";
+                  final price = double.tryParse(v);
+                  if (price == null) return "Invalid number";
+                  if (price <= 0) return "Price must be > 0";
+                  if (price > 50) return "Price too high (max RM 50)";
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
-
-              // --- 4. TOTAL WEIGHT (STOCK) ---
               _buildLabel("Current Stock Weight (kg)"),
               TextFormField(
                 controller: weightController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: TextDesign.mediumText().copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
                 decoration: _inputStyle("0.0", theme).copyWith(
                   suffixText: "kg",
                   suffixStyle: TextDesign.smallText(color: theme.primary),
                 ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "Weight is required";
+                  final weight = double.tryParse(v);
+                  if (weight == null) return "Must be a valid number";
+                  if (weight < 0) return "Weight cannot be negative";
+                  if (weight > 20) return "Weight exceeds maximum limit";
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
-
-              // --- 5. DESCRIPTION ---
               _buildLabel("Description"),
               TextFormField(
                 controller: descController,
@@ -111,8 +137,7 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
                 decoration: _inputStyle("Description...", theme),
               ),
               const SizedBox(height: 40),
-
-              // --- 6. UPDATE BUTTON ---
+              // ✅ Replace the old button with AsyncTaskRunner
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -120,9 +145,14 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
                   onPressed: _handleUpdate,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  child: Text("Update Inventory", style: TextDesign.buttonText()),
+                  child: Text(
+                    "Update Inventory",
+                    style: TextDesign.buttonText(),
+                  ),
                 ),
               ),
             ],
@@ -132,9 +162,45 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
     );
   }
 
-  // --- UI HELPERS ---
+  Future<void> _handleUpdate() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    await TaskRunner.run(
+      context: context,
+      loadingMessage: "Updating inventory...",
+      successMessage: "Inventory updated successfully!",
+      task: () async {
+        final updatedItem = _buildUpdatedInventory();
+        await InventoryController.updateInventory(updatedItem);
+      },
+    );
+
+    if (mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
+  RecycleInventory _buildUpdatedInventory() {
+    return RecycleInventory(
+      inventoryId: widget.item.inventoryId,
+      inventoryName: nameController.text.trim(),
+      pricePerKg: _parseDouble(priceController.text),
+      totalWeight: _parseDouble(weightController.text),
+      description: descController.text.trim().isEmpty
+          ? null
+          : descController.text.trim(),
+      categoryId: widget.item.categoryId,
+      urlImage: widget.item.urlImage,
+    );
+  }
+
+  double _parseDouble(String value) {
+    final parsed = double.tryParse(value) ?? 0.0;
+    return double.parse(parsed.toStringAsFixed(2));
+  }
 
   Widget _buildImagePreview(AppColors theme) {
+    final imagePath = widget.item.urlImage;
     return Center(
       child: Stack(
         children: [
@@ -144,10 +210,15 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               image: DecorationImage(
-                image: AssetImage(widget.item['url_image'] ?? 'assets/images/placeholder.webp'),
+                image: imagePath != null && imagePath.isNotEmpty
+                    ? AssetImage(imagePath) as ImageProvider
+                    : const AssetImage('assets/images/placeholder.webp'),
                 fit: BoxFit.cover,
               ),
-              border: Border.all(color: theme.primary.withOpacity(0.2), width: 2),
+              border: Border.all(
+                color: theme.primary.withOpacity(0.2),
+                width: 2,
+              ),
             ),
           ),
           Positioned(
@@ -175,24 +246,14 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
       fillColor: theme.surface,
       hintText: hint,
       contentPadding: const EdgeInsets.all(16),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: theme.border.withOpacity(0.3))),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.border.withOpacity(0.3)),
+      ),
     );
-  }
-
-  void _handleUpdate() {
-    if (_formKey.currentState!.validate()) {
-      // Logic to send data back to Supabase
-      final updatedData = {
-        'inventory_id': widget.item['inventory_id'],
-        'inventory_name': nameController.text,
-        'price_per_kg': double.tryParse(priceController.text) ?? 0.0,
-        'total_weight': double.tryParse(weightController.text) ?? 0.0,
-        'description': descController.text,
-      };
-
-      print("Updating Database with: $updatedData");
-      Navigator.pop(context);
-    }
   }
 }

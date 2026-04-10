@@ -17,12 +17,11 @@ class AdminHome extends StatefulWidget {
 }
 
 class _AdminHomeState extends State<AdminHome> {
-  // Keeps track of the active tab
-  int _currentIndex = 1; // Default to 'Verify' as per your UI
+  int _currentIndex = 0; // Default to 'Verify' as per your UI
   final _supabase = SupabaseService().client;
   // A list of the different 'Bodies' for each navigation button
   final List<Widget> _pages = [
-    const AdminDashboard(),
+    const AdminDashboard(), //AdminDashboard()
     const AdminInventory(),
     const RequestAdmin(),
     const AdminViewPurchase(),
@@ -35,12 +34,8 @@ class _AdminHomeState extends State<AdminHome> {
 
     return Scaffold(
       backgroundColor: theme.surface,
-      // 1. FIXED HEADER
       appBar: appBar(theme),
-
-      // 2. DYNAMIC BODY (This is the only part that changes)
       body: _pages[_currentIndex],
-
       bottomNavigationBar: bottomNavigator(theme),
     );
   }
@@ -118,6 +113,7 @@ class _AdminHomeState extends State<AdminHome> {
 
   AppBar appBar(AppColors theme) {
     return AppBar(
+      automaticallyImplyLeading: false,
       title: Row(
         children: [
           IconButton(
@@ -181,7 +177,6 @@ class _AdminHomeState extends State<AdminHome> {
   }
 }
 
-// Separate widget for the 'Verify' body to keep code clean
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
 
@@ -199,11 +194,30 @@ class AdminDashboard extends StatelessWidget {
               prefixIcon: const Icon(Icons.search),
               filled: true,
               fillColor: theme.onPrimary,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          // Add your 'Review Queue' Cards here...
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const VerifyRecycleItem()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text("Verify Recycle Item"),
+          ),
         ],
       ),
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import '../../app/routes.dart';
+import '../../controller/admin/inventory_controller.dart';
+import '../../models/RecycleInventory.dart';
 
 class AdminInventory extends StatefulWidget {
   const AdminInventory({super.key});
@@ -11,54 +13,39 @@ class AdminInventory extends StatefulWidget {
 }
 
 class _AdminInventoryState extends State<AdminInventory> {
-  // Mock data matching your Supabase 'recycleinventory' table structure
-  final List<Map<String, dynamic>> _inventoryItems = [
-    {
-      'inventory_id': '29405d44-a4df-46b9-940b-fe69c50fcd7f',
-      'inventory_name': 'Metal',
-      'price_per_kg': 4.50,
-      'total_weight': 120.5,
-      'description': 'UBC (Used Beverage Cans) - Aluminum only. Ensure cans are crushed if possible to save space in the bin.',
-      'url_image': 'assets/images/used_beverage_cans.webp',
-    },
-    {
-      'inventory_id': '3b763107-aae6-4158-b0c6-5994e664ce4c',
-      'inventory_name': 'Plastic',
-      'price_per_kg': 0.85,
-      'total_weight': 45.0,
-      'description': 'Clear PET (Mineral water bottles). Remove caps and labels if possible for higher grade recycling quality.',
-      'url_image': 'assets/images/mineral_water_bootle.webp',
-    },
-    {
-      'inventory_id': '5db93eab-8bb8-4dd2-acc2-27aa62c16559',
-      'inventory_name': 'Glasses',
-      'price_per_kg': 0.15,
-      'total_weight': 0.0,
-      'description': 'Cullet (Crushed or whole glass bottles). Separated by color: Clear, Amber, and Green for processing.',
-      'url_image': 'assets/images/cullet.webp',
-    },
-    {
-      'inventory_id': 'bb180179-1297-4f11-ade4-8d18cf093cf2',
-      'inventory_name': 'CardBoard',
-      'price_per_kg': 0.55,
-      'total_weight': 500.0,
-      'description': 'OCC (Old Corrugated Containers/Kotak). Must be kept dry and flattened to optimize transport volume.',
-      'url_image': 'assets/images/old_corrugated_containers.webp',
-    },
-  ];
-
+  List<RecycleInventory> _inventoryItems = [];
+  bool _isLoading = true;
   String _searchQuery = "";
   String _selectedCategory = "All";
 
-  // Filter Logic
-  List<Map<String, dynamic>> get _filteredItems {
+  @override
+  void initState() {
+    super.initState();
+    _loadInventory();
+  }
+
+  Future<void> _loadInventory() async {
+    setState(() => _isLoading = true);
+    try {
+      final items = await InventoryController.getInventory(); // caching active
+      setState(() {
+        _inventoryItems = items;
+        _isLoading = false;
+      });
+    } catch (e) {
+      e.toString();
+    }
+  }
+
+  List<RecycleInventory> get _filteredItems {
     return _inventoryItems.where((item) {
-      final matchesSearch = item['inventory_name']
-          .toString()
-          .toLowerCase()
-          .contains(_searchQuery.toLowerCase());
+      final searchLower = _searchQuery.toLowerCase().trim();
+      final matchesSearch = searchLower.isEmpty ||
+          item.inventoryName.toLowerCase().contains(searchLower);
+
       final matchesCategory = _selectedCategory == "All" ||
-          item['inventory_name'] == _selectedCategory;
+          item.inventoryName.trim().toLowerCase() == _selectedCategory.trim().toLowerCase();
+
       return matchesSearch && matchesCategory;
     }).toList();
   }
@@ -70,24 +57,26 @@ class _AdminInventoryState extends State<AdminInventory> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Column(
+      body:  _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _inventoryItems.isEmpty
+          ? _buildNoDataState(theme)
+          : _filteredItems.isEmpty
+          ? _buildEmptyState(theme)
+          : Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSearchHeader(theme),
           Padding(
             padding: const EdgeInsets.only(left: 28.0, top: 12.0, bottom: 8.0),
-            child: Text(
-              "Items",
-              style: TextDesign.headingThree().copyWith(letterSpacing: 0.5),
-            ),
+            child: Text("Items", style: TextDesign.headingThree()),
           ),
           Expanded(
-            child: displayData.isEmpty
-                ? _buildEmptyState(theme)
-                : ListView.builder(
+            child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: displayData.length,
-              itemBuilder: (context, index) => _buildInventoryCard(displayData[index], theme),
+              itemCount: _filteredItems.length,
+              itemBuilder: (context, index) =>
+                  _buildInventoryCard(_filteredItems[index], theme),
             ),
           ),
         ],
@@ -102,7 +91,26 @@ class _AdminInventoryState extends State<AdminInventory> {
     );
   }
 
-  // --- UI COMPONENTS ---
+  Widget _buildNoDataState(AppColors theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inventory_2_outlined, size: 80, color: theme.hint.withOpacity(0.3)),
+          const SizedBox(height: 16),
+          Text(
+            "No inventory items found",
+            style: TextDesign.headingThree(color: theme.hint),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Tap the + button to add your first item",
+            style: TextDesign.smallText(color: theme.hint),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSearchHeader(AppColors theme) {
     return Padding(
@@ -119,10 +127,10 @@ class _AdminInventoryState extends State<AdminInventory> {
               ),
               child: TextField(
                 onChanged: (value) => setState(() => _searchQuery = value),
-                style: TextDesign.normalText(),
+                style: TextDesign.normalText(), // predefined
                 decoration: InputDecoration(
                   hintText: "Search items...",
-                  hintStyle: TextDesign.hintText(),
+                  hintStyle: TextDesign.hintText(), // predefined
                   prefixIcon: Icon(Icons.search, color: theme.primary, size: 20),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 15),
@@ -148,12 +156,10 @@ class _AdminInventoryState extends State<AdminInventory> {
     );
   }
 
-  Widget _buildInventoryCard(Map<String, dynamic> item, AppColors theme) {
-    // FIX: Safe Type Conversion for Weight and Price
-    final double weight = double.tryParse(item['total_weight']?.toString() ?? '0') ?? 0.0;
-    final double price = double.tryParse(item['price_per_kg']?.toString() ?? '0') ?? 0.0;
+  Widget _buildInventoryCard(RecycleInventory item, AppColors theme) {
+    final double weight = item.totalWeight;
+    final double price = item.pricePerKg;
 
-    // Status Logic
     String statusText;
     Color statusColor;
     if (weight <= 0) {
@@ -166,7 +172,7 @@ class _AdminInventoryState extends State<AdminInventory> {
       statusText = "AVAILABLE";
       statusColor = theme.success;
     }
-
+    print('Navigating with item: ${item.inventoryName}, ${item.inventoryId}');
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -177,35 +183,42 @@ class _AdminInventoryState extends State<AdminInventory> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          onTap: () => Navigator.pushNamed(context, Routes.adminViewInventory, arguments: item),
+          onTap: () => Navigator.pushNamed(
+            context,
+            Routes.adminViewInventory,
+            arguments: item,
+          ),
           child: Padding(
             padding: const EdgeInsets.all(14.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. IMAGE
+                // Image
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    width: 90, height: 90,
+                    width: 90,
+                    height: 90,
                     color: theme.surfaceVariant,
-                    child: item['url_image'] != null
-                        ? Image.asset(item['url_image'], fit: BoxFit.cover)
+                    child: item.urlImage != null
+                        ? Image.asset(item.urlImage!, fit: BoxFit.cover)
                         : Icon(Icons.inventory_2_outlined, color: theme.primary, size: 30),
                   ),
                 ),
                 const SizedBox(width: 16),
-
-                // 2. CONTENT
+                // Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item['inventory_name'] ?? "Unknown",
-                          style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        item.inventoryName,
+                        style: TextDesign.mediumText().copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-
-                      // Status Badge
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
@@ -214,36 +227,45 @@ class _AdminInventoryState extends State<AdminInventory> {
                         ),
                         child: Text(
                           statusText,
-                          style: TextDesign.badgeText(color: statusColor).copyWith(fontSize: 8, fontWeight: FontWeight.bold),
+                          style: TextDesign.badgeText(color: statusColor).copyWith(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
-
-                      // Description (Full Display)
-                      Text(item['description'] ?? "No description provided.",
-                          style: TextDesign.smallText(color: theme.onSurface)),
+                      Text(
+                        item.description ?? "No description provided.",
+                        style: TextDesign.smallText(),
+                      ),
                       const SizedBox(height: 12),
-
-                      // Metadata
                       Wrap(
                         spacing: 12,
                         children: [
-                          Text("Stock: ${weight.toStringAsFixed(1)} kg",
-                              style: TextDesign.smallText().copyWith(fontWeight: FontWeight.bold)),
-                          Text("RM ${price.toStringAsFixed(2)}/kg",
-                              style: TextDesign.priceText(fontSize: 13)),
+                          Text(
+                            "Stock: ${weight.toStringAsFixed(1)} kg",
+                            style: TextDesign.smallText().copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            "RM ${price.toStringAsFixed(2)}/kg",
+                            style: TextDesign.priceText(fontSize: 13),
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
 
-                // 3. ACTION COLUMN
+                // Action buttons
                 const SizedBox(width: 8),
                 Column(
                   children: [
                     IconButton(
-                      onPressed: () => Navigator.pushNamed(context, Routes.adminUpdateInventory, arguments: item),
+                      onPressed: () => Navigator.pushNamed(
+                        context,
+                        Routes.adminUpdateInventory,
+                        arguments: item,
+                      ),
                       icon: Icon(Icons.edit_note_rounded, color: theme.warning, size: 24),
                       constraints: const BoxConstraints(),
                       padding: const EdgeInsets.all(8),
@@ -264,14 +286,14 @@ class _AdminInventoryState extends State<AdminInventory> {
     );
   }
 
-  // --- HELPERS ---
-
   void _showFilterSheet(BuildContext context, AppColors theme) {
     final categories = ["All", "Plastic", "Paper", "Glasses", "CardBoard", "Metal"];
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(24.0),
@@ -291,7 +313,12 @@ class _AdminInventoryState extends State<AdminInventory> {
                     bool isSelected = _selectedCategory == cat;
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(cat, style: TextDesign.mediumText(color: isSelected ? theme.primary : theme.onSurface)),
+                      title: Text(
+                        cat,
+                        style: TextDesign.mediumText(
+                          color: isSelected ? theme.primary : theme.onSurface,
+                        ),
+                      ),
                       trailing: isSelected ? Icon(Icons.check_circle, color: theme.primary) : null,
                       onTap: () {
                         setState(() => _selectedCategory = cat);
@@ -309,17 +336,35 @@ class _AdminInventoryState extends State<AdminInventory> {
     );
   }
 
-  void _confirmDelete(Map<String, dynamic> item, AppColors theme) {
+  void _confirmDelete(RecycleInventory item, AppColors theme) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text("Remove Item?", style: TextDesign.headingThree()),
-        content: Text("Are you sure you want to delete ${item['inventory_name']}? This action is permanent."),
+        content: Text(
+          "Are you sure you want to delete ${item.inventoryName}? This action is permanent.",
+          style: TextDesign.normalText(),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel", style: TextDesign.normalText())),
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.pop(context),
+            child: Text("Cancel", style: TextDesign.normalText()),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // close dialog
+              setState(() => _isLoading = true);
+              try {
+                await InventoryController.deleteInventory(item.inventoryId);
+                await _loadInventory(); // refresh list
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Delete failed: $e')),
+                );
+                setState(() => _isLoading = false);
+              }
+            },
             style: ElevatedButton.styleFrom(backgroundColor: theme.error),
             child: const Text("Delete", style: TextStyle(color: Colors.white)),
           ),
@@ -335,7 +380,10 @@ class _AdminInventoryState extends State<AdminInventory> {
         children: [
           Icon(Icons.search_off, size: 80, color: theme.hint.withOpacity(0.3)),
           const SizedBox(height: 16),
-          Text("No materials match your search", style: TextDesign.mediumText(color: theme.hint)),
+          Text(
+            "No materials match your search",
+            style: TextDesign.mediumText(color: theme.hint),
+          ),
         ],
       ),
     );
