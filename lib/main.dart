@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/l10n/app_localization.dart';
+import 'package:recycle_go/models/RecycleInventory.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
@@ -17,10 +17,7 @@ import 'package:recycle_go/view/admin/admin_update_inventory.dart';
 import 'package:recycle_go/view/autho/register_screen.dart';
 import 'package:recycle_go/view/profile/profile_screen.dart';
 import 'package:recycle_go/view/recycle/map_screen.dart';
-import 'package:recycle_go/view/recycle/station_detail_screen.dart';
-import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
-import 'package:recycle_go/view/admin/admin_station_edit.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 
 Future<void> main() async {
@@ -70,7 +67,7 @@ class _MainAppState extends State<MainApp> {
         Routes.adminViewInventory: (context) => const AdminViewInventory(),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) =>
-        const AdminUpdateInventory(item: {}),
+        AdminUpdateInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0)),
         Routes.map: (context) => const MapScreen(),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
         Routes.adminVoucherManagement: (context) =>

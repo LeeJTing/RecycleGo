@@ -36,8 +36,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  bool get _isFormValid => _isEmailValid && _isPasswordValid;
-
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
@@ -143,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isFormValid ? () => ctrl.login(context) : null,
+                      onPressed: () => ctrl.login(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         foregroundColor: theme.onPrimary,

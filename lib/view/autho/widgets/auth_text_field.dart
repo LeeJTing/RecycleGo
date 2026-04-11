@@ -30,7 +30,7 @@ class AuthTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           decoration: BoxDecoration(
@@ -71,10 +71,20 @@ class AuthTextField extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.error_outline_rounded, color: theme.error, size: 12),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(Icons.error_outline_rounded, color: theme.error, size: 12),
+                ),
                 const SizedBox(width: 4),
-                Text(errorText!, style: TextDesign.smallText(color: theme.error, fontSize: 11)),
+                Expanded(
+                  child: Text(
+                    errorText!,
+                    style: TextDesign.smallText(color: theme.error, fontSize: 11),
+                    softWrap: true,
+                  ),
+                ),
               ],
             ),
           ),

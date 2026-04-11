@@ -45,6 +45,10 @@ class Admins {
 }
 
 class AdminsModel extends Connector {
+  static final AdminsModel _instance = AdminsModel._internal();
+  AdminsModel._internal();
+  factory AdminsModel() => _instance;
+
   Future<Admins?> authenticate(String email, String password) async {
     final response = await client
         .from('admins')
@@ -59,11 +63,11 @@ class AdminsModel extends Connector {
     return null;
   }
 
-  Future<bool> emailIsExist(String email) async{
-      final response = await client
-      .from('admins')
-      .select(['email'] as String)
-      .eq('email', email);
+  Future<bool> emailIsExist(String email) async {
+    final response = await client
+        .from('admins')
+        .select('email')
+        .eq('email', email);
 
     return response.isNotEmpty;
   }
