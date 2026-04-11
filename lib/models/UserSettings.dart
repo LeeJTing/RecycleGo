@@ -41,4 +41,14 @@ class UserSettings {
 }
 
 class UserSettingsModel extends Connector {
+  Future<void> createUserSetting(String userId) async {
+    await client.from('usersetting').insert({
+      'user_id': userId,
+      'language': 'en',
+      'theme_mode': 'light mode',
+      'notification': true,
+      'notify_station': true,
+      'notify_appeal_request': true,
+    });
+  }
 }

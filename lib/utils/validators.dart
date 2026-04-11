@@ -33,8 +33,39 @@ class Validators {
     return points;
   }
 
-  /// Checks if all password criteria are met (strength 4).
+  /// Checks if all password criteria are met (at least strength 3).
   static bool isPasswordSecure(String password) {
-    return getPasswordStrength(password) == 4;
+    return getPasswordStrength(password) >= 3;
+  }
+
+  /// Validates phone number based on country code.
+  /// If phone is empty, it's considered valid (as it's optional).
+  static bool isValidPhoneNumber(String phone, String countryCode) {
+    if (phone.isEmpty) return true;
+    
+    // Remove any non-digit characters
+    String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    
+    // Handle leading zero if present (common in Malaysia +60)
+    if (countryCode == '+60' && cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.substring(1);
+    }
+
+    switch (countryCode) {
+      case '+60': // Malaysia: Mobile numbers are usually 9 or 10 digits after prefix
+        return cleanPhone.length == 9 || cleanPhone.length == 10;
+      case '+65': // Singapore: 8 digits
+        return cleanPhone.length == 8;
+      case '+1':  // USA/Canada: 10 digits
+        return cleanPhone.length == 10;
+      case '+44': // UK: 10 digits (mobile)
+        return cleanPhone.length == 10;
+      case '+86': // China: 11 digits
+        return cleanPhone.length == 11;
+      case '+91': // India: 10 digits
+        return cleanPhone.length == 10;
+      default:
+        return cleanPhone.length >= 8 && cleanPhone.length <= 15;
+    }
   }
 }

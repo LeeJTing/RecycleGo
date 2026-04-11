@@ -26,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isEmailValid = false;
   int _passwordStrength = 0;
   bool _passwordsMatch = false;
+  bool _isPhoneValid = true;
   String _selectedCountryCode = '+60';
 
   final List<String> _countryCodes = ['+60', '+65', '+1', '+44', '+86', '+91'];
@@ -38,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _validateFields() {
     setState(() {
+      _isPhoneValid = Validators.isValidPhoneNumber(ctrl.phoneCtrl.text, _selectedCountryCode);
       _isNameValid = Validators.isValidName(ctrl.nameCtrl.text);
       _isEmailValid = Validators.isValidEmail(ctrl.emailCtrl.text);
       _passwordStrength = Validators.getPasswordStrength(ctrl.passwordCtrl.text);
@@ -46,12 +48,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
+  String _invalidPhoneMessage(String countryCode) {
+    switch (countryCode) {
+      case '+60': // Malaysia: Mobile numbers are usually 9 or 10 digits after prefix
+        return 'Please enter a valid Malaysia phone number (length is 9 or 10 digits)';
+      case '+65': // Singapore: 8 digits
+        return 'Please enter a valid Singapore phone number (length is 8 digits)';
+      case '+1':  // USA/Canada: 10 digits
+        return 'Please enter a valid American or Canadian phone number (length is 10 digits)';
+      case '+44': // UK: 10 digits (mobile)
+        return 'Please enter a valid UK phone number (length is 10 digits)';
+      case '+86': // China: 11 digits
+        return 'Please enter a valid China phone number (length is 11 digits)';
+      case '+91': // India: 10 digits
+        return 'Please enter a valid India phone number (length is 10 digits)';
+      default:
+        return '';
+    }
+  }
+
   bool get _isFormValid {
     return _isNameValid &&
         _isEmailValid &&
-        _passwordStrength == 4 && 
+        _passwordStrength >= 3 && 
         _passwordsMatch &&
-        _agreeToTerms;
+        _agreeToTerms &&
+        _isPhoneValid;
   }
 
   @override
@@ -167,8 +189,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const AuthLabel(text: 'Phone Number (Optional)'),
                   AuthTextField(
                     controller: ctrl.phoneCtrl,
-                    hintText: '12-345 6789',
+                    hintText: '123456789',
                     keyboardType: TextInputType.phone,
+                    onChanged: (_) => _validateFields(),
                     prefixIcon: Container(
                       width: 80,
                       padding: const EdgeInsets.only(left: 12),
@@ -186,6 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               onChanged: (value) {
                                 setState(() {
                                   _selectedCountryCode = value!;
+                                  _validateFields();
                                 });
                               },
                             ),
@@ -194,19 +218,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ],
                       ),
                     ),
+                    errorText: ctrl.phoneCtrl.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_selectedCountryCode) : null,
                   ),
                   const SizedBox(height: 16),
 
-                  AuthLabel(text: 'Password', isValid: _passwordStrength == 4),
+                  AuthLabel(text: 'Password', isValid: _passwordStrength >= 3),
                   AuthTextField(
                     controller: ctrl.passwordCtrl,
                     onChanged: (_) => _validateFields(),
                     hintText: '••••••••',
                     obscureText: _obscurePassword,
                     prefixIcon: Icon(Icons.lock_outline, color: theme.onHint, size: 20),
-                    borderColor: ctrl.passwordCtrl.text.isNotEmpty && _passwordStrength < 4 ? theme.error.withOpacity(0.3) : null,
-                    errorText: ctrl.passwordCtrl.text.isNotEmpty && _passwordStrength < 4 
-                        ? '7-12 chars, include Upper, Lower, Number & Special' 
+                    borderColor: ctrl.passwordCtrl.text.isNotEmpty && _passwordStrength < 3 ? theme.error.withOpacity(0.3) : null,
+                    errorText: ctrl.passwordCtrl.text.isNotEmpty && _passwordStrength < 3
+                        ? 'should 7-12 chars and include either 3 of them Upper, Lower, Number or Special'
                         : null,
                     suffixIcon: IconButton(
                       icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: theme.onHint, size: 20),
@@ -306,7 +331,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isFormValid ? () => ctrl.register(context) : null,
+                      onPressed: _isFormValid ? () => ctrl.register(context, _selectedCountryCode) : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         foregroundColor: theme.onPrimary,

@@ -185,7 +185,7 @@ class _AdminHomeState extends State<AdminHome> {
   }
 }
 
-class AdminDashboard extends StatelessWidget {
+class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
   @override

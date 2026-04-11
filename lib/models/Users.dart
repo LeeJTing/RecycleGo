@@ -1,9 +1,12 @@
 import 'package:recycle_go/models/Connector.dart';
 
+import 'UserSettings.dart';
+
 class Users {
   final String? userId;
   final String userName;
   final String email;
+  final String? countryCallingCode;
   final String? phone;
   final String? profilePhoto;
   final int totalPoints;
@@ -15,6 +18,7 @@ class Users {
     this.userId,
     required this.userName,
     required this.email,
+    this.countryCallingCode,
     this.phone,
     this.profilePhoto,
     this.totalPoints = 0,
@@ -28,6 +32,7 @@ class Users {
       userId: json['user_id'],
       userName: json['user_name'],
       email: json['email'],
+      countryCallingCode: json['phone'] == null ? null : json['country_calling_code'],
       phone: json['phone'],
       profilePhoto: json['profile_photo'],
       totalPoints: json['total_points'] ?? 0,
@@ -38,17 +43,23 @@ class Users {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'user_id': userId,
+    final Map<String, dynamic> data = {
       'user_name': userName,
       'email': email,
+      'country_calling_code': countryCallingCode,
       'phone': phone,
       'profile_photo': profilePhoto,
       'total_points': totalPoints,
       'account_status': accountStatus,
-      'created_at': createdAt?.toIso8601String(),
       'hashed_password': hashedPassword,
     };
+    
+    // Do NOT include user_id or created_at if they are null,
+    // let the database handle default values (UUID and TIMESTAMP).
+    if (userId != null) data['user_id'] = userId;
+    if (createdAt != null) data['created_at'] = createdAt!.toIso8601String();
+    
+    return data;
   }
 }
 
@@ -80,9 +91,29 @@ class UsersModel extends Connector {
   Future<bool> emailIsExist(String email) async {
     final response = await client
         .from('users')
-        .select(['email'] as String)
+        .select('email')
         .eq('email', email);
 
-    return response.isEmpty;
+    return response.isNotEmpty;
+  }
+
+  Future<Users?> createUser(Users user) async {
+    try {
+      final response = await client
+          .from('users')
+          .insert(user.toJson())
+          .select()
+          .single();
+      
+      final newUser = Users.fromJson(response);
+      
+      // Initialize UserSetting for the new user
+      UserSettingsModel().createUserSetting(newUser.userId!);
+
+      return newUser;
+    } catch (e) {
+      print('DEBUG: Create user error: $e');
+      rethrow; // Rethrow to let TaskRunner show the actual error message
+    }
   }
 }
