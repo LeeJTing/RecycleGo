@@ -1,14 +1,14 @@
 import 'package:email_otp/email_otp.dart';
 
 class SmtpConfig {
-  /// Configures a specific [EmailOTP] instance for our app.
-  static void configure(EmailOTP myOTP, String recipientEmail) {
-    // Instance-based configuration
-    myOTP.setConfig(
+  /// Configures the EmailOTP static settings for our app.
+  static void configure(String recipientEmail) {
+    // Static configuration for the email_otp package
+    EmailOTP.config(
       appName: 'RecycleGo',
       otpLength: 6,
       otpType: OTPType.numeric,
-      email: recipientEmail,
+      appEmail: recipientEmail,
     );
     
     // SMTP Setup for Gmail
@@ -18,11 +18,7 @@ class SmtpConfig {
       emailPort: EmailPort.port587,
       secureType: SecureType.tls,
       username: 'recyclegotarumt@gmail.com', 
-      password: 'rscd jicn hcvf nqob',
+      password: 'mbob gmud nhmi rcnf',
     );
   }
-}
-
-extension on EmailOTP {
-  void setConfig({required String appName, required int otpLength, required OTPType otpType, required String email}) {}
 }

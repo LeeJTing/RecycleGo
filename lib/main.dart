@@ -5,6 +5,7 @@ import 'package:recycle_go/l10n/app_localization.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
+import 'package:recycle_go/services/smtp_config.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/view/admin/admin_add_inventory.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';

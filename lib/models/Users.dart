@@ -1,5 +1,5 @@
 import 'package:recycle_go/models/Connector.dart';
-
+import 'package:recycle_go/utils/hashing.dart';
 import 'UserSettings.dart';
 
 class Users {
@@ -72,11 +72,12 @@ class UsersModel extends Connector {
 
   Future<Users?> authenticate(String email, String password) async {
     try {
+      final String hashedPassword = Hashing.hashString(password);
       final response = await client
           .from('users')
           .select()
           .eq('email', email)
-          .eq('hashed_password', password)
+          .eq('hashed_password', hashedPassword)
           .maybeSingle();
 
       if (response != null) {
@@ -99,9 +100,14 @@ class UsersModel extends Connector {
 
   Future<Users?> createUser(Users user) async {
     try {
+      final Map<String, dynamic> userData = user.toJson();
+      if (userData['hashed_password'] != null) {
+        userData['hashed_password'] = Hashing.hashString(userData['hashed_password']);
+      }
+      
       final response = await client
           .from('users')
-          .insert(user.toJson())
+          .insert(userData)
           .select()
           .single();
       

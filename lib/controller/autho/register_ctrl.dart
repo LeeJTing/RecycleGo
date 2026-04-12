@@ -71,7 +71,7 @@ class RegisterCtrl {
         final newUserRequest = Users(
           userName: name,
           email: email,
-          countryCallingCode: countryCode,
+          countryCallingCode: phone.isNotEmpty ? null : countryCode,
           phone: phone.isNotEmpty ? phone : null,
           totalPoints: 0,
           accountStatus: 'active',

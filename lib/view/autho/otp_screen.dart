@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
@@ -9,8 +10,8 @@ class OtpScreen extends StatefulWidget {
   final VoidCallback onVerified;
 
   const OtpScreen({
-    super.key, 
-    required this.email, 
+    super.key,
+    required this.email,
     required this.onVerified
   });
 
@@ -21,6 +22,47 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> {
   final TextEditingController otpCtrl = TextEditingController();
   final OtpService _otpService = OtpService();
+  
+  Timer? _timer;
+  int _start = 120; // 2 minutes in seconds
+  bool _isResendDisabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _start = 120;
+    _isResendDisabled = true;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_start == 0) {
+        setState(() {
+          _isResendDisabled = false;
+          timer.cancel();
+        });
+      } else {
+        setState(() {
+          _start--;
+        });
+      }
+    });
+  }
+
+  String get _timerText {
+    int minutes = _start ~/ 60;
+    int seconds = _start % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    otpCtrl.dispose();
+    super.dispose();
+  }
 
   void _verifyOtp() async {
     final res = await TaskRunner.run<bool>(
@@ -28,8 +70,8 @@ class _OtpScreenState extends State<OtpScreen> {
       loadingMessage: "Verifying OTP...",
       successMessage: "Email verified successfully!",
       task: () async {
-        bool isVerified = _otpService.verifyOtp(otpCtrl.text.trim());
-        if (!isVerified) throw 'Invalid OTP code. Please check and try again.';
+        bool isValid = await _otpService.verifyOtp(widget.email, otpCtrl.text);
+        if (!isValid) throw 'Invalid or expired OTP code';
         return true;
       },
     );
@@ -81,8 +123,16 @@ class _OtpScreenState extends State<OtpScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+              Text(
+                'Code expires in: $_timerText',
+                style: TextStyle(
+                  color: _start < 30 ? Colors.red : theme.onHint,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 48),
-              
+
               TextField(
                 controller: otpCtrl,
                 keyboardType: TextInputType.number,
@@ -97,14 +147,14 @@ class _OtpScreenState extends State<OtpScreen> {
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: theme.primary, width: 3)),
                 ),
               ),
-              
+
               const SizedBox(height: 50),
-              
+
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
-                  onPressed: _verifyOtp,
+                  onPressed: _start > 0 ? _verifyOtp : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
                     foregroundColor: theme.onPrimary,
@@ -114,24 +164,31 @@ class _OtpScreenState extends State<OtpScreen> {
                   child: Text('Verify & Register', style: TextDesign.buttonText(fontSize: 18)),
                 ),
               ),
-              
+
               const SizedBox(height: 30),
               TextButton(
-                onPressed: () async {
-                  await TaskRunner.run<bool>(
-                    context: context,
-                    loadingMessage: "Resending OTP...",
-                    successMessage: "New code sent to ${widget.email}",
-                    task: () async {
-                      bool sent = await _otpService.sendOtp(widget.email);
-                      if (!sent) throw 'Failed to resend code';
-                      return true;
+                onPressed: _isResendDisabled 
+                  ? null 
+                  : () async {
+                      await TaskRunner.run<bool>(
+                        context: context,
+                        loadingMessage: "Resending OTP...",
+                        successMessage: "New code sent to ${widget.email}",
+                        task: () async {
+                          bool sent = await _otpService.sendOtp(widget.email);
+                          if (!sent) throw 'Failed to resend code';
+                          _startTimer(); // Restart timer on success
+                          return true;
+                        },
+                      );
                     },
-                  );
-                },
                 child: Text(
-                  "Didn't receive code? Resend",
-                  style: TextDesign.smallText(color: theme.primary).copyWith(fontWeight: FontWeight.bold),
+                  _isResendDisabled 
+                    ? "Resend code in $_start s" 
+                    : "Didn't receive code? Resend",
+                  style: TextDesign.smallText(
+                    color: _isResendDisabled ? theme.onHint : theme.primary
+                  ).copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
