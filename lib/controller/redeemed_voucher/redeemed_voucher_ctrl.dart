@@ -96,4 +96,38 @@ class RedeemVoucherCtrl {
   List<RedeemedVouchers> getVouchersByStatus(RedeemedVoucherStatus status) {
     return redeemedVouchers.where((v) => v.voucherStatus == status).toList();
   }
+
+  // Generate next sequential voucher code globally (unique across all vouchers)
+  Future<String> generateNextVoucherCode(String voucherId) async {
+    try {
+      // Fetch ALL redeemed vouchers (to find globally highest sequence)
+      await fetchRedeemedVouchers();
+      
+      // Base prefix for voucher codes
+      const basePrefix = '44444444-4444-4444-4444-';
+      
+      // Find the highest existing sequence number globally
+      int maxSequence = 0;
+      
+      for (var voucher in redeemedVouchers) {
+        // Extract the last 12 digits (sequence number)
+        final code = voucher.voucherCode;
+        if (code.startsWith(basePrefix)) {
+          final sequencePart = code.substring(basePrefix.length);
+          final sequence = int.tryParse(sequencePart) ?? 0;
+          if (sequence > maxSequence) {
+            maxSequence = sequence;
+          }
+        }
+      }
+      
+      // Generate next code with incremented sequence
+      final nextSequence = maxSequence + 1;
+      final sequenceStr = nextSequence.toString().padLeft(12, '0');
+      final generatedCode = '$basePrefix$sequenceStr';
+      return generatedCode;
+    } catch (e) {
+      throw Exception('Failed to generate voucher code: $e');
+    }
+  }
 }

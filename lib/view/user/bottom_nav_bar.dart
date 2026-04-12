@@ -40,7 +40,7 @@ class BottomNavBar extends StatelessWidget {
           ),
           SalomonBottomBarItem(
             icon: const Icon(Icons.card_giftcard),
-            title: const Text("Rewards"),
+            title: const Text("Voucher"),
           ),
           SalomonBottomBarItem(
             icon: const Icon(Icons.person),
