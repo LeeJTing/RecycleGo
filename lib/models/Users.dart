@@ -89,6 +89,19 @@ class UsersModel extends Connector {
     return null;
   }
 
+  Future<bool?> userIsActive(String email) async {
+    final response = await client
+        .from('users')
+        .select('account_status')
+        .eq('email', email)
+        .maybeSingle();
+
+    if (response != null) {
+      return response['account_status'] == 'active';
+    }
+    return null;
+  }
+
   Future<bool> emailIsExist(String email) async {
     final response = await client
         .from('users')

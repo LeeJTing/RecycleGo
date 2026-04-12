@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:recycle_go/app/TextDesign.dart';
+import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/models/Admins.dart';
@@ -32,34 +34,47 @@ class LoginCtrl {
     Loading.show(context);
 
     try {
-      // 1. Authenticate as User
-      final user = await _usersModel.authenticate(email, password);
+      // 1. Check User Account status and authenticate
+      bool? isUserActive = await _usersModel.userIsActive(email);
 
-      if (user != null) {
-        if (context.mounted) {
-          Provider.of<UserProvider>(context, listen: false).setUser(user);
-          Loading.hide(context);
-          Navigator.pushReplacementNamed(context, Routes.userHomePage);
+      if (isUserActive == true) {
+        final user = await _usersModel.authenticate(email, password);
+
+        if (user != null) {
+          if (context.mounted) {
+            Provider.of<UserProvider>(context, listen: false).setUser(user);
+            Loading.hide(context);
+            Navigator.pushReplacementNamed(context, Routes.userHomePage);
+          }
+          return;
         }
-        return;
       }
 
-      // 2. Authenticate as Admin
-      final admin = await _adminsModel.authenticate(email, password);
+      // 2. Check Admin Account status and authenticate
+      bool? isAdminActive = await _adminsModel.adminIsActive(email);
+      if (isAdminActive == true) {
+        final admin = await _adminsModel.authenticate(email, password);
 
-      if (admin != null) {
-        if (context.mounted) {
-          Provider.of<AdminProvider>(context, listen: false).setAdmin(admin);
-          Loading.hide(context);
-          Navigator.pushReplacementNamed(context, Routes.adminHome);
+        if (admin != null) {
+          if (context.mounted) {
+            Provider.of<AdminProvider>(context, listen: false).setAdmin(admin);
+            Loading.hide(context);
+            Navigator.pushReplacementNamed(context, Routes.adminHome);
+          }
+          return;
         }
-        return;
       }
 
-      // 3. No match found
+      // 3. Handle Inactive Accounts or Invalid Credentials
       if (context.mounted) {
         Loading.hide(context);
-        _showError(context, "Email not found or password does not match");
+
+        // If either status is explicitly false, the account exists but is inactive
+        if (isUserActive == false || isAdminActive == false) {
+          _showError(context, "This account is inactive. Please contact support.");
+        } else {
+          _showError(context, "Email not found or password does not match");
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -70,10 +85,19 @@ class LoginCtrl {
   }
 
   void _showError(BuildContext context, String message) {
+    final theme = AppThemes.color;
+    final size = MediaQuery.of(context).size;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.redAccent,
+        content: Text(
+          message,
+          style: TextDesign.normalText(color: theme.onError),
+        ),
+        backgroundColor: theme.error,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(size.width * 0.05),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
