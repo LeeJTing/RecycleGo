@@ -1,4 +1,5 @@
 import 'package:recycle_go/models/Connector.dart';
+import 'package:recycle_go/utils/hashing.dart';
 
 class Admins {
   final String? adminId;
@@ -45,17 +46,44 @@ class Admins {
 }
 
 class AdminsModel extends Connector {
+  static final AdminsModel _instance = AdminsModel._internal();
+  AdminsModel._internal();
+  factory AdminsModel() => _instance;
+
   Future<Admins?> authenticate(String email, String password) async {
+    final String hashedPassword = Hashing.hashString(password);
     final response = await client
         .from('admins')
         .select()
         .eq('email', email)
-        .eq('hashed_password', password)
+        .eq('hashed_password', hashedPassword)
         .maybeSingle();
 
     if (response != null) {
       return Admins.fromJson(response);
     }
     return null;
+  }
+
+  Future<bool?> adminIsActive(String email) async {
+    final response = await client
+        .from('admins')
+        .select('admin_status')
+        .eq('email', email)
+        .maybeSingle();
+
+    if (response != null) {
+      return response['admin_status'] == 'active';
+    }
+    return null;
+  }
+
+  Future<bool> emailIsExist(String email) async {
+    final response = await client
+        .from('admins')
+        .select('email')
+        .eq('email', email);
+
+    return response.isNotEmpty;
   }
 }
