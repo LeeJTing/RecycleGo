@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
-import 'package:recycle_go/view/user/bottom_nav_bar.dart';
 import 'package:recycle_go/view/user/homePage/widgets/home_header.dart';
 import 'package:recycle_go/view/user/homePage/widgets/score_cards.dart';
 import 'package:recycle_go/view/user/homePage/widgets/scan_button.dart';
@@ -15,7 +14,6 @@ class UserHomeScreen extends StatefulWidget {
 }
 
 class _UserHomeScreenState extends State<UserHomeScreen> with TickerProviderStateMixin {
-  int _currentIndex = 0;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -55,14 +53,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> with TickerProviderStat
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-      ),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SafeArea(

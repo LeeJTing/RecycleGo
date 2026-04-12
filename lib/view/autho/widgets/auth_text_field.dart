@@ -12,6 +12,9 @@ class AuthTextField extends StatelessWidget {
   final Color? borderColor;
   final String? errorText;
   final Function(String)? onChanged;
+  final bool? readOnly;
+  final bool? filled;
+  final Color? fillColor;
 
   const AuthTextField({
     super.key,
@@ -24,6 +27,8 @@ class AuthTextField extends StatelessWidget {
     this.borderColor,
     this.errorText,
     this.onChanged,
+    this.readOnly, this.filled,
+    this.fillColor,
   });
 
   @override
@@ -45,12 +50,15 @@ class AuthTextField extends StatelessWidget {
             ],
           ),
           child: TextField(
+            readOnly: readOnly ?? false,
             controller: controller,
             onChanged: onChanged,
             obscureText: obscureText,
             keyboardType: keyboardType,
             style: TextDesign.normalText(fontSize: 14),
             decoration: InputDecoration(
+              filled: filled ?? false,
+              fillColor: fillColor ?? theme.surface,
               hintText: hintText,
               hintStyle: TextDesign.hintText(color: theme.onHint, fontSize: 14),
               prefixIcon: prefixIcon,
