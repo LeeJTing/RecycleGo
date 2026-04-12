@@ -20,6 +20,8 @@ import 'package:recycle_go/view/user/profile/edit_profile_screen.dart';
 import 'package:recycle_go/view/recycle/map_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+import 'package:recycle_go/view/user/user_shell.dart';
+import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,17 +66,18 @@ class _MainAppState extends State<MainApp> {
       routes: {
         Routes.login: (context) => const LoginScreen(),
         Routes.register: (context) => const RegisterScreen(),
-        Routes.userHomePage: (context) => const UserMainScreen(initialIndex: 0),
-        Routes.userProfile: (context) => const UserMainScreen(initialIndex: 4),
+        Routes.userHomePage: (context) => const UserShellScreen(),
+        Routes.userProfile: (context) => const ProfileScreen(),
         Routes.adminHome: (context) => const AdminHome(),
         Routes.adminPurchaseDetail: (context) => const AdminPurchaseDetail(purchase: {}, items: []),
         Routes.adminPurchaseUpdate: (context) => const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
         Routes.adminViewInventory: (context) => const AdminViewInventory(),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
-        Routes.adminUpdateInventory: (context) => AdminUpdateInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0)),
-        Routes.map: (context) => const UserMainScreen(initialIndex: 2),
-        Routes.qrScan: (context) => const UserMainScreen(initialIndex: 1),
+        Routes.adminUpdateInventory: (context) =>
+        AdminUpdateInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0)),
+        Routes.map: (context) => const MapScreen(),
+        Routes.qrScan: (context) => const QrScanScreen(),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
         Routes.adminVoucherManagement: (context) => const AdminVoucherManagement(),
       },

@@ -15,6 +15,7 @@ import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/widgets/voucher_card.dart';
 import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart';
 import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
+import 'package:recycle_go/utils/async_task_runner.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -63,7 +64,10 @@ class _AdminHomeState extends State<AdminHome> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: size.width * 0.02, vertical: size.height * 0.01),
+          padding: EdgeInsets.symmetric(
+            horizontal: size.width * 0.02,
+            vertical: size.height * 0.01,
+          ),
           child: SalomonBottomBar(
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),
@@ -161,7 +165,7 @@ class _AdminHomeState extends State<AdminHome> {
           ), // Moves the button away from the screen edge
           child: IconButton(
             onPressed: () {
-              print("Profile Clicked");
+              // Profile button
             },
             icon: CircleAvatar(
               radius: 22,
@@ -195,8 +199,6 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   final VoucherCtrl _voucherCtrl = VoucherCtrl();
   List<Vouchers> _sampleVouchers = [];
-  bool _isLoading = true;
-  String? _errorMessage;
 
   @override
   void initState() {
@@ -207,20 +209,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _loadData() async {
     try {
       await _voucherCtrl.fetchVouchers();
-      setState(() {
-        _sampleVouchers = _voucherCtrl.vouchers.take(1).toList();
-        _isLoading = false;
-        _errorMessage = null;
-      });
+
+      if (_voucherCtrl.vouchers.isNotEmpty) {
+        setState(() {
+          _sampleVouchers = _voucherCtrl.vouchers.take(1).toList();
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString();
-      });
       if (mounted) {
+        final theme = AppThemes.color;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading data: ${e.toString()}'),
+            content: const Text('Error loading vouchers'),
+            backgroundColor: theme.error,
             duration: const Duration(seconds: 5),
           ),
         );
@@ -270,6 +271,133 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             child: const Text("Verify Recycle Item"),
           ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  "Available Vouchers",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: theme.onSurface,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AdminVoucherManagement(),
+                    ),
+                  );
+                },
+                child: Text(
+                  "View All",
+                  style: TextStyle(
+                    color: theme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_sampleVouchers.isEmpty)
+            Center(
+              child: Text(
+                "No vouchers available",
+                style: TextStyle(color: theme.hint),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _sampleVouchers.length,
+              itemBuilder: (context, index) {
+                return VoucherCard(
+                  voucher: _sampleVouchers[index],
+                  theme: theme,
+                  onEdit: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AdminEditVoucher(
+                          voucher: _sampleVouchers[index],
+                          index: index,
+                        ),
+                      ),
+                    );
+                    if (result == true) {
+                      _loadVouchers();
+                    }
+                  },
+                  onDelete: () {
+                    showDeleteVoucherDialog(
+                      context: context,
+                      voucher: _sampleVouchers[index],
+                      voucherCtrl: _voucherCtrl,
+                      onDeleted: _loadVouchers,
+                    );
+                  },
+                  onToggleStatus: () async {
+                    try {
+                      await _voucherCtrl.toggleVoucherStatus(
+                        _sampleVouchers[index].voucherId ?? '',
+                      );
+
+                      if (!mounted) return;
+
+                      await _loadVouchers();
+
+                      if (!mounted) return;
+
+                      final newStatus = _voucherCtrl.vouchers
+                          .firstWhere(
+                            (v) =>
+                                v.voucherId == _sampleVouchers[index].voucherId,
+                          )
+                          .voucherStatus;
+                      final message =
+                          (newStatus ?? '').toLowerCase() == 'active'
+                          ? 'Voucher activated'
+                          : 'Voucher inactivated';
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(message),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    } catch (e) {
+                      if (mounted) {
+                        final theme = AppThemes.color;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: theme.error,
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  onViewDetails: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AdminVoucherDetails(
+                          voucher: _sampleVouchers[index],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
         ],
       ),
     );
