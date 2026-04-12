@@ -1,7 +1,7 @@
 class Validators {
   /// Validates full name: Only letters and spaces allowed.
   static bool isValidName(String name) {
-    if (name.isEmpty) return false;
+    if (name.isEmpty || name.trim().isEmpty) return false;
     final nameRegExp = RegExp(r'^[a-zA-Z\s]+$');
     return nameRegExp.hasMatch(name);
   }
