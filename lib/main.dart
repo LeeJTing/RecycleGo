@@ -20,6 +20,7 @@ import 'package:recycle_go/view/profile/profile_screen.dart';
 import 'package:recycle_go/view/recycle/map_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+import 'package:recycle_go/view/user/homePage/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,7 +58,7 @@ class _MainAppState extends State<MainApp> {
       routes: {
         Routes.login: (context) => const LoginScreen(),
         Routes.register: (context) => const RegisterScreen(),
-        Routes.userHomePage: (context) => const HomePage(),
+        Routes.userHomePage: (context) => const UserHomeScreen(),
         Routes.userProfile: (context) => const ProfileScreen(),
         Routes.adminHome: (context) => const AdminHome(),
         Routes.adminPurchaseDetail: (context) =>
@@ -78,22 +79,22 @@ class _MainAppState extends State<MainApp> {
   }
 }
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final user = Provider.of<UserProvider>(context).user;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(user?.userName ?? 'User')),
-      body: Center(
-        child: Text(
-          l10n?.hello_world ?? 'Hello World!',
-          style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-}
+// class HomePage extends StatelessWidget {
+//   const HomePage({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final l10n = AppLocalizations.of(context);
+//     final user = Provider.of<UserProvider>(context).user;
+//
+//     return Scaffold(
+//       appBar: AppBar(title: Text(user?.userName ?? 'User')),
+//       body: Center(
+//         child: Text(
+//           l10n?.hello_world ?? 'Hello World!',
+//           style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+//         ),
+//       ),
+//     );
+//   }
+// }

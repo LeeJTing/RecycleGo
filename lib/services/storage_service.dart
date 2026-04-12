@@ -5,6 +5,8 @@ import 'package:recycle_go/services/supabase_service.dart';
 class StorageService {
   final SupabaseClient _client = SupabaseService().client;
 
+  static const String url = 'https://ngcrvuzbxzwinnzmcwxj.supabase.co/storage/v1/object/public/';
+
   /// Uploads an image to a specified Supabase bucket.
   /// [bucketName]: The name of the storage bucket.
   /// [path]: The destination path inside the bucket (e.g., 'profiles/user123.jpg').

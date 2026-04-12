@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:recycle_go/app/app_theme.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
 class BottomNavBar extends StatelessWidget {
@@ -9,6 +10,8 @@ class BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppThemes.color;
+    Size size = MediaQuery.of(context).size;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -19,9 +22,9 @@ class BottomNavBar extends StatelessWidget {
       child: SalomonBottomBar(
         currentIndex: currentIndex,
         onTap: onTap,
-        selectedItemColor: const Color(0xFF1DC964),
+        selectedItemColor: theme.primary,
         unselectedItemColor: Colors.black54,
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        margin: EdgeInsets.symmetric(horizontal: size.width * 0.02, vertical: 10),
         items: [
           SalomonBottomBarItem(
             icon: const Icon(Icons.home_max_outlined),
