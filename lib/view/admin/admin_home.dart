@@ -16,6 +16,8 @@ import 'package:recycle_go/widgets/voucher_card.dart';
 import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart';
 import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
 
+import 'admin_dashboard.dart';
+
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
 
@@ -184,93 +186,3 @@ class _AdminHomeState extends State<AdminHome> {
   }
 }
 
-class AdminDashboard extends StatelessWidget {
-  const AdminDashboard({super.key});
-
-  @override
-  State<AdminDashboard> createState() => _AdminDashboardState();
-}
-
-class _AdminDashboardState extends State<AdminDashboard> {
-  final VoucherCtrl _voucherCtrl = VoucherCtrl();
-  List<Vouchers> _sampleVouchers = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    try {
-      await _voucherCtrl.fetchVouchers();
-      setState(() {
-        _sampleVouchers = _voucherCtrl.vouchers.take(1).toList();
-        _isLoading = false;
-        _errorMessage = null;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString();
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading data: ${e.toString()}'),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _loadVouchers() async {
-    await _loadData();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppThemes.color;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            decoration: InputDecoration(
-              hintText: "Search by ID or User...",
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              fillColor: theme.onPrimary,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const VerifyRecycleItem()),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text("Verify Recycle Item"),
-          ),
-        ],
-      ),
-    );
-  }
-}

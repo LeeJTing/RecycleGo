@@ -16,13 +16,23 @@ class TaskRunner {
     );
 
     try {
-      final result = await task();
+      late T result;
 
-      // Close loading
-      Navigator.of(context).pop();
+      // 🔹 Run the task AND a 2-second delay at the exact same time.
+      // This guarantees the loading screen shows for AT LEAST 2 seconds,
+      // preventing "flickering" if the task finishes instantly.
+      await Future.wait([
+        task().then((value) => result = value),
+        Future.delayed(const Duration(seconds: 1)),
+      ]);
+
+      // Close loading dialog safely
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
 
       // Show success dialog (optional)
-      if (showSuccessDialog) {
+      if (showSuccessDialog && context.mounted) {
         await showDialog(
           context: context,
           builder: (_) => _SuccessDialog(message: successMessage),
@@ -31,17 +41,21 @@ class TaskRunner {
 
       return result;
     } catch (e) {
-      Navigator.of(context).pop();
+      // Close loading dialog safely on error
+      if (context.mounted) {
+        Navigator.of(context).pop();
 
-      // Show error snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+        // Show error snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
 
       return null;
     }
   }
 }
+
 class _LoadingDialog extends StatelessWidget {
   final String message;
 

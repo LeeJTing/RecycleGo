@@ -22,7 +22,6 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
   late TextEditingController weightController;
   late TextEditingController descController;
 
-  bool _isUpdating = false;
   @override
   void initState() {
     super.initState();

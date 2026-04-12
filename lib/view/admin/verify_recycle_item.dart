@@ -69,10 +69,6 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       labels = labelsData.split('\n').map((e) => e.trim().toLowerCase()).toList();
       interpreter = await Interpreter.fromAsset('assets/models/model.tflite');
 
-      // 🕵️ ADD THESE TWO LINES TO ASK THE MODEL WHAT IT WANTS:
-      debugPrint("🧠 EXPECTED INPUT SHAPE: ${interpreter!.getInputTensor(0).shape}");
-      debugPrint("🧠 EXPECTED OUTPUT SHAPE: ${interpreter!.getOutputTensor(0).shape}");
-
       setState(() => isLoaded = true);
     } catch (e) {
       debugPrint("Model Load Error: $e");
