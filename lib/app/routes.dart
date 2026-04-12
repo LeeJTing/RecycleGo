@@ -16,6 +16,7 @@ class Routes {
   static const String adminViewInventory = '/admin/inventory/view';
   static const String adminAddInventory = '/admin/inventory/add';
   static const String adminUpdateInventory = 'admin/inventory/update';
+  static const String adminRecycleCategory = 'admin/recycle_category';
 
   static const String map = '/map';
   static const String stationDetail = '/station-detail';

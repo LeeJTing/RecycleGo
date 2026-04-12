@@ -1,5 +1,6 @@
+cardboard
 glass
 metal
 paper
 plastic
-general_waste
+trash

@@ -24,12 +24,11 @@ class AdminHome extends StatefulWidget {
 }
 
 class _AdminHomeState extends State<AdminHome> {
-  // Keeps track of the active tab
-  int _currentIndex = 1; // Default to 'Verify' as per your UI
+  int _currentIndex = 0; // Default to 'Verify' as per your UI
   final _supabase = SupabaseService().client;
   // A list of the different 'Bodies' for each navigation button
   final List<Widget> _pages = [
-    const AdminDashboard(),
+    const AdminDashboard(), //AdminDashboard()
     const AdminInventory(),
     const RequestAdmin(),
     const AdminViewPurchase(),
@@ -42,17 +41,14 @@ class _AdminHomeState extends State<AdminHome> {
 
     return Scaffold(
       backgroundColor: theme.surface,
-      // 1. FIXED HEADER
       appBar: appBar(theme),
-
-      // 2. DYNAMIC BODY (This is the only part that changes)
       body: _pages[_currentIndex],
-
       bottomNavigationBar: bottomNavigator(theme),
     );
   }
 
   Container bottomNavigator(AppColors theme) {
+    Size size = MediaQuery.of(context).size;
     return Container(
       decoration: BoxDecoration(
         color: theme.surface,
@@ -67,15 +63,15 @@ class _AdminHomeState extends State<AdminHome> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: size.width * 0.02, vertical: size.height * 0.01),
           child: SalomonBottomBar(
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),
             selectedItemColor: theme.primary,
             unselectedItemColor: theme.hint,
-            itemPadding: const EdgeInsets.symmetric(
-              vertical: 10,
-              horizontal: 16,
+            itemPadding: EdgeInsets.symmetric(
+              vertical: size.height * 0.02,
+              horizontal: size.width * 0.02,
             ),
             items: [
               SalomonBottomBarItem(
@@ -128,6 +124,7 @@ class _AdminHomeState extends State<AdminHome> {
 
   AppBar appBar(AppColors theme) {
     return AppBar(
+      automaticallyImplyLeading: false,
       title: Row(
         children: [
           IconButton(
@@ -188,7 +185,6 @@ class _AdminHomeState extends State<AdminHome> {
   }
 }
 
-// Separate widget for the 'Verify' body to keep code clean
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
@@ -256,188 +252,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-
-          // Vouchers Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Vouchers', style: TextDesign.appBarTitle()),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AdminVoucherManagement(),
-                    ),
-                  );
-                },
-                child: Text(
-                  'View All',
-                  style: TextStyle(
-                    color: theme.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const VerifyRecycleItem()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (_errorMessage != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Error loading vouchers:',
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red[700], fontSize: 12),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: _loadData,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          else if (_sampleVouchers.isEmpty)
-            Center(
-              child: Text(
-                'No vouchers available',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            )
-          else
-            Column(
-              children: _sampleVouchers.map((voucher) {
-                return VoucherCard(
-                  voucher: voucher,
-                  theme: theme,
-                  showIcon: true,
-                  showDescription: true,
-                  showCreatedDate: false,
-                  showDuration: false,
-                  onToggleStatus: () async {
-                    try {
-                      final wasActive = voucher.voucherStatus == 'active';
-                      await _voucherCtrl.toggleVoucherStatus(
-                        voucher.voucherId ?? '',
-                      );
-                      await _voucherCtrl.fetchVouchers();
-                      setState(() {
-                        _sampleVouchers = _voucherCtrl.vouchers
-                            .take(1)
-                            .toList();
-                      });
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              wasActive
-                                  ? 'Voucher inactivated'
-                                  : 'Voucher activated',
-                            ),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: ${e.toString()}')),
-                        );
-                      }
-                    }
-                  },
-                  onEdit: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AdminEditVoucher(voucher: voucher, index: 0),
-                      ),
-                    ).then((_) => _loadVouchers());
-                  },
-                  onDelete: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: const Text('Delete Voucher'),
-                          content: Text(
-                            'Are you sure you want to delete "${voucher.voucherName}"?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                Navigator.pop(context);
-                                try {
-                                  await _voucherCtrl.deleteVoucher(
-                                    voucher.voucherId ?? '',
-                                  );
-                                  await _loadVouchers();
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Voucher deleted successfully',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Error: ${e.toString()}'),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              child: const Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                  onViewDetails: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AdminVoucherDetails(voucher: voucher),
-                      ),
-                    );
-                  },
-                );
-              }).toList(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
+            child: const Text("Verify Recycle Item"),
+          ),
         ],
       ),
     );
