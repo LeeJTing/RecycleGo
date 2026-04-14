@@ -37,7 +37,9 @@ class Users {
       profilePhoto: json['profile_photo'],
       totalPoints: json['total_points'] ?? 0,
       accountStatus: json['account_status'],
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
       hashedPassword: json['hashed_password'],
     );
   }
@@ -53,10 +55,10 @@ class Users {
       'account_status': accountStatus,
       'hashed_password': hashedPassword,
     };
-    
+
     if (userId != null) data['user_id'] = userId;
     if (createdAt != null) data['created_at'] = createdAt!.toIso8601String();
-    
+
     return data;
   }
 
@@ -106,7 +108,6 @@ class UsersModel extends Connector {
         return Users.fromJson(response);
       }
     } catch (e) {
-      print('DEBUG: Users authentication error: $e');
     }
     return null;
   }
@@ -137,22 +138,23 @@ class UsersModel extends Connector {
     try {
       final Map<String, dynamic> userData = user.toJson();
       if (userData['hashed_password'] != null) {
-        userData['hashed_password'] = Hashing.hashString(userData['hashed_password']);
+        userData['hashed_password'] = Hashing.hashString(
+          userData['hashed_password'],
+        );
       }
-      
+
       final response = await client
           .from('users')
           .insert(userData)
           .select()
           .single();
-      
+
       final newUser = Users.fromJson(response);
-      
+
       await UserSettingsModel().createUserSetting(newUser.userId!);
 
       return newUser;
     } catch (e) {
-      print('DEBUG: Create user error: $e');
       rethrow;
     }
   }
