@@ -129,8 +129,6 @@ Don't miss out! 🎁
 
       return 'Gallery'; // Return success indicator
     } catch (e) {
-      print('ERROR saving to gallery: $e');
-      print('ERROR type: ${e.runtimeType}');
       return null;
     }
   }

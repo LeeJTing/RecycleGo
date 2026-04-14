@@ -15,6 +15,7 @@ import 'package:recycle_go/view/admin/admin_purchase_update.dart';
 import 'package:recycle_go/view/admin/admin_view_inventory.dart';
 import 'package:recycle_go/view/admin/admin_update_inventory.dart';
 import 'package:recycle_go/view/autho/register_screen.dart';
+import 'package:recycle_go/view/user/profile/profile_screen.dart';
 import 'package:recycle_go/view/user/user_main_screen.dart';
 import 'package:recycle_go/view/user/profile/edit_profile_screen.dart';
 import 'package:recycle_go/view/recycle/map_screen.dart';

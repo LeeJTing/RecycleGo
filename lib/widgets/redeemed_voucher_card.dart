@@ -18,6 +18,8 @@ class RedeemedVoucherCard extends StatelessWidget {
 
   String _getStatusLabel() {
     switch (redeemedVoucher.voucherStatus) {
+      case RedeemedVoucherStatus.pending:
+        return 'Pending';
       case RedeemedVoucherStatus.unused:
         return 'Unused';
       case RedeemedVoucherStatus.used:
@@ -29,6 +31,8 @@ class RedeemedVoucherCard extends StatelessWidget {
 
   Color _getStatusColor() {
     switch (redeemedVoucher.voucherStatus) {
+      case RedeemedVoucherStatus.pending:
+        return Colors.amber;
       case RedeemedVoucherStatus.unused:
         return Colors.orange;
       case RedeemedVoucherStatus.used:
@@ -40,6 +44,8 @@ class RedeemedVoucherCard extends StatelessWidget {
 
   IconData _getStatusIcon() {
     switch (redeemedVoucher.voucherStatus) {
+      case RedeemedVoucherStatus.pending:
+        return Icons.schedule;
       case RedeemedVoucherStatus.unused:
         return Icons.pending;
       case RedeemedVoucherStatus.used:
@@ -142,7 +148,13 @@ class RedeemedVoucherCard extends StatelessWidget {
                 children: [
                   PopupMenuButton<String>(
                     onSelected: (value) {
-                      if (value == 'unused') {
+                      if (value == 'pending') {
+                        // Change status to pending
+                        _showStatusChangeDialog(
+                          context,
+                          RedeemedVoucherStatus.pending,
+                        );
+                      } else if (value == 'unused') {
                         // Change status to unused
                         _showStatusChangeDialog(
                           context,
@@ -161,6 +173,13 @@ class RedeemedVoucherCard extends StatelessWidget {
                       }
                     },
                     itemBuilder: (BuildContext context) => [
+                      PopupMenuItem(
+                        value: 'pending',
+                        enabled:
+                            redeemedVoucher.voucherStatus !=
+                            RedeemedVoucherStatus.pending,
+                        child: const Text('Mark as Pending'),
+                      ),
                       PopupMenuItem(
                         value: 'unused',
                         enabled:
@@ -238,6 +257,8 @@ class RedeemedVoucherCard extends StatelessWidget {
 
   String _getStatusLabelForEnum(RedeemedVoucherStatus status) {
     switch (status) {
+      case RedeemedVoucherStatus.pending:
+        return 'Pending';
       case RedeemedVoucherStatus.unused:
         return 'Unused';
       case RedeemedVoucherStatus.used:

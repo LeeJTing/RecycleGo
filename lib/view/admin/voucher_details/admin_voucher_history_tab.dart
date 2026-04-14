@@ -357,6 +357,8 @@ class AdminVoucherHistoryTab extends StatelessWidget {
 
   Color _getStatusColor(RedeemedVoucherStatus status) {
     switch (status) {
+      case RedeemedVoucherStatus.pending:
+        return Colors.amber;
       case RedeemedVoucherStatus.unused:
         return Colors.orange;
       case RedeemedVoucherStatus.used:
