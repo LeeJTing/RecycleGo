@@ -11,6 +11,7 @@ import 'package:recycle_go/services/otp_service.dart';
 import 'package:recycle_go/utils/hashing.dart';
 import 'package:recycle_go/utils/loading.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginCtrl {
   static final LoginCtrl _instance = LoginCtrl._internal();
@@ -101,6 +102,68 @@ class LoginCtrl {
     }
   }
 
+  Future<void> signInWithGoogle(BuildContext context) async {
+    Loading.show(context);
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Attempt Google Sign In
+      // Note: This requires Google Auth to be enabled in Supabase Dashboard
+      // and potentially additional platform-specific configuration (OAuth 2.0 Client IDs)
+      final bool success = await supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'io.supabase.recyclego://login-callback', // Replace with your deep link
+      );
+
+      if (!success) {
+        if (context.mounted) {
+          Loading.hide(context);
+          _showError(context, "Google Sign In failed to initialize");
+        }
+        return;
+      }
+
+      // After redirect back to the app, we need to check if the user exists in our DB
+      // Note: In a real app, you'd listen to auth state changes.
+      // For this implementation, we'll assume the user is returned after OAuth.
+      
+      final session = supabase.auth.currentSession;
+      if (session == null || session.user == null) {
+        // Handled by the redirect/auth state listener in most cases
+        return;
+      }
+
+      final String email = session.user!.email!;
+      
+      // Check if user exists in our 'Users' table
+      bool exists = await _usersModel.emailIsExist(email);
+      
+      if (context.mounted) {
+        Loading.hide(context);
+        if (exists) {
+          // Fetch the full user model
+          final response = await _usersModel.client
+              .from('users')
+              .select()
+              .eq('email', email)
+              .single();
+          
+          final user = Users.fromJson(response);
+          Provider.of<UserProvider>(context, listen: false).setUser(user);
+          Navigator.pushReplacementNamed(context, Routes.userHomePage);
+        } else {
+          // Redirect to register with email pre-filled
+          Navigator.pushNamed(context, Routes.register, arguments: email);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Loading.hide(context);
+        _showError(context, "Google Sign In Error: $e");
+      }
+    }
+  }
+
   Future<void> _saveCredentials(String email, String password, String type) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyEmail, email);
@@ -117,6 +180,7 @@ class LoginCtrl {
 
   void signOut(BuildContext context) async {
     await clearCredentials();
+    await Supabase.instance.client.auth.signOut();
     if (context.mounted) {
       Provider.of<UserProvider>(context, listen: false).clearUser();
       Provider.of<AdminProvider>(context, listen: false).clearAdmin();

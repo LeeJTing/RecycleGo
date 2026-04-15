@@ -15,7 +15,7 @@ import 'package:path/path.dart' as path;
 class ProfileCtrl {
   final AchievementModel _achievementModel = AchievementModel();
   final UsersModel _usersModel = UsersModel();
-  final RecyclingSubmissionModel _submissionModel = RecyclingSubmissionModel();
+  final RecycleSubmissionModel _submissionModel = RecycleSubmissionModel();
   final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
 
@@ -24,7 +24,7 @@ class ProfileCtrl {
   }
 
   Future<int> getTotalRecycledItems(String userId) async {
-    return await _submissionModel.getTotalSubmissionsByUserId(userId);
+    return await _submissionModel.getTotalItemsByUserId(userId);
   }
 
   void signOut(BuildContext context) {
