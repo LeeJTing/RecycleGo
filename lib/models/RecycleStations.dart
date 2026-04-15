@@ -110,7 +110,7 @@ class RecycleStation {
         imageUrl: imageUrl ?? this.imageUrl,
       );
 
-  bool get isActive => stationStatus == 'active';
+  bool get isActive => stationStatus == StationStatus.active;
 
   // Distance in km from a given point (Haversine formula)
   double distanceFrom(double lat, double lng) {

@@ -24,7 +24,7 @@ class StationService {
         .from(_table)
         .select()
         .eq('station_status', 'active')
-        .order('station_name');
+        .order('station_name', ascending: true);
 
     return (response as List)
         .map((row) => RecycleStation.fromMap(row as Map<String, dynamic>))

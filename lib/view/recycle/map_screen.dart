@@ -14,6 +14,9 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  final ScrollController _horizontalController = ScrollController();
+  final DraggableScrollableController _sheetController = DraggableScrollableController();
+
   // ── Map controller ────────────────────────────────────────────────
   GoogleMapController? _mapController;
 
@@ -70,6 +73,9 @@ class _MapScreenState extends State<MapScreen> {
         _currentPosition = LatLng(pos.latitude, pos.longitude);
         _locationReady = true;
       });
+
+      print("Location ready: $_locationReady");
+      print("Lat: ${_currentPosition.latitude}, Lng: ${_currentPosition.longitude}");
 
       // Move camera to user location once map is ready
       _mapController?.animateCamera(
@@ -129,8 +135,34 @@ class _MapScreenState extends State<MapScreen> {
               ? BitmapDescriptor.hueGreen
               : BitmapDescriptor.hueOrange,
         ),
-        infoWindow: InfoWindow(title: s.stationName, snippet: s.address),
-        onTap: () => setState(() => _selectedStation = s),
+        infoWindow: InfoWindow(
+          title: s.stationName,
+        ),
+        onTap: () {
+          final index = _filteredStations.indexWhere(
+                (e) => e.stationId == s.stationId,
+          );
+
+          if (index != -1) {
+            _horizontalController.animateTo(
+              index * 260,
+              duration: Duration(milliseconds: 400),
+              curve: Curves.easeInOut,
+            );
+          }
+
+          // 🔥 让底部 sheet 弹上来
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_sheetController.isAttached) {
+              _sheetController.animateTo(
+                0.3,
+                duration: Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+          setState(() => _selectedStation = s);
+        },
       );
     }).toSet();
 
@@ -373,7 +405,7 @@ class _MapScreenState extends State<MapScreen> {
           // ── Map FABs (right side) ───────────────────────────────
           Positioned(
             right: 16,
-            bottom: _selectedStation != null ? 250 : 120,
+            bottom: 180,
             child: Column(
               children: [
                 // My location button
@@ -395,7 +427,7 @@ class _MapScreenState extends State<MapScreen> {
             Positioned(
               left: 0,
               right: 0,
-              bottom: _selectedStation != null ? 242 : 112,
+              bottom: 170,
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -431,30 +463,109 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             ),
+          DraggableScrollableSheet(
+            controller: _sheetController,
+            initialChildSize: 0.15,
+            minChildSize: 0.1,
+            maxChildSize: 0.55,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                ),
+                child: ListView(
+                  controller: scrollController,
+                  children: [
 
-          // ── Bottom station card ─────────────────────────────────
-          if (_selectedStation != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 70,
-              child: _StationCard(
-                station: _selectedStation!,
-                distance: _formatDistance(_selectedStation!),
-                onDirections: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StationDetailScreen(
-                        station: _selectedStation!.toMap()
-                          ..['distance'] =
-                          _formatDistance(_selectedStation!),
+                    // 👇 拖动条
+                    Center(
+                      child: Container(
+                        margin: EdgeInsets.symmetric(vertical: 10),
+                        width: 40,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
+
+                    // 👇 标题
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        "Recycle Station",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 15),
+
+                    // 🔥 横向滑动（重点）
+                    SizedBox(
+                      height: 220,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (scrollInfo) {
+                          final index = (_horizontalController.offset / 260).round();
+
+                          if (index >= 0 && index < _filteredStations.length) {
+                            final s = _filteredStations[index];
+
+                            _mapController?.animateCamera(
+                              CameraUpdate.newLatLng(
+                                LatLng(s.latitude, s.longitude),
+                              ),
+                            );
+
+                            setState(() => _selectedStation = s);
+                          }
+
+                          return true;
+                        },
+                        child: ListView.builder(
+                          controller: _horizontalController, // 别忘了这个
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _filteredStations.length,
+                          itemBuilder: (context, index) {
+                            final s = _filteredStations[index];
+
+                            return GestureDetector(
+                              onTap: () {
+                                _mapController?.animateCamera(
+                                  CameraUpdate.newLatLng(
+                                    LatLng(s.latitude, s.longitude),
+                                  ),
+                                );
+                                setState(() => _selectedStation = s);
+                              },
+                              child: Container(
+                                width: 260,
+                                margin: EdgeInsets.only(left: 16),
+                                child: _StationCard(
+                                  station: s,
+                                  distance: _formatDistance(s),
+                                  onDirections: () {},
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 20),
+                  ],
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
