@@ -32,12 +32,14 @@ class Users {
       userId: json['user_id'],
       userName: json['user_name'],
       email: json['email'],
-      countryCallingCode: json['phone'] == null ? null : json['country_calling_code'],
+      countryCallingCode: json['country_calling_code'],
       phone: json['phone'],
       profilePhoto: json['profile_photo'],
       totalPoints: json['total_points'] ?? 0,
       accountStatus: json['account_status'],
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
       hashedPassword: json['hashed_password'],
     );
   }
@@ -53,13 +55,35 @@ class Users {
       'account_status': accountStatus,
       'hashed_password': hashedPassword,
     };
-    
-    // Do NOT include user_id or created_at if they are null,
-    // let the database handle default values (UUID and TIMESTAMP).
+
     if (userId != null) data['user_id'] = userId;
     if (createdAt != null) data['created_at'] = createdAt!.toIso8601String();
-    
+
     return data;
+  }
+
+  Users copyWith({
+    String? userName,
+    String? email,
+    String? countryCallingCode,
+    String? phone,
+    String? profilePhoto,
+    int? totalPoints,
+    String? accountStatus,
+    String? hashedPassword,
+  }) {
+    return Users(
+      userId: userId,
+      userName: userName ?? this.userName,
+      email: email ?? this.email,
+      countryCallingCode: countryCallingCode ?? this.countryCallingCode,
+      phone: phone ?? this.phone,
+      profilePhoto: profilePhoto ?? this.profilePhoto,
+      totalPoints: totalPoints ?? this.totalPoints,
+      accountStatus: accountStatus ?? this.accountStatus,
+      createdAt: createdAt,
+      hashedPassword: hashedPassword ?? this.hashedPassword,
+    );
   }
 }
 
@@ -84,7 +108,6 @@ class UsersModel extends Connector {
         return Users.fromJson(response);
       }
     } catch (e) {
-      print('DEBUG: Users authentication error: $e');
     }
     return null;
   }
@@ -115,24 +138,34 @@ class UsersModel extends Connector {
     try {
       final Map<String, dynamic> userData = user.toJson();
       if (userData['hashed_password'] != null) {
-        userData['hashed_password'] = Hashing.hashString(userData['hashed_password']);
+        userData['hashed_password'] = Hashing.hashString(
+          userData['hashed_password'],
+        );
       }
-      
+
       final response = await client
           .from('users')
           .insert(userData)
           .select()
           .single();
-      
+
       final newUser = Users.fromJson(response);
-      
-      // Initialize UserSetting for the new user
-      UserSettingsModel().createUserSetting(newUser.userId!);
+
+      await UserSettingsModel().createUserSetting(newUser.userId!);
 
       return newUser;
     } catch (e) {
-      print('DEBUG: Create user error: $e');
-      rethrow; // Rethrow to let TaskRunner show the actual error message
+      rethrow;
     }
+  }
+
+  Future<Users> updateUser(Users user) async {
+    final response = await client
+        .from('users')
+        .update(user.toJson())
+        .eq('user_id', user.userId!)
+        .select()
+        .single();
+    return Users.fromJson(response);
   }
 }

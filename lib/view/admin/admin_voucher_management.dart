@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';

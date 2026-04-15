@@ -4,6 +4,7 @@ class Routes {
 
   static const String adminProfile = '/admin/profile';
   static const String userProfile = '/user/profile';
+  static const String editProfile = '/user/edit-profile';
 
   static const String adminHome = '/admin/homePage';
   static const String userHomePage = '/user/homePage';
