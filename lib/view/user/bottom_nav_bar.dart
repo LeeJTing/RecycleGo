@@ -7,7 +7,11 @@ class BottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
 
-  const BottomNavBar({super.key, required this.currentIndex, required this.onTap});
+  const BottomNavBar({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,9 +20,7 @@ class BottomNavBar extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.black12, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: Colors.black12, width: 0.5)),
       ),
       child: SalomonBottomBar(
         currentIndex: currentIndex,

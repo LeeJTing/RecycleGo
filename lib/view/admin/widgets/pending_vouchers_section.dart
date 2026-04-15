@@ -7,7 +7,8 @@ class PendingVouchersSection extends StatelessWidget {
   final List<RedeemedVouchers> pendingVouchers;
   final AppColors theme;
   final VoidCallback? onViewAll;
-  final VoidCallback? onProcessed;
+  final Future<void> Function()? onProcessed;
+  final int? maxItems;
 
   const PendingVouchersSection({
     super.key,
@@ -15,10 +16,17 @@ class PendingVouchersSection extends StatelessWidget {
     required this.theme,
     this.onViewAll,
     this.onProcessed,
+    this.maxItems,
   });
 
   @override
   Widget build(BuildContext context) {
+    final displayedVouchers = maxItems == null
+        ? pendingVouchers
+        : pendingVouchers.take(maxItems!).toList();
+    final canViewAll =
+        onViewAll != null && pendingVouchers.length > displayedVouchers.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -35,16 +43,17 @@ class PendingVouchersSection extends StatelessWidget {
                 ),
               ),
             ),
-            TextButton(
-              onPressed: onViewAll,
-              child: Text(
-                "View All",
-                style: TextStyle(
-                  color: theme.primary,
-                  fontWeight: FontWeight.w600,
+            if (canViewAll)
+              TextButton(
+                onPressed: onViewAll,
+                child: Text(
+                  "View All",
+                  style: TextStyle(
+                    color: theme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -59,10 +68,10 @@ class PendingVouchersSection extends StatelessWidget {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: pendingVouchers.length,
+            itemCount: displayedVouchers.length,
             itemBuilder: (context, index) {
               return PendingVoucherCard(
-                pendingVoucher: pendingVouchers[index],
+                pendingVoucher: displayedVouchers[index],
                 theme: theme,
                 onProcessed: onProcessed,
               );

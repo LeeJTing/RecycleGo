@@ -106,6 +106,12 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
     final filteredVouchers = getFilteredVouchers();
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('All Vouchers'),
+        backgroundColor: theme.onPrimary,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+      ),
       body: Column(
         children: [
           Padding(

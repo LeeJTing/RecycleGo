@@ -4,7 +4,10 @@ class VoucherHelpers {
   /// Format number with commas (e.g., 1000000 -> 1,000,000)
   static String formatWithCommas(int value) {
     final pattern = RegExp(r'(\d)(?=(\d{3})+$)');
-    return value.toString().replaceAll(pattern, r'$1,');
+    return value.toString().replaceAllMapped(
+      pattern,
+      (match) => '${match.group(1)},',
+    );
   }
 
   /// Get icon for voucher category
