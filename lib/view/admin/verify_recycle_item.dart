@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +11,8 @@ import 'package:image/image.dart' as img;
 import '../../app/TextDesign.dart';
 import '../../app/app_theme.dart';
 import '../../app/assets.dart';
+import '../../models/RecyclingSubmission.dart';
+import '../../utils/async_task_runner.dart';
 
 class VerifyRecycleItem extends StatefulWidget {
   const VerifyRecycleItem({super.key});
@@ -24,6 +27,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   List<CameraDescription> cameras = [];
   Interpreter? interpreter;
   List<String> labels = [];
+  List<Map<String, dynamic>> pendingItems = [];
 
   File? capturedImage;
   List<Map<String, dynamic>> detections = [];
@@ -69,14 +73,89 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       labels = labelsData.split('\n').map((e) => e.trim().toLowerCase()).toList();
       interpreter = await Interpreter.fromAsset('assets/models/model.tflite');
 
-      // 🕵️ ADD THESE TWO LINES TO ASK THE MODEL WHAT IT WANTS:
-      debugPrint("🧠 EXPECTED INPUT SHAPE: ${interpreter!.getInputTensor(0).shape}");
-      debugPrint("🧠 EXPECTED OUTPUT SHAPE: ${interpreter!.getOutputTensor(0).shape}");
-
       setState(() => isLoaded = true);
     } catch (e) {
       debugPrint("Model Load Error: $e");
     }
+  }
+
+  void _saveCurrentItemToPending() {
+    if (capturedImage == null || detections.isEmpty) return;
+
+    final stats = _calculateStats();
+    double currentPoints = stats.values.fold(
+        0.0, (sum, item) => sum + (double.tryParse(item['points']?.toString() ?? '0') ?? 0.0));
+
+    // Create a record for this detection
+    final pendingItem = {
+      'imagePath': capturedImage!.path,   // ✅ stores the file path, not the whole image
+      'detections': List<Map<String, dynamic>>.from(detections),
+      'stats': Map<String, Map<String, dynamic>>.from(stats),
+      'points': currentPoints,
+      'timestamp': DateTime.now(),
+    };
+
+    setState(() {
+      pendingItems.add(pendingItem);
+    });
+
+    // Show feedback and reset camera to take another picture
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Item saved. Total pending: ${pendingItems.length}')),
+    );
+    retakeImage(); // clears capturedImage, returns to camera preview
+  }
+
+  Future<void> _submitAllItems() async {
+    if (pendingItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No items to submit.')),
+      );
+      return;
+    }
+
+    // Calculate total points from all pending items
+    double totalPoints = pendingItems.fold(0.0, (sum, item) => sum + (item['points'] as double));
+
+    // Send each stored image (and its metadata) to the admin backend
+    await _sendToAdmin(pendingItems);
+
+    // Update the user's wallet
+    setState(() {
+      userWallet += totalPoints;
+      pendingItems.clear(); // clear after successful submission
+    });
+
+    // Show success dialog
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Success!'),
+        content: Text('You earned ${totalPoints.toStringAsFixed(2)} points.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendToAdmin(List<Map<String, dynamic>> items) async {
+    // TODO: Replace with actual HTTP request to your backend
+    debugPrint('Sending ${items.length} items to admin...');
+
+    for (var item in items) {
+      String imagePath = item['imagePath'];
+      File imageFile = File(imagePath);          // ✅ retrieve the actual image file
+      // Now you can upload imageFile (e.g., via multipart/form-data)
+      // Also send item['detections'], item['stats'], item['points'], item['timestamp']
+      debugPrint('Uploading image from: $imagePath');
+    }
+
+    await Future.delayed(const Duration(seconds: 1)); // simulate network delay
+    debugPrint('Admin submission complete.');
   }
 
   Future<void> initCamera() async {
@@ -319,7 +398,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
 
           // --- 2. CONFIRMATION MODE (Image captured, waiting for User) ---
           if (capturedImage != null && !hasAnalyzed && !isProcessing)
-            _buildConfirmationUI(),
+            _buildConfirmationUI(theme),
 
           // --- 3. PROCESSING MODE (AI is running) ---
           if (isProcessing)
@@ -428,16 +507,16 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
     );
   }
 
-  Widget _buildConfirmationUI() {
+  Widget _buildConfirmationUI(AppColors theme) {
     return Container(
-      color: const Color(0xFF1C1C1E), // Deep dark background matching your image
+      color: theme.background,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // 1. Captured Image
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 80.0, left: 24.0, right: 24.0, bottom: 40.0),
+              padding: const EdgeInsets.only(top: 80.0, left: 24.0, right: 24.0, bottom: 30.0),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: Image.file(capturedImage!, fit: BoxFit.cover, width: double.infinity),
@@ -445,29 +524,39 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
             ),
           ),
 
-          // 2. Action Buttons
+          // 2. Action Buttons & Close
           Padding(
-            padding: const EdgeInsets.only(bottom: 60.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            padding: const EdgeInsets.only(bottom: 40.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Retake (X)
-                GestureDetector(
-                  onTap: retakeImage,
-                  child: Container(
-                    height: 75, width: 75,
-                    decoration: BoxDecoration(color: const Color(0xFF3A3A3C), borderRadius: BorderRadius.circular(20)),
-                    child: const Icon(Icons.close, color: Colors.white, size: 36),
-                  ),
-                ),
-                // Confirm (✓)
-                GestureDetector(
-                  onTap: confirmAndDetect,
-                  child: Container(
-                    height: 75, width: 75,
-                    decoration: BoxDecoration(color: const Color(0xFFFF2D55), borderRadius: BorderRadius.circular(20)),
-                    child: const Icon(Icons.check, color: Colors.white, size: 36),
-                  ),
+                // The X and ✓ Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Retake (X)
+                    GestureDetector(
+                      onTap: retakeImage,
+                      child: Container(
+                        height: 75, width: 75,
+                        decoration: BoxDecoration(color: theme.surfaceVariant, borderRadius: BorderRadius.circular(20)),
+                        child: Icon(Icons.close, color: theme.onSurface, size: 36),
+                      ),
+                    ),
+                    // Confirm (✓)
+                    GestureDetector(
+                      onTap: () {
+                        // Call your custom TaskRunner submit function here!
+                        // e.g., _submitAndCollectPoints(currentPoints, stats);
+                        confirmAndDetect();
+                      },
+                      child: Container(
+                        height: 75, width: 75,
+                        decoration: BoxDecoration(color: theme.primary, borderRadius: BorderRadius.circular(20)),
+                        child: Icon(Icons.check, color: theme.onPrimary, size: 36),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -500,14 +589,13 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
         children: [
           _buildPointsAwardedCard(points, stats, theme),
           const SizedBox(height: 24),
+
+          // 1. Primary Action: Collect Points
           SizedBox(
             width: double.infinity, height: 60,
             child: ElevatedButton.icon(
               onPressed: () {
-                setState(() {
-                  userWallet += points;
-                  retakeImage(); // Collect points and reset
-                });
+                _submitAndCollectPoints(points, stats);
               },
               icon: const Icon(Icons.stars, color: Colors.white),
               label: Text("COLLECT POINTS", style: TextDesign.buttonText()),
@@ -519,6 +607,8 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
             ),
           ),
           const SizedBox(height: 12),
+
+          // 2. Secondary Action: Retake Photo
           SizedBox(
             width: double.infinity, height: 60,
             child: OutlinedButton.icon(
@@ -533,8 +623,98 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+
+          // 3. Tertiary Action: Close Screen
+          SizedBox(
+            width: double.infinity, height: 60,
+            child: TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Exits the camera screen entirely
+              },
+              style: TextButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: Text(
+                "CLOSE",
+                style: TextStyle(
+                  color: theme.hint, // Uses your theme's subtle gray color
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+
         ],
       ),
+    );
+  }
+
+  // Add this inside your State class
+  Future<void> _submitAndCollectPoints(double totalPoints, Map<String, dynamic> stats) async {
+    if (capturedImage == null) return;
+
+    // Use your custom TaskRunner for the loading & success dialogs!
+    await TaskRunner.run(
+      context: context,
+      loadingMessage: "Saving your submission...",
+      successMessage: "Awesome! You earned ${totalPoints.toStringAsFixed(2)} points.",
+      task: () async {
+
+        final supabase = Supabase.instance.client;
+
+        // --- 1. UPLOAD IMAGE TO SUPABASE STORAGE ---
+        final String fileExtension = capturedImage!.path.split('.').last;
+        final String fileName = 'submission_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+        final String bucketName = 'recycleImage';
+
+        final Uint8List fileBytes = await capturedImage!.readAsBytes();
+
+        await supabase.storage.from(bucketName).uploadBinary(
+          fileName,
+          fileBytes,
+          fileOptions: FileOptions(
+            contentType: 'image/$fileExtension', // Tells Supabase "This is an image!"
+            upsert: true,
+          ),
+        );
+
+        final String uploadedPhotoUrl = supabase.storage.from(bucketName).getPublicUrl(fileName);
+
+        List<DetectedItem> itemsToSave = [];
+        stats.forEach((label, data) {
+          itemsToSave.add(
+              DetectedItem(
+                aiItemType: label,
+                aiDetectedWeightKg: data['weightKg'] as double,
+                aiConfidenceScore: 0.95, // Replace with your actual confidence score logic
+              )
+          );
+        });
+
+        //--- 3. CREATE THE SUBMISSION OBJECT ---
+        RecycleSubmission newSubmission = RecycleSubmission(
+          userId: supabase.auth.currentUser!.id, // Dynamically gets the logged-in user!
+          stationId: "STATION_ID_HERE",          // TODO: Replace with currently selected station ID
+          photoUrl: uploadedPhotoUrl,
+          totalAwardedPoints: totalPoints,
+          detectedItems: itemsToSave,
+          status: 'pending',
+        );
+
+        //--- 4. SAVE TO DATABASE ---
+        final submissionModel = RecycleSubmissionModel();
+        await submissionModel.createSubmission(newSubmission);
+
+        // --- 5. UPDATE UI STATE & RESET CAMERA ---
+        // We only do this if everything above succeeds without crashing!
+        setState(() {
+          userWallet += totalPoints;
+          retakeImage(); // Discards the image and resets the camera UI
+        });
+      },
     );
   }
 
