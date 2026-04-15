@@ -3,6 +3,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/assets.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/category/admin_category.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/view/admin/verify_recycle_item.dart';
 import 'package:recycle_go/view/admin/request_admin.dart';
@@ -28,11 +29,11 @@ class AdminHome extends StatefulWidget {
 class _AdminHomeState extends State<AdminHome> {
   int _currentIndex = 0; // Default to 'Verify' as per your UI
   final _supabase = SupabaseService().client;
-  // A list of the different 'Bodies' for each navigation button
+
   final List<Widget> _pages = [
-    const AdminDashboard(), //AdminDashboard()
+    const AdminDashboard(),
+    const AdminCategory(),
     const AdminInventory(),
-    const RequestAdmin(),
     const AdminViewPurchase(),
     const Center(child: Text("Profile Settings Content")),
   ];

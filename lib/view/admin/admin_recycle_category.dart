@@ -34,11 +34,31 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
 
   // Mock data representing your public.recycle_category table
   final List<Map<String, dynamic>> _categories = [
-    {'category_id': 1, 'category_name': 'Plastic', 'description': 'PET, HDPE, and PVC plastics.'},
-    {'category_id': 2, 'category_name': 'Paper', 'description': 'Newspapers, magazines, and office paper.'},
-    {'category_id': 3, 'category_name': 'Glasses', 'description': 'Clear, amber, and green glass bottles.'},
-    {'category_id': 4, 'category_name': 'CardBoard', 'description': 'Corrugated boxes and flat cardboard.'},
-    {'category_id': 5, 'category_name': 'Metal', 'description': 'Aluminum cans, steel, and tin.'},
+    {
+      'category_id': 1,
+      'category_name': 'Plastic',
+      'description': 'PET, HDPE, and PVC plastics.'
+    },
+    {
+      'category_id': 2,
+      'category_name': 'Paper',
+      'description': 'Newspapers, magazines, and office paper.'
+    },
+    {
+      'category_id': 3,
+      'category_name': 'Glasses',
+      'description': 'Clear, amber, and green glass bottles.'
+    },
+    {
+      'category_id': 4,
+      'category_name': 'CardBoard',
+      'description': 'Corrugated boxes and flat cardboard.'
+    },
+    {
+      'category_id': 5,
+      'category_name': 'Metal',
+      'description': 'Aluminum cans, steel, and tin.'
+    },
   ];
 
   @override
@@ -46,7 +66,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
     final theme = AppThemes.color;
 
     return Scaffold(
-      backgroundColor: theme.background, // A slightly off-white or light grey background
+      backgroundColor: theme.background,
+      // A slightly off-white or light grey background
       appBar: AppBar(
         backgroundColor: theme.background,
         elevation: 0,
@@ -105,11 +126,14 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
                   onPressed: () => _showAddCategoryDialog(context, theme),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
                   ),
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-                  label: Text("Create New Category", style: TextDesign.buttonText()),
+                  icon: const Icon(
+                      Icons.add_circle_outline, color: Colors.white),
+                  label: Text(
+                      "Create New Category", style: TextDesign.buttonText()),
                 ),
               ),
             ),
@@ -123,7 +147,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
 
   Widget _buildCategoryCard(Map<String, dynamic> category, AppColors theme) {
     final String name = category['category_name']?.toString() ?? "Unknown";
-    final String desc = category['description']?.toString() ?? "No description.";
+    final String desc = category['description']?.toString() ??
+        "No description.";
     final String id = category['category_id']?.toString() ?? "-";
 
     return Container(
@@ -154,7 +179,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
               child: Center(
                 child: Text(
                   "#$id",
-                  style: TextDesign.mediumText(color: theme.primary).copyWith(fontWeight: FontWeight.bold),
+                  style: TextDesign.mediumText(color: theme.primary).copyWith(
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -165,7 +191,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold)),
+                  Text(name, style: TextDesign.mediumText().copyWith(
+                      fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(
                     desc,
@@ -182,7 +209,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: Icon(Icons.edit_outlined, color: theme.warning, size: 22),
+                  icon: Icon(
+                      Icons.edit_outlined, color: theme.warning, size: 22),
                   onPressed: () {
                     // Navigate to Edit screen or show Edit Dialog
                   },
@@ -190,7 +218,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
                   padding: const EdgeInsets.all(8),
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline, color: theme.error, size: 22),
+                  icon: Icon(
+                      Icons.delete_outline, color: theme.error, size: 22),
                   onPressed: () => _confirmDelete(name, theme),
                   constraints: const BoxConstraints(),
                   padding: const EdgeInsets.all(8),
@@ -208,25 +237,29 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
   void _confirmDelete(String categoryName, AppColors theme) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Delete Category?", style: TextDesign.headingThree()),
-        content: Text("Are you sure you want to delete '$categoryName'? This may affect inventory items tied to this category."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancel", style: TextDesign.normalText()),
+      builder: (context) =>
+          AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            title: Text("Delete Category?", style: TextDesign.headingThree()),
+            content: Text(
+                "Are you sure you want to delete '$categoryName'? This may affect inventory items tied to this category."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text("Cancel", style: TextDesign.normalText()),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // Perform Supabase Delete
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: theme.error),
+                child: const Text(
+                    "Delete", style: TextStyle(color: Colors.white)),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              // Perform Supabase Delete
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: theme.error),
-            child: const Text("Delete", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -235,13 +268,18 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
     // This keeps the user in the flow without needing a whole new screen
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows it to move up with the keyboard
+      isScrollControlled: true,
+      // Allows it to move up with the keyboard
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom, // Avoid keyboard
+            bottom: MediaQuery
+                .of(context)
+                .viewInsets
+                .bottom, // Avoid keyboard
             left: 24, right: 24, top: 24,
           ),
           child: Column(
@@ -253,7 +291,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
               TextField(
                 decoration: InputDecoration(
                   labelText: "Category Name",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -261,7 +300,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
                 maxLines: 3,
                 decoration: InputDecoration(
                   labelText: "Description (Optional)",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 24),
@@ -272,7 +312,8 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text("Save Category", style: TextDesign.buttonText()),
                 ),
@@ -284,4 +325,5 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
       },
     );
   }
+
 }

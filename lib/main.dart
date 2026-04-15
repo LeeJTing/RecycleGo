@@ -8,6 +8,9 @@ import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/view/admin/admin_add_inventory.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/admin_recycle_category.dart';
+import 'package:recycle_go/view/admin/category/admin_add_category.dart';
+import 'package:recycle_go/view/admin/category/admin_update_category.dart';
 import 'package:recycle_go/view/autho/login_screen.dart';
 import 'package:recycle_go/view/admin/admin_home.dart';
 import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
@@ -69,7 +72,11 @@ class _MainAppState extends State<MainApp> {
         Routes.adminPurchaseUpdate: (context) =>
         const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
-        Routes.adminViewInventory: (context) => const AdminViewInventory(),
+        Routes.adminViewInventory: (context) {
+          final item = ModalRoute.of(context)?.settings.arguments as RecycleInventory;
+
+          return AdminViewInventory(item: item);
+        },
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) {
           // 1. Catch the argument being passed through the navigation
@@ -86,6 +93,8 @@ class _MainAppState extends State<MainApp> {
           return AdminUpdateInventory(item: args);
         },
         Routes.map: (context) => const MapScreen(),
+        Routes.adminAddCategory: (context) => const AdminAddCategory(),
+        Routes.adminUpdateCategory: (context) => const AdminUpdateCategory(),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
         Routes.adminVoucherManagement: (context) =>
         const AdminVoucherManagement(),
