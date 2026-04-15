@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/controller/profile/profile_ctrl.dart';
 import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/utils/validators.dart';

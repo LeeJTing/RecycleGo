@@ -22,11 +22,17 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isEmailValid = false;
   bool _isPasswordValid = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
 
   @override
   void initState() {
     super.initState();
     _validateFields();
+    _checkRememberMe();
+  }
+
+  Future<void> _checkRememberMe() async {
+    await ctrl.autoLogin(context);
   }
 
   void _validateFields() {
@@ -121,17 +127,43 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   
                   const SizedBox(height: 12),
-                  
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        'Forgot Password?',
-                        style: TextDesign.smallText(color: theme.primary)
-                            .copyWith(fontWeight: FontWeight.bold),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              activeColor: theme.primary,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value!;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Remember Me',
+                            style: TextDesign.smallText(color: theme.onSurface),
+                          ),
+                        ],
                       ),
-                    ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, Routes.forgotPassword);
+                        },
+                        child: Text(
+                          'Forgot Password?',
+                          style: TextDesign.smallText(color: theme.primary)
+                              .copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                   
                   const SizedBox(height: 32),
@@ -141,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () => ctrl.login(context),
+                      onPressed: () => ctrl.login(context, _rememberMe),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         foregroundColor: theme.onPrimary,
