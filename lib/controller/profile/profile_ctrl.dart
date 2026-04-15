@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/routes.dart';
+import 'package:recycle_go/controller/autho/login_ctrl.dart';
 import 'package:recycle_go/models/Achievements.dart';
 import 'package:recycle_go/models/RecyclingSubmission.dart';
 import 'package:recycle_go/models/Users.dart';
@@ -27,8 +28,7 @@ class ProfileCtrl {
   }
 
   void signOut(BuildContext context) {
-    Provider.of<UserProvider>(context, listen: false).clearUser();
-    Navigator.pushNamedAndRemoveUntil(context, Routes.login, (route) => false);
+    LoginCtrl().signOut(context);
   }
 
   Future<void> updateProfile(BuildContext context, Users updatedUser) async {

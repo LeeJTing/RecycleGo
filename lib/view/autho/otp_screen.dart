@@ -8,11 +8,13 @@ import 'package:recycle_go/services/otp_service.dart';
 class OtpScreen extends StatefulWidget {
   final String email;
   final VoidCallback onVerified;
+  final bool isRegistering;
 
   const OtpScreen({
     super.key,
     required this.email,
-    required this.onVerified
+    required this.onVerified,
+    this.isRegistering = true,
   });
 
   @override
@@ -161,7 +163,10 @@ class _OtpScreenState extends State<OtpScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     elevation: 0,
                   ),
-                  child: Text('Verify & Register', style: TextDesign.buttonText(fontSize: 18)),
+                  child: Text(
+                    widget.isRegistering ? 'Verify & Register' : 'Verify Code', 
+                    style: TextDesign.buttonText(fontSize: 18)
+                  ),
                 ),
               ),
 
