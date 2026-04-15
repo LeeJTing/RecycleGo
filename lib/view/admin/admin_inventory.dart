@@ -16,7 +16,7 @@ class _AdminInventoryState extends State<AdminInventory> {
   List<RecycleInventory> _inventoryItems = [];
   bool _isLoading = true;
   String _searchQuery = "";
-  String _selectedCategory = "All";
+  String _selectedInventory = "All";
 
   @override
   void initState() {
@@ -41,12 +41,12 @@ class _AdminInventoryState extends State<AdminInventory> {
     return _inventoryItems.where((item) {
       final searchLower = _searchQuery.toLowerCase().trim();
       final matchesSearch = searchLower.isEmpty ||
-          item.inventoryName.toLowerCase().contains(searchLower);
+          item.inventoryName!.toLowerCase().contains(searchLower);
 
-      final matchesCategory = _selectedCategory == "All" ||
-          item.inventoryName.trim().toLowerCase() == _selectedCategory.trim().toLowerCase();
+      final matchesInventory = _selectedInventory == "All" ||
+          item.inventoryName?.trim().toLowerCase() == _selectedInventory.trim().toLowerCase();
 
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesInventory;
     }).toList();
   }
 
@@ -157,28 +157,45 @@ class _AdminInventoryState extends State<AdminInventory> {
   }
 
   Widget _buildInventoryCard(RecycleInventory item, AppColors theme) {
-    final double weight = item.totalWeight;
+    // 1. Map variables exactly to your model
+    final double weight = item.totalWeightAvailable;
     final double price = item.pricePerKg;
+    final double minWeight = item.minWeightLevel ?? 50.0; // Fallback to 50 if null
+    final String name = item.inventoryName ?? "Unnamed Item";
 
-    String statusText;
-    Color statusColor;
+    // 2. Dynamic Stock Status Logic (Using minWeightLevel!)
+    String stockText;
+    Color stockColor;
     if (weight <= 0) {
-      statusText = "OUT OF STOCK";
-      statusColor = theme.error;
-    } else if (weight < 50) {
-      statusText = "LOW STOCK";
-      statusColor = theme.warning;
+      stockText = "OUT OF STOCK";
+      stockColor = theme.error;
+    } else if (weight <= minWeight) {
+      stockText = "LOW STOCK";
+      stockColor = theme.warning;
     } else {
-      statusText = "AVAILABLE";
-      statusColor = theme.success;
+      stockText = "IN STOCK";
+      stockColor = theme.success;
     }
-    print('Navigating with item: ${item.inventoryName}, ${item.inventoryId}');
+
+    // 3. Format the date beautifully (e.g., 2026-04-15)
+    String dateFormatted = "Unknown";
+    if (item.updatedAt != null) {
+      dateFormatted = "${item.updatedAt!.year}-${item.updatedAt!.month.toString().padLeft(2, '0')}-${item.updatedAt!.day.toString().padLeft(2, '0')}";
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: theme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: theme.border.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
@@ -189,76 +206,114 @@ class _AdminInventoryState extends State<AdminInventory> {
             arguments: item,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(14.0),
+            padding: const EdgeInsets.all(16.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Image
+                // --- LEFT: Image ---
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     width: 90,
-                    height: 90,
+                    height: 100,
                     color: theme.surfaceVariant,
-                    child: item.urlImage != null
-                        ? Image.asset(item.urlImage!, fit: BoxFit.cover)
-                        : Icon(Icons.inventory_2_outlined, color: theme.primary, size: 30),
+                    child: (item.imgPath != null && item.imgPath!.isNotEmpty)
+                        ? Image.asset(
+                      'assets/images/${item.imgPath!}', // 👈 important
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Icon(Icons.broken_image_outlined, color: theme.hint),
+                    )
+                        : Icon(Icons.inventory_2_outlined,
+                        color: theme.primary, size: 36),
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Content
+
+                // --- MIDDLE: Content & Details ---
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Title
                       Text(
-                        item.inventoryName,
+                        name,
                         style: TextDesign.mediumText().copyWith(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          height: 1.2,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          statusText,
-                          style: TextDesign.badgeText(color: statusColor).copyWith(
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        item.description ?? "No description provided.",
-                        style: TextDesign.smallText(),
-                      ),
-                      const SizedBox(height: 12),
+
+                      // Badges Row (Stock Level & DB Status)
                       Wrap(
-                        spacing: 12,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Text(
-                            "Stock: ${weight.toStringAsFixed(1)} kg",
-                            style: TextDesign.smallText().copyWith(fontWeight: FontWeight.bold),
+                          // Stock Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: stockColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              stockText,
+                              style: TextStyle(
+                                color: stockColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          Text(
-                            "RM ${price.toStringAsFixed(2)}/kg",
-                            style: TextDesign.priceText(fontSize: 13),
+                          // DB Status Badge (Active/Inactive)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: item.status == 'active'
+                                  ? theme.primary.withOpacity(0.1)
+                                  : theme.hint.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              item.status.toUpperCase(),
+                              style: TextStyle(
+                                color: item.status == 'active' ? theme.primary : theme.hint,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Information Grid
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildInfoColumn("Stock", "${weight.toStringAsFixed(1)} kg", theme),
+                          _buildInfoColumn("Price", "RM ${price.toStringAsFixed(2)}", theme),
+                          _buildInfoColumn("Min", "${minWeight.toStringAsFixed(1)} kg", theme),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Footer Data (Category & Updated At)
+                      Text(
+                        "Cat ID: ${item.categoryId ?? 'N/A'} • Updated: $dateFormatted",
+                        style: TextDesign.smallText(color: theme.hint).copyWith(fontSize: 11),
                       ),
                     ],
                   ),
                 ),
 
-                // Action buttons
-                const SizedBox(width: 8),
+                // --- RIGHT: Action Buttons ---
                 Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     IconButton(
                       onPressed: () => Navigator.pushNamed(
@@ -266,15 +321,15 @@ class _AdminInventoryState extends State<AdminInventory> {
                         Routes.adminUpdateInventory,
                         arguments: item,
                       ),
-                      icon: Icon(Icons.edit_note_rounded, color: theme.warning, size: 24),
+                      icon: Icon(Icons.edit_note_rounded, color: theme.warning, size: 26),
                       constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.only(bottom: 12, left: 8),
                     ),
                     IconButton(
-                      onPressed: () => _confirmDelete(item, theme),
-                      icon: Icon(Icons.delete_outline_rounded, color: theme.error, size: 22),
+                      onPressed: () => _confirmDelete(item, theme), // Assuming you have this method
+                      icon: Icon(Icons.delete_outline_rounded, color: theme.error, size: 24),
                       constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.only(left: 8),
                     ),
                   ],
                 ),
@@ -283,6 +338,24 @@ class _AdminInventoryState extends State<AdminInventory> {
           ),
         ),
       ),
+    );
+  }
+
+  // Helper widget to keep the layout clean
+  Widget _buildInfoColumn(String label, String value, AppColors theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: theme.hint, fontSize: 10, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(color: theme.onSurface, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 
@@ -301,7 +374,7 @@ class _AdminInventoryState extends State<AdminInventory> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Filter by Category", style: TextDesign.headingThree()),
+              Text("Filter by Inventory", style: TextDesign.headingThree()),
               const SizedBox(height: 20),
               Flexible(
                 child: ListView.separated(
@@ -310,7 +383,7 @@ class _AdminInventoryState extends State<AdminInventory> {
                   separatorBuilder: (_, __) => Divider(color: theme.border.withOpacity(0.5)),
                   itemBuilder: (context, index) {
                     final cat = categories[index];
-                    bool isSelected = _selectedCategory == cat;
+                    bool isSelected = _selectedInventory == cat;
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
@@ -321,7 +394,7 @@ class _AdminInventoryState extends State<AdminInventory> {
                       ),
                       trailing: isSelected ? Icon(Icons.check_circle, color: theme.primary) : null,
                       onTap: () {
-                        setState(() => _selectedCategory = cat);
+                        setState(() => _selectedInventory = cat);
                         Navigator.pop(context);
                       },
                     );
@@ -357,11 +430,12 @@ class _AdminInventoryState extends State<AdminInventory> {
               setState(() => _isLoading = true);
               try {
                 await InventoryController.deleteInventory(item.inventoryId);
-                await _loadInventory(); // refresh list
+                await _loadInventory();
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Delete failed: $e')),
                 );
+              } finally {
                 setState(() => _isLoading = false);
               }
             },

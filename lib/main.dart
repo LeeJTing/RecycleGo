@@ -8,6 +8,9 @@ import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/view/admin/admin_add_inventory.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/admin_recycle_category.dart';
+import 'package:recycle_go/view/admin/category/admin_add_category.dart';
+import 'package:recycle_go/view/admin/category/admin_update_category.dart';
 import 'package:recycle_go/view/autho/login_screen.dart';
 import 'package:recycle_go/view/admin/admin_home.dart';
 import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
@@ -22,6 +25,8 @@ import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
 import 'package:recycle_go/view/admin/admin_station_edit.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+
+import 'models/RecycleInventory.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,7 +60,7 @@ class _MainAppState extends State<MainApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
-      initialRoute: Routes.login,
+      initialRoute: Routes.adminHome,
       routes: {
         Routes.login: (context) => const LoginScreen(),
         Routes.register: (context) => const RegisterScreen(),
@@ -67,11 +72,29 @@ class _MainAppState extends State<MainApp> {
         Routes.adminPurchaseUpdate: (context) =>
         const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
-        Routes.adminViewInventory: (context) => const AdminViewInventory(),
+        Routes.adminViewInventory: (context) {
+          final item = ModalRoute.of(context)?.settings.arguments as RecycleInventory;
+
+          return AdminViewInventory(item: item);
+        },
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
-        Routes.adminUpdateInventory: (context) =>
-        const AdminUpdateInventory(item: {}),
+        Routes.adminUpdateInventory: (context) {
+          // 1. Catch the argument being passed through the navigation
+          final args = ModalRoute.of(context)?.settings.arguments;
+
+          // 2. Safety check: Make sure it's the right data type
+          if (args is! RecycleInventory) {
+            return const Scaffold(
+              body: Center(child: Text("Error: Missing or invalid inventory item")),
+            );
+          }
+
+          // 3. Pass the caught item into your screen (remove the 'const' keyword here!)
+          return AdminUpdateInventory(item: args);
+        },
         Routes.map: (context) => const MapScreen(),
+        Routes.adminAddCategory: (context) => const AdminAddCategory(),
+        Routes.adminUpdateCategory: (context) => const AdminUpdateCategory(),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
         Routes.adminVoucherManagement: (context) =>
         const AdminVoucherManagement(),

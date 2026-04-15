@@ -5,9 +5,154 @@ import 'package:recycle_go/controller/redeemed_voucher/redeemed_voucher_ctrl.dar
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/services/supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_voucher_info_tab.dart';
 import 'admin_voucher_stats_tab.dart';
 import 'admin_voucher_history_tab.dart';
+
+/// Shows delete confirmation dialog with redeemed voucher validation
+void showDeleteVoucherDialog({
+  required BuildContext context,
+  required Vouchers voucher,
+  required VoucherCtrl voucherCtrl,
+  required Function() onDeleted,
+}) {
+  final theme = AppThemes.color;
+
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Delete Voucher'),
+        content: Text(
+          'Are you sure you want to delete "${voucher.voucherName}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                // Check if voucher has redeemed records BEFORE closing dialog
+                int redeemedCount = 0;
+                try {
+                  redeemedCount = await SupabaseService().client
+                      .from('redeemedvouchers')
+                      .count(CountOption.exact)
+                      .eq('voucher_id', voucher.voucherId ?? '');
+                } catch (countError) {
+                  Navigator.pop(context); // Close confirmation dialog
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      useRootNavigator: true,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Query Error'),
+                          content: Text(
+                            'Error checking redeemed vouchers:\n\n$countError',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  }
+                  return;
+                }
+
+                if (redeemedCount > 0) {
+                  // Cannot delete - show warning dialog
+                  Navigator.pop(context); // Close confirmation dialog first
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      useRootNavigator: true,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Cannot Delete'),
+                          content: Text(
+                            'This voucher has been redeemed by $redeemedCount user(s). You cannot delete it.\n\nInstead, consider inactivating the voucher to prevent future redemptions while keeping the history.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Understand'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  }
+                  return;
+                }
+
+                // OK to delete - close confirmation dialog and proceed
+                Navigator.pop(context);
+
+                // Show loading
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Deleting...'),
+                      duration: Duration(seconds: 10),
+                    ),
+                  );
+                }
+
+                await voucherCtrl.deleteVoucher(voucher.voucherId ?? '');
+
+                if (!context.mounted) return;
+
+                // Show success
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Deleted successfully'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+
+                if (context.mounted) {
+                  Navigator.pop(context); // Go back to list
+                  onDeleted();
+                }
+              } catch (e) {
+                Navigator.pop(context); // Close confirmation dialog
+                if (context.mounted) {
+                  showDialog(
+                    context: context,
+                    useRootNavigator: true,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Delete Failed'),
+                        content: Text('Unable to delete voucher:\n\n$e'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+              }
+            },
+            child: Text('Delete', style: TextStyle(color: theme.error)),
+          ),
+        ],
+      );
+    },
+  );
+}
 
 class AdminVoucherDetails extends StatefulWidget {
   final Vouchers voucher;

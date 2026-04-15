@@ -4,26 +4,16 @@ import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
 
 class AdminViewInventory extends StatelessWidget {
-  const AdminViewInventory({super.key}); // removed required item
+  final RecycleInventory item;
+
+  AdminViewInventory({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
 
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args == null || args is! RecycleInventory) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Error")),
-        body: const Center(child: Text("No inventory item data found.")),
-      );
-    }
-    final RecycleInventory item = args;
-
-    final String name = item.inventoryName;
-    final String description = item.description ?? "No description provided.";
-    final String? imagePath = item.urlImage;
-    final double weight = item.totalWeight;
-    final double price = item.pricePerKg;
+    final name = item.inventoryName;
+    final price = item.pricePerKg;
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -38,16 +28,35 @@ class AdminViewInventory extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(name, style: TextDesign.appBarTitle(color: Colors.white)),
+              title: Text(
+                name!,
+                style: TextDesign.appBarTitle(color: Colors.white),
+              ),
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  imagePath != null && imagePath.isNotEmpty
-                      ? Image.asset(imagePath, fit: BoxFit.cover)
-                      : Container(
-                    color: theme.surfaceVariant,
-                    child: Icon(Icons.inventory_2, size: 50, color: theme.primary),
-                  ),
+                  if (item.imgPath?.isNotEmpty == true)
+                    Image.asset(
+                      'assets/images/${item.imgPath!}', // 👈 load from assets
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: theme.surfaceVariant,
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          size: 50,
+                          color: theme.hint,
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      color: theme.surfaceVariant,
+                      child: Icon(
+                        Icons.inventory_2,
+                        size: 50,
+                        color: theme.primary,
+                      ),
+                    ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -61,6 +70,7 @@ class AdminViewInventory extends StatelessWidget {
               ),
             ),
           ),
+
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -69,20 +79,40 @@ class AdminViewInventory extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      _buildInfoCard("Price/KG", "RM ${price.toStringAsFixed(2)}", Icons.payments_outlined, theme),
+                      _buildInfoCard(
+                        "Price per KG",
+                        "RM ${price.toStringAsFixed(2)}",
+                        Icons.payments_outlined,
+                        theme,
+                      ),
                       const SizedBox(width: 16),
-                      _buildInfoCard("Total Stock", "${weight.toStringAsFixed(1)} kg", Icons.scale_outlined, theme),
+                      _buildInfoCard(
+                        "Total Weight",
+                        "${item.totalWeightAvailable.toStringAsFixed(1)} kg",
+                        Icons.scale_outlined,
+                        theme,
+                      ),
                     ],
                   ),
+
                   const SizedBox(height: 32),
+
                   Text("Description", style: TextDesign.label()),
                   const SizedBox(height: 8),
-                  Text(description, style: TextDesign.normalText()),
+                  Text(item.description!, style: TextDesign.normalText()),
+
                   const SizedBox(height: 32),
+
                   Text("Inventory Information", style: TextDesign.label()),
                   const SizedBox(height: 12),
-                  _buildDetailRow("Inventory ID: ", item.inventoryId, theme),
-                  _buildDetailRow("Category: ", item.categoryId.toString(), theme),
+
+                  _buildDetailRow("Inventory ID:", item.inventoryId, theme),
+                  _buildDetailRow(
+                    "Category ID:",
+                    item.categoryId.toString(),
+                    theme,
+                  ),
+
                   const SizedBox(height: 40),
                 ],
               ),
@@ -93,7 +123,12 @@ class AdminViewInventory extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard(String label, String value, IconData icon, AppColors theme) {
+  Widget _buildInfoCard(
+      String label,
+      String value,
+      IconData icon,
+      AppColors theme,
+      ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -107,7 +142,12 @@ class AdminViewInventory extends StatelessWidget {
           children: [
             Icon(icon, color: theme.primary, size: 20),
             const SizedBox(height: 12),
-            Text(value, style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: TextDesign.mediumText().copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             Text(label, style: TextDesign.smallText()),
           ],
         ),
@@ -122,7 +162,13 @@ class AdminViewInventory extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextDesign.smallText()),
-          Text(value, style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold, fontSize: 10)),
+          Text(
+            value,
+            style: TextDesign.mediumText().copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );

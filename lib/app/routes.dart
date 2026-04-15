@@ -4,6 +4,7 @@ class Routes {
 
   static const String adminProfile = '/admin/profile';
   static const String userProfile = '/user/profile';
+  static const String editProfile = '/user/edit-profile';
 
   static const String adminHome = '/admin/homePage';
   static const String userHomePage = '/user/homePage';
@@ -16,7 +17,11 @@ class Routes {
   static const String adminViewInventory = '/admin/inventory/view';
   static const String adminAddInventory = '/admin/inventory/add';
   static const String adminUpdateInventory = 'admin/inventory/update';
-  static const String adminRecycleCategory = 'admin/recycle_category';
+
+  static const String adminCategory = 'admin/category';
+  static const String adminViewCategory = '/admin/category/view';
+  static const String adminAddCategory = '/admin/category/add';
+  static const String adminUpdateCategory = 'admin/category/update';
 
   static const String map = '/map';
   static const String stationDetail = '/station-detail';
