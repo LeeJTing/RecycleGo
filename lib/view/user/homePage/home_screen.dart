@@ -10,6 +10,8 @@ import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 import 'package:recycle_go/view/recycle/map_screen.dart';
 import 'package:recycle_go/view/user/profile/profile_screen.dart';
 import 'package:recycle_go/view/voucher/voucher_main_page.dart';
+import 'package:recycle_go/view/user/homePage/widgets/purchase_card.dart';
+
 
 class UserHomeScreen extends StatefulWidget {
   final int initialIndex;
@@ -95,6 +97,8 @@ class _HomeContent extends StatelessWidget {
             const ScanButton(),
             const SizedBox(height: 24),
             const NearbyBinCard(),
+            const SizedBox(height: 24),
+            const PurchaseCard(),
           ],
         ),
       ),

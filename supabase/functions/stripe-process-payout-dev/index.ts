@@ -2,7 +2,7 @@
 import Stripe from "https://esm.sh/stripe@14.25.0?target=deno";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-const stripeSecretKey = Deno.env.get("sk_test_51SeFjZJ0NvBCcCJetZZw02Tf4Hjz1ZUMyT9S1hMPiENlEBR5ZBT7F3b9l6ylskvJ2lED5qpp9nPVxXVeqOwwhZvV00IxMEImWN");
+const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
 
 // In development, allow mock mode when project permissions block setting secrets.
 const stripe = stripeSecretKey
