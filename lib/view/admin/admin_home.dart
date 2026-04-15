@@ -10,12 +10,14 @@ import 'package:recycle_go/view/admin/admin_view_purchase.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/models/Vouchers.dart';
+import 'package:recycle_go/models/RedeemedVouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/widgets/voucher_card.dart';
 import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart';
 import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
 import 'package:recycle_go/utils/async_task_runner.dart';
+import 'package:recycle_go/view/admin/widgets/pending_vouchers_section.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -199,6 +201,7 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   final VoucherCtrl _voucherCtrl = VoucherCtrl();
   List<Vouchers> _sampleVouchers = [];
+  List<RedeemedVouchers> _pendingVouchers = [];
 
   @override
   void initState() {
@@ -209,6 +212,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Future<void> _loadData() async {
     try {
       await _voucherCtrl.fetchVouchers();
+      await _loadPendingVouchers();
 
       if (_voucherCtrl.vouchers.isNotEmpty) {
         setState(() {
@@ -223,6 +227,36 @@ class _AdminDashboardState extends State<AdminDashboard> {
             content: const Text('Error loading vouchers'),
             backgroundColor: theme.error,
             duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadPendingVouchers() async {
+    try {
+      final supabase = SupabaseService().client;
+      final response = await supabase
+          .from('redeemedvouchers')
+          .select()
+          .eq('voucher_status', 'pending')
+          .order('redeemed_at', ascending: false);
+
+      if (mounted) {
+        setState(() {
+          _pendingVouchers = (response as List)
+              .map((v) => RedeemedVouchers.fromJson(v))
+              .toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        final theme = AppThemes.color;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading pending vouchers: $e'),
+            backgroundColor: theme.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -398,6 +432,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
             ),
+          const SizedBox(height: 32),
+          PendingVouchersSection(
+            pendingVouchers: _pendingVouchers,
+            theme: theme,
+            onViewAll: () {},
+            onProcessed: _loadPendingVouchers,
+          ),
         ],
       ),
     );

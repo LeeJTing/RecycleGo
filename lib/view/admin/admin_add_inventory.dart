@@ -1,14 +1,15 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-import 'package:recycle_go/controller/admin/category_controller.dart';
 import 'package:recycle_go/models/Recycle_category.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
+import 'package:recycle_go/controller/admin/category_controller.dart';
 import 'package:recycle_go/controller/admin/inventory_controller.dart';
-import 'package:image_picker/image_picker.dart';
 
 class AdminAddInventory extends StatefulWidget {
   const AdminAddInventory({super.key});
@@ -19,16 +20,23 @@ class AdminAddInventory extends StatefulWidget {
 
 class _AdminAddInventoryState extends State<AdminAddInventory> {
   final _formKey = GlobalKey<FormState>();
-  final nameController = TextEditingController();
-  final priceController = TextEditingController();
-  final descController = TextEditingController();
 
-  RecycleCategory? selectedCategory; // Now stores the full category object
-  bool _isSaving = false;
+  // Text Controllers
+  final _nameController = TextEditingController();
+  final _descController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _minWeightController = TextEditingController();
+
+  // State Variables
+  String _selectedStatus = 'active'; // Default to active
+  int? _selectedCategoryId;
 
   List<RecycleCategory> _categories = [];
-  bool _isLoading = true;
-  String? _error;
+  bool _isLoadingCategories = true;
+  bool _isSaving = false;
+
+  XFile? _selectedImage;
 
   @override
   void initState() {
@@ -36,21 +44,29 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     _fetchCategories();
   }
 
-  Future<void> _fetchCategories() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      _categories = await CategoryController.getCategories();
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    _priceController.dispose();
+    _weightController.dispose();
+    _minWeightController.dispose();
+    super.dispose();
   }
 
+  // --- 1. FETCH CATEGORIES FROM DB ---
+  Future<void> _fetchCategories() async {
+    try {
+      final fetchedCategories = await CategoryController.getCategories();
+      setState(() {
+        _categories = fetchedCategories;
+        _isLoadingCategories = false;
+      });
+    } catch (e) {
+      print("Error fetching categories: $e");
+      setState(() => _isLoadingCategories = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,107 +75,125 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
-        title: Text("Add New Item", style: TextDesign.appBarTitle()),
-        centerTitle: true,
-        elevation: 0,
+        title: Text("Add New Inventory", style: TextDesign.appBarTitle()),
         backgroundColor: theme.surface,
+        elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.close, color: theme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: _isSaving
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: theme.primary))
           : SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // --- IMAGE UPLOADER ---
               _buildImagePlaceholder(theme),
               const SizedBox(height: 32),
 
-              // Category label
-              _buildLabel("Category"),
-              const SizedBox(height: 12),
-
-              // Category selection
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator())
-              else if (_categories.isEmpty)
-                Text(
-                  "No categories available. Please add categories first.",
-                  style: TextDesign.smallText(color: theme.error),
-                )
-              else
-                _buildCategoryChips(theme),
-
-              const SizedBox(height: 24),
-
-              // Item Name
+              // --- ITEM NAME ---
               _buildLabel("Item Name"),
               TextFormField(
-                controller: nameController,
-                style: TextDesign.normalText(),
-                keyboardType: TextInputType.text,
+                controller: _nameController,
                 decoration: _inputDecoration("e.g. Aluminum Beverage Cans", theme),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "Please enter item name";
-                  }
-                  if (value.trim().length < 2) {
-                    return "Name must be at least 2 characters";
-                  }
-                  return null; // valid
-                },
+                validator: (val) => val == null || val.isEmpty ? "Name is required" : null,
               ),
-
               const SizedBox(height: 20),
 
-              // Price per KG
-              _buildLabel("Price per KG (RM)"),
-              TextFormField(
-                controller: priceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: TextDesign.mediumText().copyWith(
-                    color: theme.success, fontWeight: FontWeight.bold),
-                decoration: _inputDecoration("0.00", theme),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              // --- CATEGORY DROPDOWN ---
+              _buildLabel("Category"),
+              if (_isLoadingCategories)
+                const Center(child: CircularProgressIndicator())
+              else
+                DropdownButtonFormField<int>(
+                  value: _selectedCategoryId,
+                  decoration: _inputDecoration("Select a category", theme),
+                  items: _categories.map((cat) {
+                    return DropdownMenuItem<int>(
+                      value: cat.categoryId,
+                      child: Text(cat.categoryName),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setState(() => _selectedCategoryId = val),
+                  validator: (val) => val == null ? "Please select a category" : null,
+                ),
+              const SizedBox(height: 20),
+
+              // --- TWO-COLUMN LAYOUT FOR NUMBERS ---
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel("Price per KG (RM)"),
+                        TextFormField(
+                          controller: _priceController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+                          decoration: _inputDecoration("0.00", theme),
+                          style: TextStyle(color: theme.success, fontWeight: FontWeight.bold),
+                          validator: (val) => val == null || val.isEmpty ? "Required" : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel("Current Stock (kg)"),
+                        TextFormField(
+                          controller: _weightController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: _inputDecoration("0.0", theme),
+                          validator: (val) => val == null || val.isEmpty ? "Required" : null,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "Enter price";
-                  }
-
-                  final parsed = double.tryParse(value.trim());
-                  if (parsed == null) {
-                    return "Enter a valid number";
-                  }
-
-                  if (parsed <= 0) {
-                    return "Price must be greater than 0";
-                  }
-
-                  return null; // valid
-                },
               ),
               const SizedBox(height: 20),
 
-              // Description
+              // --- LOW STOCK WARNING LEVEL ---
+              _buildLabel("Low Stock Warning Level (kg)"),
+              TextFormField(
+                controller: _minWeightController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: _inputDecoration("e.g. 50.0", theme),
+              ),
+              const SizedBox(height: 20),
+
+              // --- STATUS DROPDOWN ---
+              _buildLabel("Initial Status"),
+              DropdownButtonFormField<String>(
+                value: _selectedStatus,
+                decoration: _inputDecoration("Select status", theme),
+                items: const [
+                  DropdownMenuItem(value: 'active', child: Text("Active (Visible)")),
+                  DropdownMenuItem(value: 'inactive', child: Text("Inactive (Hidden)")),
+                ],
+                onChanged: (val) => setState(() => _selectedStatus = val!),
+              ),
+              const SizedBox(height: 20),
+
+              // --- DESCRIPTION ---
               _buildLabel("Description"),
               TextFormField(
-                controller: descController,
+                controller: _descController,
                 maxLines: 3,
-                style: TextDesign.smallText(color: theme.onSurface),
-                decoration: _inputDecoration(
-                    "Briefly describe the item properties...", theme),
+                decoration: _inputDecoration("Briefly describe this item...", theme),
               ),
-
               const SizedBox(height: 40),
 
-              // Save Button
+              // --- SUBMIT BUTTON ---
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -167,12 +201,10 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
                   onPressed: _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
                   ),
-                  child: Text("Save Item", style: TextDesign.buttonText()),
+                  child: const Text("ADD INVENTORY ITEM", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -183,166 +215,7 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     );
   }
 
-  XFile? _selectedImage; // Add this in your State class
-
-  Widget _buildImagePlaceholder(AppColors theme) {
-    return Center(
-      child: GestureDetector(
-        onTap: _showImageSourceSheet,
-        child: Container(
-          height: 140,
-          width: 140,
-          decoration: BoxDecoration(
-            color: theme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: theme.border.withOpacity(0.5)),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: _selectedImage != null
-                ? Image.file(
-              File(_selectedImage!.path),
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            )
-                : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_photo_alternate_outlined,
-                    size: 40, color: theme.primary),
-                const SizedBox(height: 8),
-                Text("Add Photo",
-                    style: TextDesign.smallText(color: theme.primary)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showImageSourceSheet() async {
-    final picker = ImagePicker();
-    final selectedSource = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            color: Colors.black45, // semi-transparent background
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                child: Container(
-                  color: Colors.white,
-                  height: 140,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildSourceButton(
-                        icon: Icons.camera_alt_outlined,
-                        label: "Camera",
-                        onTap: () => Navigator.pop(context, ImageSource.camera),
-                      ),
-                      _buildSourceButton(
-                        icon: Icons.photo_library_outlined,
-                        label: "Gallery",
-                        onTap: () => Navigator.pop(context, ImageSource.gallery),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selectedSource == null) return;
-
-    try {
-      final pickedFile = await picker.pickImage(
-        source: selectedSource,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 80,
-      );
-
-      if (pickedFile != null) {
-        setState(() => _selectedImage = pickedFile);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to pick image: $e")),
-      );
-    }
-  }
-
-// Icon button builder
-  Widget _buildSourceButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              shape: BoxShape.circle,
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Icon(icon, size: 32, color: Colors.black87),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
-
-  Widget _buildCategoryChips(AppColors theme) {
-    if (_categories.isEmpty) {
-      return Text(
-        "No categories available. Please add categories first.",
-        style: TextDesign.smallText(color: theme.error),
-      );
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      children: _categories.map((cat) {
-        bool isSelected = selectedCategory?.categoryId == cat.categoryId;
-        return ChoiceChip(
-          label: Text(cat.categoryName),
-          selected: isSelected,
-          onSelected: (bool selected) {
-            setState(() => selectedCategory = selected ? cat : null);
-          },
-          selectedColor: theme.primary.withOpacity(0.15),
-          backgroundColor: theme.surface,
-          labelStyle: TextDesign.smallText(
-            color: isSelected ? theme.primary : theme.onSurface,
-          ).copyWith(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: isSelected ? theme.primary : theme.border.withOpacity(0.5)),
-          ),
-          showCheckmark: false,
-        );
-      }).toList(),
-    );
-  }
+  // --- UI HELPER WIDGETS ---
 
   Widget _buildLabel(String text) {
     return Padding(
@@ -358,67 +231,104 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
       filled: true,
       fillColor: theme.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: theme.border.withOpacity(0.3)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: theme.border.withOpacity(0.3))),
+    );
+  }
+
+  Widget _buildImagePlaceholder(AppColors theme) {
+    return Center(
+      child: GestureDetector(
+        onTap: _pickImage,
+        child: Container(
+          height: 140, width: 140,
+          decoration: BoxDecoration(
+            color: theme.surfaceVariant,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: theme.border.withOpacity(0.5)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: _selectedImage != null
+                ? Image.file(File(_selectedImage!.path), fit: BoxFit.cover)
+                : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_photo_alternate_outlined, size: 40, color: theme.primary),
+                const SizedBox(height: 8),
+                Text("Upload Image", style: TextStyle(color: theme.primary, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
+  // --- LOGIC FUNCTIONS ---
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    try {
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (pickedFile != null) {
+        setState(() => _selectedImage = pickedFile);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to pick image: $e")));
+    }
+  }
+
+  Future<String?> _uploadImage(File imageFile) async {
+    try {
+      final fileExt = imageFile.path.split('.').last;
+      final fileName = 'inventory_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final supabase = Supabase.instance.client;
+
+      // Ensure you have a bucket named 'inventory-images' in Supabase!
+      await supabase.storage.from('inventory-images').upload(fileName, imageFile);
+      return supabase.storage.from('inventory-images').getPublicUrl(fileName);
+    } catch (e) {
+      print("Image upload error: $e");
+      return null;
+    }
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a category first!")),
-      );
-      return;
-    }
-
-    final name = nameController.text.trim();
-    final price = double.tryParse(priceController.text);
-    final desc = descController.text
-        .trim()
-        .isEmpty ? null : descController.text.trim();
-
-    if (price == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter a valid price!")),
-      );
-      return;
-    }
 
     setState(() => _isSaving = true);
 
-    final newItem = RecycleInventory(
-      inventoryId: '',
-      // auto-generated
-      inventoryName: name,
-      pricePerKg: price,
-      totalWeight: 0.0,
-      description: desc,
-      categoryId: selectedCategory!.categoryId,
-      urlImage: null,
-    );
+    String? imageUrl;
 
     try {
+      // 1. Upload Image (If selected)
+      if (_selectedImage != null) {
+        imageUrl = await _uploadImage(File(_selectedImage!.path));
+        if (imageUrl == null) throw Exception("Failed to upload image. Check Supabase storage bucket.");
+      }
+
+      // 2. Build the new Inventory Object
+      final newItem = RecycleInventory(
+        inventoryName: _nameController.text.trim(),
+        pricePerKg: double.parse(_priceController.text.trim()),
+        totalWeightAvailable: double.parse(_weightController.text.trim()),
+        minWeightLevel: double.tryParse(_minWeightController.text.trim()),
+        status: _selectedStatus,
+        categoryId: _selectedCategoryId,
+        description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+        imgPath: imageUrl, inventoryId: '',
+      );
+
+      // 3. Save to database using the Controller
       await InventoryController.addInventory(newItem);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item added successfully!')),
-        );
-        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Inventory added successfully!")));
+        Navigator.pop(context, true); // Return true so the list page knows to refresh
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add item: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

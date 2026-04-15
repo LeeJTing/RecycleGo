@@ -127,6 +127,8 @@ class RedeemedVoucherDialogs {
   // Get status color based on redemption status
   static Color _getStatusColor(RedeemedVoucherStatus status) {
     switch (status) {
+      case RedeemedVoucherStatus.pending:
+        return Colors.amber;
       case RedeemedVoucherStatus.unused:
         return Colors.blue;
       case RedeemedVoucherStatus.used:

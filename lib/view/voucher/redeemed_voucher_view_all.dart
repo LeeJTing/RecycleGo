@@ -120,6 +120,17 @@ class _RedeemedVoucherViewAllScreenState
                           },
                         ),
                         FilterChip(
+                          label: const Text('Pending'),
+                          selected:
+                              _selectedFilter == RedeemedVoucherStatus.pending,
+                          onSelected: (_) {
+                            setState(
+                              () => _selectedFilter =
+                                  RedeemedVoucherStatus.pending,
+                            );
+                          },
+                        ),
+                        FilterChip(
                           label: const Text('Unused'),
                           selected:
                               _selectedFilter == RedeemedVoucherStatus.unused,

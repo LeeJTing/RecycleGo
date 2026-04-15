@@ -22,7 +22,6 @@ class _RedeemedVoucherScreenState extends State<RedeemedVoucherScreen> {
   final RedeemVoucherCtrl _redeemCtrl = RedeemVoucherCtrl();
   bool _isLoading = true;
   List<RedeemedVouchers> _userRedeemedVouchers = [];
-  bool _hasInitialLoad = false;
 
   @override
   void initState() {
@@ -33,11 +32,12 @@ class _RedeemedVoucherScreenState extends State<RedeemedVoucherScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh data whenever the widget comes into focus
-    if (_hasInitialLoad) {
-      _loadRedeemedVouchers();
-    }
-    _hasInitialLoad = true;
+    _loadRedeemedVouchers();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadRedeemedVouchers() async {
@@ -99,7 +99,7 @@ class _RedeemedVoucherScreenState extends State<RedeemedVoucherScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Vouchers you have redeemed',
+                              'Vouchers you have redeemed (${_userRedeemedVouchers.length} total)',
                               style: TextDesign.smallText(
                                 color: Colors.grey[600],
                               ),
@@ -175,7 +175,10 @@ class _RedeemedVoucherScreenState extends State<RedeemedVoucherScreen> {
                                   onSuccess: _loadRedeemedVouchers,
                                 ),
                               ),
-                            );
+                            ).then((_) {
+                              // Refresh data after returning from confirmation screen
+                              _loadRedeemedVouchers();
+                            });
                           },
                           showShareButton:
                               _userRedeemedVouchers[0].voucherStatus ==
@@ -183,6 +186,41 @@ class _RedeemedVoucherScreenState extends State<RedeemedVoucherScreen> {
                           showUseButton:
                               _userRedeemedVouchers[0].voucherStatus ==
                               RedeemedVoucherStatus.unused,
+                        ),
+                      // Show info message for pending vouchers
+                      if (_userRedeemedVouchers[0].voucherStatus ==
+                          RedeemedVoucherStatus.pending)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              border: Border.all(color: Colors.blue),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.blue[700],
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Awaiting admin approval for bank transfer',
+                                    style: TextDesign.smallText(
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       const SizedBox(height: 24),
                     ],

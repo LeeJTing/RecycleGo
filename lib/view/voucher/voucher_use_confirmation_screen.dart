@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/controller/redeemed_voucher/redeemed_voucher_ctrl.dart';
+import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/models/RedeemedVouchers.dart';
+import 'package:recycle_go/models/Vouchers.dart';
+import 'package:recycle_go/models/Users.dart';
+import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/view/voucher/qr_code_helpers.dart';
+import 'package:recycle_go/view/voucher/helpers/voucher_bank_info_dialog.dart';
+import 'package:recycle_go/view/voucher/helpers/voucher_status_helpers.dart';
+import 'package:recycle_go/view/voucher/helpers/voucher_details_widgets.dart';
 
 class VoucherUseConfirmationScreen extends StatefulWidget {
   final String voucherCode;
@@ -23,8 +31,11 @@ class VoucherUseConfirmationScreen extends StatefulWidget {
 class _VoucherUseConfirmationScreenState
     extends State<VoucherUseConfirmationScreen> {
   final RedeemVoucherCtrl _redeemCtrl = RedeemVoucherCtrl();
+  final VoucherCtrl _voucherCtrl = VoucherCtrl();
   bool _isLoading = false;
   RedeemedVouchers? _redeemedVoucher;
+  Vouchers? _voucherDetails;
+  Users? _userDetails;
   bool _found = false;
 
   @override
@@ -39,8 +50,30 @@ class _VoucherUseConfirmationScreenState
       await _redeemCtrl.fetchRedeemedVouchers(voucherCode: widget.voucherCode);
 
       if (_redeemCtrl.redeemedVouchers.isNotEmpty) {
+        final redeemedVoucher = _redeemCtrl.redeemedVouchers[0];
+
+        // Fetch voucher details
+        await _voucherCtrl.fetchVouchers();
+        final voucherDetails = _voucherCtrl.vouchers.firstWhere(
+          (v) => v.voucherId == redeemedVoucher.voucherId,
+          orElse: () => Vouchers(
+            voucherName: 'Unknown',
+            description: 'N/A',
+            pointsRequired: 0,
+            voucherStatus: 'inactive',
+            voucherCategory: 'unknown',
+            numberOfVouchers: 0,
+          ),
+        );
+
+        // Fetch current user details
+        final userProvider = context.read<UserProvider>();
+        final currentUser = userProvider.user;
+
         setState(() {
-          _redeemedVoucher = _redeemCtrl.redeemedVouchers[0];
+          _redeemedVoucher = redeemedVoucher;
+          _voucherDetails = voucherDetails;
+          _userDetails = currentUser;
           _found = true;
           _isLoading = false;
         });
@@ -67,22 +100,56 @@ class _VoucherUseConfirmationScreenState
   Future<void> _confirmUseVoucher() async {
     if (_redeemedVoucher == null) return;
 
+    // Check if voucher is exchange type and validate/get bank information
+    final isExchange = VoucherStatusHelpers.isExchangeVoucher(
+      _voucherDetails?.voucherCategory,
+    );
+
+    String? bankName = _redeemedVoucher?.bankName;
+    String? bankAccountNumber = _redeemedVoucher?.bankAccountNumber;
+
+    if (isExchange) {
+      // For exchange vouchers, ask for/update bank info
+      final bankInfo = await VoucherBankInfoDialog.show(
+        context,
+        currentVoucher: _redeemedVoucher,
+      );
+      if (bankInfo == null) {
+        // User cancelled
+        return;
+      }
+      bankName = bankInfo['bankName'];
+      bankAccountNumber = bankInfo['accountNumber'];
+
+      // Get bank code for Stripe (internal use only)
+      final bankCode = bankInfo['bankCode'];
+    }
+
     setState(() => _isLoading = true);
     try {
-      // Update the voucher status to used (regardless of who owns it)
+      // For exchange vouchers, set status to pending (waiting for admin approval)
+      // For other vouchers, set status to used immediately
+      final newStatus = isExchange
+          ? RedeemedVoucherStatus.pending
+          : RedeemedVoucherStatus.used;
+
+      // Update the voucher status (and bank info if provided)
       await _redeemCtrl.updateRedeemedVoucherStatus(
         _redeemedVoucher!.voucherCode,
-        RedeemedVoucherStatus.used,
+        newStatus,
+        bankName: bankName,
+        bankAccountNumber: bankAccountNumber,
       );
 
       if (mounted) {
         final theme = AppThemes.color;
+        final message = VoucherStatusHelpers.getExchangeMessage(isExchange);
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Voucher successfully used!'),
-            backgroundColor: theme.primary,
-          ),
+          SnackBar(content: Text(message), backgroundColor: theme.primary),
         );
+        // Small delay to ensure database update is committed
+        await Future.delayed(const Duration(milliseconds: 500));
         widget.onSuccess?.call();
         Navigator.pop(context);
       }
@@ -104,7 +171,6 @@ class _VoucherUseConfirmationScreenState
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       appBar: AppBar(
@@ -122,51 +188,19 @@ class _VoucherUseConfirmationScreenState
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: theme.primary))
           : !_found
-          ? _buildNotFoundScreen(theme, size)
-          : _buildVoucherConfirmationScreen(theme, size),
+          ? const VoucherNotFoundWidget()
+          : _buildVoucherConfirmationScreen(),
     );
   }
 
-  Widget _buildNotFoundScreen(AppColors theme, Size size) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 80, color: theme.error),
-            const SizedBox(height: 16),
-            Text('Voucher Not Found', style: TextDesign.headingTwo()),
-            const SizedBox(height: 8),
-            Text(
-              'The voucher code could not be found.\nPlease check and try again.',
-              textAlign: TextAlign.center,
-              style: TextDesign.smallText(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Go Back'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVoucherConfirmationScreen(AppColors theme, Size size) {
+  Widget _buildVoucherConfirmationScreen() {
     if (_redeemedVoucher == null) return const SizedBox.shrink();
 
     final isAlreadyUsed =
         _redeemedVoucher!.voucherStatus == RedeemedVoucherStatus.used;
+    final isExchange = VoucherStatusHelpers.isExchangeVoucher(
+      _voucherDetails?.voucherCategory,
+    );
 
     return SingleChildScrollView(
       child: Padding(
@@ -181,164 +215,28 @@ class _VoucherUseConfirmationScreenState
             const SizedBox(height: 24),
 
             // Voucher Status
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _getStatusBackgroundColor(
-                  _redeemedVoucher!.voucherStatus,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Voucher Status',
-                    style: TextDesign.smallText(
-                      color: _getStatusColor(_redeemedVoucher!.voucherStatus),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _redeemedVoucher!.voucherStatus.dbValue.toUpperCase(),
-                    style: TextDesign.headingTwo(
-                      color: _getStatusColor(_redeemedVoucher!.voucherStatus),
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            VoucherStatusBadge(status: _redeemedVoucher!.voucherStatus),
             const SizedBox(height: 16),
 
             // Details
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDetailRow(
-                    'Code',
-                    _redeemedVoucher!.voucherCode,
-                    monospace: true,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    'Redeemed Date',
-                    _redeemedVoucher!.redeemedAt?.toString().split('.')[0] ??
-                        'N/A',
-                  ),
-                ],
-              ),
+            VoucherDetailsWidget(voucher: _redeemedVoucher!),
+            const SizedBox(height: 16),
+
+            // Bank Information (only for exchange vouchers)
+            BankTransferDetailWidget(
+              voucher: _redeemedVoucher!,
+              voucherDetails: _voucherDetails,
             ),
             const SizedBox(height: 24),
 
             // Action Buttons
-            if (!isAlreadyUsed)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Do you want to use this voucher?',
-                    textAlign: TextAlign.center,
-                    style: TextDesign.normalText(),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _confirmUseVoucher,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: Text(
-                      'Yes, Use It',
-                      style: TextDesign.normalText(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: TextDesign.normalText(fontSize: 16),
-                    ),
-                  ),
-                ],
-              )
-            else
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  border: Border.all(color: Colors.green),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 32),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Voucher Already Used',
-                      style: TextDesign.normalText(
-                        color: Colors.green,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'This voucher has already been redeemed.',
-                      style: TextDesign.smallText(color: Colors.green),
-                    ),
-                  ],
-                ),
-              ),
+            VoucherActionButtonsWidget(
+              isAlreadyUsed: isAlreadyUsed,
+              onUseVoucher: _confirmUseVoucher,
+            ),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildDetailRow(String label, String value, {bool monospace = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextDesign.smallText(color: Colors.grey[600])),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextDesign.smallText(color: Colors.grey[800], fontSize: 12),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _getStatusColor(RedeemedVoucherStatus status) {
-    switch (status) {
-      case RedeemedVoucherStatus.unused:
-        return Colors.blue;
-      case RedeemedVoucherStatus.used:
-        return Colors.green;
-      case RedeemedVoucherStatus.shared:
-        return Colors.purple;
-    }
-  }
-
-  Color _getStatusBackgroundColor(RedeemedVoucherStatus status) {
-    return _getStatusColor(status).withOpacity(0.1);
   }
 }
