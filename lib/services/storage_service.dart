@@ -13,12 +13,11 @@ class StorageService {
   }) async {
     try {
       print('DEBUG: [StorageService] Attempting upload to bucket: "$bucketName", path: "$path"');
-      
       // Upload the file
       final response = await _client.storage.from(bucketName).upload(
             path,
             file,
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+            fileOptions: const FileOptions(upsert: true),
           );
 
       print('DEBUG: [StorageService] Upload successful. Supabase path returned: $response');

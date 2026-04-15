@@ -1,64 +1,88 @@
-import 'package:recycle_go/models/Connector.dart';
-
 class RecycleInventory {
   final String inventoryId;
-  final String inventoryName;
   final double pricePerKg;
-  final String? description;
+  final double totalWeightAvailable;
+  final String status;
+  final DateTime? updatedAt;
   final int? categoryId;
-  final double totalWeight;
-  final String? urlImage;
+  final String? imgPath;
+  final String? inventoryName;
+  final double? minWeightLevel;
+  final String? description; // <-- Added from your new SQL schema!
 
   RecycleInventory({
     required this.inventoryId,
-    required this.inventoryName,
     required this.pricePerKg,
-    this.description,
+    required this.totalWeightAvailable,
+    required this.status,
+    this.updatedAt,
     this.categoryId,
-    this.totalWeight = 0.0,
-    this.urlImage,
+    this.imgPath,
+    this.inventoryName,
+    this.minWeightLevel,
+    this.description,
   });
 
+  // Convert from Supabase JSON to Dart Object
   factory RecycleInventory.fromJson(Map<String, dynamic> json) {
     return RecycleInventory(
-      // UUID is always a String
-      inventoryId: json['inventory_id']?.toString() ?? '',
-
-      // Must match your SQL CHECK constraint: 'Plastic', 'Paper', 'Glasses', 'CardBoard', 'Metal'
-      inventoryName: json['inventory_name']?.toString() ?? 'Unknown',
-
-      // SQL 'numeric(10, 2)' safely parsed to double
-      pricePerKg: double.tryParse(json['price_per_kg']?.toString() ?? '0') ?? 0.0,
-
-      description: json['description']?.toString(),
-
-      // SQL 'bigint null' safely parsed to int?
-      categoryId: json['category_id'] != null
-          ? int.tryParse(json['category_id'].toString())
+      inventoryId: json['inventory_id']!.toString(),
+      pricePerKg: (json['price_per_kg'] as num).toDouble(),
+      totalWeightAvailable: (json['total_weight_available'] as num).toDouble(),
+      status: json['status']?.toString() ?? 'inactive',
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
           : null,
-
-      // SQL 'real null' safely parsed to double. Defaults to 0.0 if missing.
-      totalWeight: double.tryParse(json['total_weight']?.toString() ?? '0') ?? 0.0,
-
-      urlImage: json['url_image']?.toString(),
+      categoryId: json['category_id'] as int?,
+      imgPath: json['img_path']?.toString(),
+      inventoryName: json['inventory_name']?.toString(),
+      minWeightLevel: json['min_weight_level'] != null
+          ? (json['min_weight_level'] as num).toDouble()
+          : null,
+      description: json['description']?.toString(),
     );
   }
 
+  // Convert Dart Object to JSON for Supabase Insertions/Updates
   Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{
-      'inventory_name': inventoryName,
+    return {
+      if (inventoryId != null) 'inventory_id': inventoryId,
       'price_per_kg': pricePerKg,
-      'description': description,
-      'category_id': categoryId,
-      'total_weight': totalWeight,
-      'url_image': urlImage,
+      'total_weight_available': totalWeightAvailable,
+      'status': status,
+      if (updatedAt != null) 'updated_at': updatedAt?.toIso8601String(),
+      if (categoryId != null) 'category_id': categoryId,
+      if (imgPath != null) 'img_path': imgPath,
+      if (inventoryName != null) 'inventory_name': inventoryName,
+      if (minWeightLevel != null) 'min_weight_level': minWeightLevel,
+      if (description != null) 'description': description,
     };
+  }
 
-    // Only include inventory_id if it's not empty (useful if you let Supabase auto-generate it on INSERT)
-    if (inventoryId.isNotEmpty) {
-      map['inventory_id'] = inventoryId;
-    }
-
-    return map;
+  // Used for updating specific fields easily (like when editing)
+  RecycleInventory copyWith({
+    String? inventoryId,
+    double? pricePerKg,
+    double? totalWeightAvailable,
+    String? status,
+    DateTime? updatedAt,
+    int? categoryId,
+    String? imgPath,
+    String? inventoryName,
+    double? minWeightLevel,
+    String? description,
+  }) {
+    return RecycleInventory(
+      inventoryId: inventoryId ?? this.inventoryId,
+      pricePerKg: pricePerKg ?? this.pricePerKg,
+      totalWeightAvailable: totalWeightAvailable ?? this.totalWeightAvailable,
+      status: status ?? this.status,
+      updatedAt: updatedAt ?? this.updatedAt,
+      categoryId: categoryId ?? this.categoryId,
+      imgPath: imgPath ?? this.imgPath,
+      inventoryName: inventoryName ?? this.inventoryName,
+      minWeightLevel: minWeightLevel ?? this.minWeightLevel,
+      description: description ?? this.description,
+    );
   }
 }

@@ -24,27 +24,6 @@ class BottomNavBar extends StatelessWidget {
         currentIndex: currentIndex,
         onTap: (index) {
           if (index == currentIndex) return;
-
-          switch (index) {
-            case 0:
-              Navigator.pushReplacementNamed(context, Routes.userHomePage);
-              break;
-            case 1:
-              Navigator.pushReplacementNamed(context, Routes.qrScan);
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, Routes.map);
-              break;
-            case 3:
-              // Assuming rewards is linked to voucher management or a similar page
-              // If you have a specific user rewards route, use it here.
-              // For now, let's keep it as is or link to a placeholder.
-              // Navigator.pushReplacementNamed(context, Routes.userRewards); 
-              break;
-            case 4:
-              Navigator.pushReplacementNamed(context, Routes.userProfile);
-              break;
-          }
           onTap(index);
         },
         selectedItemColor: theme.primary,

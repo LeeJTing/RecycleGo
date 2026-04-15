@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/routes.dart';
+import 'package:recycle_go/controller/autho/login_ctrl.dart';
 import 'package:recycle_go/models/Achievements.dart';
 import 'package:recycle_go/models/RecyclingSubmission.dart';
 import 'package:recycle_go/models/Users.dart';
@@ -14,7 +15,7 @@ import 'package:path/path.dart' as path;
 class ProfileCtrl {
   final AchievementModel _achievementModel = AchievementModel();
   final UsersModel _usersModel = UsersModel();
-  final RecyclingSubmissionModel _submissionModel = RecyclingSubmissionModel();
+  final RecycleSubmissionModel _submissionModel = RecycleSubmissionModel();
   final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
 
@@ -23,12 +24,11 @@ class ProfileCtrl {
   }
 
   Future<int> getTotalRecycledItems(String userId) async {
-    return await _submissionModel.getTotalSubmissionsByUserId(userId);
+    return await _submissionModel.getTotalItemsByUserId(userId);
   }
 
   void signOut(BuildContext context) {
-    Provider.of<UserProvider>(context, listen: false).clearUser();
-    Navigator.pushNamedAndRemoveUntil(context, Routes.login, (route) => false);
+    LoginCtrl().signOut(context);
   }
 
   Future<void> updateProfile(BuildContext context, Users updatedUser) async {

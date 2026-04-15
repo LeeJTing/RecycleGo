@@ -8,6 +8,7 @@ import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/view/admin/admin_add_inventory.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/autho/forgot_password_screen.dart';
 import 'package:recycle_go/view/autho/login_screen.dart';
 import 'package:recycle_go/view/admin/admin_home.dart';
 import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
@@ -15,14 +16,10 @@ import 'package:recycle_go/view/admin/admin_purchase_update.dart';
 import 'package:recycle_go/view/admin/admin_view_inventory.dart';
 import 'package:recycle_go/view/admin/admin_update_inventory.dart';
 import 'package:recycle_go/view/autho/register_screen.dart';
-import 'package:recycle_go/view/user/profile/profile_screen.dart';
-import 'package:recycle_go/view/user/user_main_screen.dart';
+import 'package:recycle_go/view/user/homePage/home_screen.dart';
 import 'package:recycle_go/view/user/profile/edit_profile_screen.dart';
-import 'package:recycle_go/view/recycle/map_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
-import 'package:recycle_go/view/user/user_shell.dart';
-import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,18 +64,19 @@ class _MainAppState extends State<MainApp> {
       routes: {
         Routes.login: (context) => const LoginScreen(),
         Routes.register: (context) => const RegisterScreen(),
-        Routes.userHomePage: (context) => const UserShellScreen(),
-        Routes.userProfile: (context) => const ProfileScreen(),
+        Routes.forgotPassword: (context) => const ForgotPasswordScreen(),
+        Routes.userHomePage: (context) => const UserHomeScreen(initialIndex: 0),
+        Routes.userProfile: (context) => const UserHomeScreen(initialIndex: 4),
         Routes.adminHome: (context) => const AdminHome(),
         Routes.adminPurchaseDetail: (context) => const AdminPurchaseDetail(purchase: {}, items: []),
         Routes.adminPurchaseUpdate: (context) => const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
-        Routes.adminViewInventory: (context) => const AdminViewInventory(),
+        Routes.adminViewInventory: (context) => AdminViewInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0, totalWeightAvailable: 0.0, status: '')),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) =>
-        AdminUpdateInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0)),
-        Routes.map: (context) => const MapScreen(),
-        Routes.qrScan: (context) => const QrScanScreen(),
+        AdminUpdateInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0, totalWeightAvailable: 0.0, status: '')),
+        Routes.map: (context) => const UserHomeScreen(initialIndex: 2),
+        Routes.qrScan: (context) => const UserHomeScreen(initialIndex: 1),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
         Routes.adminVoucherManagement: (context) => const AdminVoucherManagement(),
       },
