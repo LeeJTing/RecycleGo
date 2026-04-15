@@ -1,4 +1,5 @@
 import 'package:recycle_go/models/Connector.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RecycleSubmission {
   final String? submissionId;
@@ -34,8 +35,8 @@ class RecycleSubmission {
     this.reasonName,
     this.adminNotes,
     this.weight,
-    this.totalAwardedPoints = 0.0, // Fixed default to double
-    this.detectedItems = const [], // Restored to constructor!
+    this.totalAwardedPoints = 0.0,
+    this.detectedItems = const [],
   });
 
   // Convert from Supabase JSON to Dart Object
@@ -55,7 +56,7 @@ class RecycleSubmission {
       reasonName: json['reason_name'],
       adminNotes: json['admin_notes'],
 
-      // Safely parse numbers (Supabase can sometimes return int or double)
+      // Safely parse numbers
       weight: json['weight'] != null ? (json['weight'] as num).toDouble() : null,
       totalAwardedPoints: json['total_awarded_points'] != null ? (json['total_awarded_points'] as num).toDouble() : 0.0,
 
@@ -155,7 +156,43 @@ class RecycleSubmissionModel extends Connector {
       return await getSubmissionDetails(newSubmissionId);
     } catch (e) {
       print("Error creating submission: $e");
-      rethrow; // Good practice to rethrow so the UI can show an error popup!
+      rethrow;
+    }
+  }
+
+  Future<int> getTotalSubmissionsByUserId(String userId) async {
+    try {
+      final response = await client
+          .from('recyclingsubmission')
+          .select('submission_id')
+          .eq('user_id', userId);
+      
+      return (response as List).length;
+    } catch (e) {
+      print('DEBUG: Error fetching total submissions: $e');
+      return 0;
+    }
+  }
+
+  Future<int> getTotalItemsByUserId(String userId) async {
+    try {
+      // We fetch the submissions for the user and their corresponding detected items
+      final response = await client
+          .from('recyclingsubmission')
+          .select('detecteditems(item_id)')
+          .eq('user_id', userId);
+
+      int totalItems = 0;
+      for (var submission in response as List) {
+        final items = submission['detecteditems'] as List?;
+        if (items != null) {
+          totalItems += items.length;
+        }
+      }
+      return totalItems;
+    } catch (e) {
+      print('DEBUG: Error fetching total recycled items: $e');
+      return 0;
     }
   }
 
@@ -174,7 +211,6 @@ class RecycleSubmissionModel extends Connector {
     }
   }
 
-  /// 💻 ADMIN FUNCTION: Get all pending submissions
   Future<List<RecycleSubmission>> getPendingSubmissions() async {
     try {
       final response = await client
@@ -190,7 +226,6 @@ class RecycleSubmissionModel extends Connector {
     }
   }
 
-  /// 💻 ADMIN FUNCTION: Save Admin Review (Approve/Reject)
   Future<bool> updateSubmissionReview(RecycleSubmission updatedSubmission) async {
     if (updatedSubmission.submissionId == null) return false;
 
@@ -206,7 +241,6 @@ class RecycleSubmissionModel extends Connector {
     }
   }
 
-  /// 🔄 HELPER FUNCTION: Get a single submission by ID
   Future<RecycleSubmission?> getSubmissionDetails(String submissionId) async {
     try {
       final response = await client

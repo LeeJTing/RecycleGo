@@ -34,9 +34,16 @@ class ProfileInfo extends StatelessWidget {
     final joinDate = createdAt != null ? DateFormat('MMM yyyy').format(createdAt!) : 'N/A';
 
     // Resolve URL: If it's just a file name, get the public URL from Supabase
-    String? resolvedUrl = photoUrl;
-    if (photoUrl != null && photoUrl!.isNotEmpty && !photoUrl!.startsWith('http')) {
-      resolvedUrl = StorageService().getPublicUrl('profiles', photoUrl!);
+    String resolvedUrl;
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      if (photoUrl!.startsWith('http')) {
+        resolvedUrl = photoUrl!;
+      } else {
+        resolvedUrl = StorageService().getPublicUrl('profiles', photoUrl!);
+      }
+    } else {
+      // Use default image from profiles bucket if photoUrl is null or empty
+      resolvedUrl = StorageService().getPublicUrl('profiles', 'userProfile/default.png');
     }
 
     return Column(
@@ -48,10 +55,7 @@ class ProfileInfo extends StatelessWidget {
               CircleAvatar(
                 radius: size.width * 0.15,
                 backgroundColor: theme.surfaceVariant,
-                backgroundImage: resolvedUrl != null && resolvedUrl.isNotEmpty ? NetworkImage(resolvedUrl) : null,
-                child: resolvedUrl == null || resolvedUrl.isEmpty
-                    ? Icon(Icons.person, size: size.width * 0.15, color: theme.hint)
-                    : null,
+                backgroundImage: NetworkImage(resolvedUrl),
               ),
               Positioned(
                 bottom: 0,

@@ -20,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agreeToTerms = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isEmailFromGoogle = false;
 
   // Validation States
   bool _isNameValid = false;
@@ -34,7 +35,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    _validateFields();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final emailArg = ModalRoute.of(context)?.settings.arguments as String?;
+      if (emailArg != null && emailArg.isNotEmpty) {
+        setState(() {
+          ctrl.emailCtrl.text = emailArg;
+          _isEmailFromGoogle = true;
+        });
+      }
+      _validateFields();
+    });
   }
 
   void _validateFields() {
@@ -180,6 +190,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onChanged: (_) => _validateFields(),
                     hintText: 'adam@gmail.com',
                     keyboardType: TextInputType.emailAddress,
+                    readOnly: _isEmailFromGoogle,
                     prefixIcon: Icon(Icons.email_outlined, color: theme.onHint, size: 20),
                     borderColor: ctrl.emailCtrl.text.isNotEmpty && !_isEmailValid ? theme.error.withOpacity(0.3) : null,
                     errorText: ctrl.emailCtrl.text.isNotEmpty && !_isEmailValid ? 'Please enter a valid email address' : null,

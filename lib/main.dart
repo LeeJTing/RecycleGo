@@ -71,10 +71,10 @@ class _MainAppState extends State<MainApp> {
         Routes.adminPurchaseDetail: (context) => const AdminPurchaseDetail(purchase: {}, items: []),
         Routes.adminPurchaseUpdate: (context) => const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
-        Routes.adminViewInventory: (context) => const AdminViewInventory(),
+        Routes.adminViewInventory: (context) => AdminViewInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0, totalWeightAvailable: 0.0, status: '')),
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) =>
-        AdminUpdateInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0)),
+        AdminUpdateInventory(item: RecycleInventory(inventoryId: '', inventoryName: '', pricePerKg: 0.0, totalWeightAvailable: 0.0, status: '')),
         Routes.map: (context) => const UserHomeScreen(initialIndex: 2),
         Routes.qrScan: (context) => const UserHomeScreen(initialIndex: 1),
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
