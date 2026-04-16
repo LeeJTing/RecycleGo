@@ -7,6 +7,7 @@ class RecyclePurchases {
   final double totalPrice; // Purchase amount
   final String paymentStatus; // e.g., 'success', 'pending', 'failed'
   final DateTime? createdAt; // Auto-generated timestamp
+  final String? bankAccount; // Bank account for payment
 
   RecyclePurchases({
     this.purchaseId,
@@ -14,6 +15,7 @@ class RecyclePurchases {
     required this.totalPrice,
     required this.paymentStatus,
     this.createdAt,
+    this.bankAccount,
   });
 
   factory RecyclePurchases.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class RecyclePurchases {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
+      bankAccount: json['bank_account']?.toString(),
     );
   }
 
@@ -44,6 +47,10 @@ class RecyclePurchases {
       map['created_at'] = createdAt!.toIso8601String();
     }
 
+    if (bankAccount != null && bankAccount!.isNotEmpty) {
+      map['bank_account'] = bankAccount;
+    }
+
     return map;
   }
 
@@ -53,6 +60,7 @@ class RecyclePurchases {
     double? totalPrice,
     String? paymentStatus,
     DateTime? createdAt,
+    String? bankAccount,
   }) {
     return RecyclePurchases(
       purchaseId: purchaseId ?? this.purchaseId,
@@ -60,6 +68,7 @@ class RecyclePurchases {
       totalPrice: totalPrice ?? this.totalPrice,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       createdAt: createdAt ?? this.createdAt,
+      bankAccount: bankAccount ?? this.bankAccount,
     );
   }
 }
@@ -135,6 +144,19 @@ class RecyclePurchasesModel extends Connector {
           .eq('purchase_id', purchaseId);
     } catch (e) {
       print('Error updating payment status: $e');
+      rethrow;
+    }
+  }
+
+  /// Update bank account for a purchase
+  Future<void> updateBankAccount(String purchaseId, String bankAccount) async {
+    try {
+      await client
+          .from('recyclepurchases')
+          .update({'bank_account': bankAccount})
+          .eq('purchase_id', purchaseId);
+    } catch (e) {
+      print('Error updating bank account: $e');
       rethrow;
     }
   }
