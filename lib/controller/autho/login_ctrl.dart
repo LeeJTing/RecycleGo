@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
@@ -15,9 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginCtrl {
   static final LoginCtrl _instance = LoginCtrl._internal();
-
   LoginCtrl._internal();
-
   factory LoginCtrl() => _instance;
 
   final TextEditingController passwordCtrl = TextEditingController();
@@ -54,9 +53,7 @@ class LoginCtrl {
     }
 
     Loading.show(context);
-
     try {
-      // 1. Check User Account
       bool? isUserActive = await _usersModel.userIsActive(email);
       if (isUserActive == true) {
         final user = await _usersModel.authenticate(email, password);
@@ -71,7 +68,6 @@ class LoginCtrl {
         }
       }
 
-      // 2. Check Admin Account
       bool? isAdminActive = await _adminsModel.adminIsActive(email);
       if (isAdminActive == true) {
         final admin = await _adminsModel.authenticate(email, password);
@@ -102,46 +98,46 @@ class LoginCtrl {
     }
   }
 
+  /// Starts the Google Sign-In process.
+  /// Important: You MUST add 'io.supabase.recyclego://login-callback' 
+  /// to Supabase Dashboard -> Auth -> Redirect URLs.
   Future<void> signInWithGoogle(BuildContext context) async {
-    Loading.show(context);
     try {
       final supabase = Supabase.instance.client;
-      
-      // Attempt Google Sign In
-      // Note: This requires Google Auth to be enabled in Supabase Dashboard
-      // and potentially additional platform-specific configuration (OAuth 2.0 Client IDs)
-      final bool success = await supabase.auth.signInWithOAuth(
+
+      // On mobile, this opens the browser.
+      // Execution in this method will NOT wait for the user to return.
+      await supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'io.supabase.recyclego://login-callback', // Replace with your deep link
+        redirectTo: kIsWeb ? null : 'io.supabase.recyclego://login-callback',
       );
-
-      if (!success) {
-        if (context.mounted) {
-          Loading.hide(context);
-          _showError(context, "Google Sign In failed to initialize");
-        }
-        return;
-      }
-
-      // After redirect back to the app, we need to check if the user exists in our DB
-      // Note: In a real app, you'd listen to auth state changes.
-      // For this implementation, we'll assume the user is returned after OAuth.
       
-      final session = supabase.auth.currentSession;
-      if (session == null || session.user == null) {
-        // Handled by the redirect/auth state listener in most cases
-        return;
+      // Note: We don't hide loading here because the browser is opening.
+      // The actual login check happens in handleAuthRedirect.
+    } catch (e) {
+      if (context.mounted) {
+        _showError(context, "Google Sign In Error: $e");
       }
+    }
+  }
 
-      final String email = session.user!.email!;
-      
-      // Check if user exists in our 'Users' table
+  /// This should be called when the app returns from the Google Sign-In redirect.
+  /// It checks if the user exists in our DB and handles navigation.
+  Future<void> handleAuthRedirect(BuildContext context) async {
+    final supabase = Supabase.instance.client;
+    final session = supabase.auth.currentSession;
+    
+    if (session == null || session.user == null) return;
+
+    final String email = session.user!.email!;
+    Loading.show(context);
+
+    try {
       bool exists = await _usersModel.emailIsExist(email);
       
       if (context.mounted) {
         Loading.hide(context);
         if (exists) {
-          // Fetch the full user model
           final response = await _usersModel.client
               .from('users')
               .select()
@@ -152,14 +148,16 @@ class LoginCtrl {
           Provider.of<UserProvider>(context, listen: false).setUser(user);
           Navigator.pushReplacementNamed(context, Routes.userHomePage);
         } else {
-          // Redirect to register with email pre-filled
+          // If the user doesn't exist in our table, sign them out from Supabase Auth
+          // so they don't stay "logged in" with a partial account.
+          await supabase.auth.signOut();
           Navigator.pushNamed(context, Routes.register, arguments: email);
         }
       }
     } catch (e) {
       if (context.mounted) {
         Loading.hide(context);
-        _showError(context, "Google Sign In Error: $e");
+        _showError(context, "Redirect Handling Error: $e");
       }
     }
   }
