@@ -7,6 +7,7 @@ class Admins {
   final String email;
   final String adminStatus;
   final String role;
+  final String? profilePhoto; // Added profilePhoto
   final DateTime? createdAt;
   final String? hashedPassword;
 
@@ -16,6 +17,7 @@ class Admins {
     required this.email,
     required this.adminStatus,
     required this.role,
+    this.profilePhoto,
     this.createdAt,
     this.hashedPassword,
   });
@@ -27,6 +29,7 @@ class Admins {
       email: json['email'],
       adminStatus: json['admin_status'],
       role: json['role'],
+      profilePhoto: json['profile_photo'],
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       hashedPassword: json['hashed_password'],
     );
@@ -39,6 +42,7 @@ class Admins {
       'email': email,
       'admin_status': adminStatus,
       'role': role,
+      'profile_photo': profilePhoto,
       'created_at': createdAt?.toIso8601String(),
       'hashed_password': hashedPassword,
     };
@@ -85,5 +89,15 @@ class AdminsModel extends Connector {
         .eq('email', email);
 
     return response.isNotEmpty;
+  }
+  
+  Future<Admins> updateAdmin(Admins admin) async {
+    final response = await client
+        .from('admins')
+        .update(admin.toJson())
+        .eq('admin_id', admin.adminId!)
+        .select()
+        .single();
+    return Admins.fromJson(response);
   }
 }
