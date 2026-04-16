@@ -48,6 +48,7 @@ serve(async (req) => {
       .toString()
       .trim()
       .toLowerCase();
+    const customerEmail = (body["customerEmail"] ?? "").toString().trim();
     const paymentMethodType =
       requestedPaymentMethod === "card" ? "card" : "fpx";
 
@@ -81,13 +82,13 @@ serve(async (req) => {
     const successUrl = (
       body["successUrl"] ??
       Deno.env.get("STRIPE_SUCCESS_URL") ??
-      fallbackSuccessUrl
+      ""
     ).toString();
 
     const cancelUrl = (
       body["cancelUrl"] ??
       Deno.env.get("STRIPE_CANCEL_URL") ??
-      fallbackCancelUrl
+      ""
     ).toString();
 
     const session = await stripe.checkout.sessions.create({
@@ -106,13 +107,25 @@ serve(async (req) => {
           },
         },
       ],
+      customer_email: customerEmail || undefined,
       metadata: {
         itemId,
         userId,
         merchantName,
       },
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      custom_fields: [
+        {
+          key: "bank_account",
+          label: {
+            type: "custom",
+            custom: "Bank Account",
+          },
+          type: "text",
+          optional: false,
+        },
+      ],
+      ...(successUrl && { success_url: successUrl }),
+      ...(cancelUrl && { cancel_url: cancelUrl }),
     });
 
     if (!session.url) {

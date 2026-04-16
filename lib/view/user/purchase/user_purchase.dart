@@ -4,11 +4,9 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
-import 'package:recycle_go/models/RecyclePurchases.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
-import 'package:recycle_go/models/Connector.dart';
+import 'package:recycle_go/controller/puchase_item/purchase_item_ctrl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:uuid/uuid.dart';
 
 class UserPurchaseScreen extends StatefulWidget {
   const UserPurchaseScreen({super.key});
@@ -18,43 +16,28 @@ class UserPurchaseScreen extends StatefulWidget {
 }
 
 class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
+  late TextEditingController _searchController;
+  final PurchaseItemController _purchaseCtrl = PurchaseItemController();
   bool _isLoading = true;
-  List<RecycleInventory> _items = [];
-  List<RecycleInventory> _filteredItems = [];
-  TextEditingController _searchController = TextEditingController();
-  final _connector = Connector();
 
   @override
   void initState() {
     super.initState();
-    _loadInventoryItems();
+    _searchController = TextEditingController();
     _searchController.addListener(_filterItems);
+    _loadItems();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadInventoryItems() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadItems() async {
     try {
-      final response = await _connector.client
-          .from('recycleinventory')
-          .select()
-          .order('inventory_name');
-
-      final items = (response as List)
-          .map((item) => RecycleInventory.fromJson(item))
-          .toList();
-
+      await _purchaseCtrl.loadInventoryItems();
       setState(() {
-        _items = items;
-        _filteredItems = items;
         _isLoading = false;
       });
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       if (mounted) {
         final theme = AppThemes.color;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -64,58 +47,19 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
           ),
         );
       }
-      setState(() => _isLoading = false);
     }
   }
 
-  /// Update inventory stock after successful purchase
-  Future<void> _updateInventoryStock(
-    String inventoryId,
-    double quantityPurchased,
-  ) async {
-    try {
-      // Get current stock
-      final currentResponse = await _connector.client
-          .from('recycleinventory')
-          .select('total_weight_available')
-          .eq('inventory_id', inventoryId)
-          .single();
-
-      final currentStock =
-          double.tryParse(
-            currentResponse['total_weight_available']?.toString() ?? '0',
-          ) ??
-          0.0;
-
-      // Calculate new stock
-      final newStock = currentStock - quantityPurchased;
-
-      // Update database
-      if (newStock >= 0) {
-        await _connector.client
-            .from('recycleinventory')
-            .update({'total_weight_available': newStock})
-            .eq('inventory_id', inventoryId);
-      }
-    } catch (e) {
-      print('Error updating inventory stock: $e');
-      // Don't throw - log error but continue
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _filterItems() {
-    final query = _searchController.text.toLowerCase();
-    final filtered = _items
-        .where(
-          (item) =>
-              (item.inventoryName?.toLowerCase().contains(query) ?? false) ||
-              (item.description?.toLowerCase().contains(query) ?? false),
-        )
-        .toList();
-
-    setState(() {
-      _filteredItems = filtered;
-    });
+    final query = _searchController.text;
+    _purchaseCtrl.filterItems(query);
+    setState(() {});
   }
 
   void _handlePurchase(RecycleInventory item) {
@@ -273,90 +217,67 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
         ),
       );
 
-      // Calculate total amount in cents
-      final totalAmountInCents = (item.pricePerKg * quantity * 100).toInt();
-
-      // Call Stripe Edge Function to create checkout session
-      final response = await _connector.client.functions.invoke(
-        'stripe-create-checkout-session',
-        body: {
-          'itemId': item.inventoryId,
-          'userId': user.userId ?? '',
-          'merchantName': 'RecycleGo',
-          'itemName':
-              '${item.inventoryName ?? 'Item'} (${quantity.toStringAsFixed(2)} kg)',
-          'amountInCents': totalAmountInCents,
-          'currency': 'myr',
-          'paymentMethodType': 'fpx',
-        },
+      // Process purchase through controller
+      final paymentData = await _purchaseCtrl.processPurchase(
+        item,
+        quantity,
+        user.userId ?? '',
+        user.email ?? '', // Pass user's email to Stripe
       );
 
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
 
-      // Handle response data
-      final responseData = response.data as Map<String, dynamic>?;
+      final checkoutUrl = paymentData['checkoutUrl'] as String;
+      final sessionId = paymentData['sessionId'] as String;
+      final totalPrice = item.pricePerKg * quantity;
 
-      if (responseData != null && responseData.containsKey('error')) {
-        throw Exception('Stripe error: ${responseData['error']}');
+      // Create purchase record through controller
+      final purchaseId = await _purchaseCtrl.createPurchaseRecord(
+        user.userId ?? '',
+        item,
+        quantity,
+      );
+
+      // DO NOT decrement inventory yet - wait for payment success
+      // await _purchaseCtrl.updateInventoryStock(item.inventoryId, quantity);
+
+      // Navigate to payment verification screen FIRST
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          Routes.paymentVerification,
+          arguments: {
+            'sessionId': sessionId,
+            'purchaseId': purchaseId,
+            'itemName': item.inventoryName ?? 'Item',
+            'quantity': quantity,
+            'totalPrice': totalPrice,
+            'inventoryId': item.inventoryId,
+          },
+        ).then((_) {
+          // Reload items when returning from verification screen
+          if (mounted) {
+            _loadItems();
+          }
+        });
       }
 
-      if (responseData != null &&
-          responseData['success'] == true &&
-          responseData['checkoutUrl'] != null) {
-        // Launch Stripe checkout URL
-        final checkoutUrl = responseData['checkoutUrl'] as String;
-        final sessionId = responseData['sessionId'] as String;
-
-        try {
-          // Generate UUID for purchase record
-          const uuid = Uuid();
-          final purchaseId = uuid.v4();
-          final totalPrice = item.pricePerKg * quantity;
-
-          // Save purchase record with pending status
-          final purchasesModel = RecyclePurchasesModel();
-          final purchase = RecyclePurchases(
-            purchaseId: purchaseId,
-            userId: user.userId ?? '',
-            totalPrice: totalPrice,
-            paymentStatus: 'pending',
-          );
-          await purchasesModel.createPurchase(purchase);
-
-          // Update inventory stock
-          await _updateInventoryStock(item.inventoryId, quantity);
-
-          // Try to launch with platformDefault mode first
-          await launchUrl(
-            Uri.parse(checkoutUrl),
-            mode: LaunchMode.platformDefault,
-          );
-
-          // Navigate to payment verification screen
-          if (mounted) {
-            Navigator.pushNamed(
-              context,
-              Routes.paymentVerification,
-              arguments: {
-                'sessionId': sessionId,
-                'purchaseId': purchaseId,
-                'itemName': item.inventoryName ?? 'Item',
-                'quantity': quantity,
-                'totalPrice': totalPrice,
-              },
-            ).then((_) {
-              // Reload items when returning from verification screen
-              _loadInventoryItems();
-            });
-          }
-        } catch (launchError) {
-          throw Exception('Could not launch checkout URL: $launchError');
-        }
-      } else {
-        throw Exception(
-          'Failed to create checkout session - success: ${responseData?['success']}, checkoutUrl: ${responseData?['checkoutUrl']}',
+      // Launch Stripe checkout URL (don't await - let user navigate back naturally)
+      try {
+        await launchUrl(
+          Uri.parse(checkoutUrl),
+          mode: LaunchMode.platformDefault,
         );
+      } catch (launchError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open payment gateway: $launchError'),
+              backgroundColor: AppThemes.color.error,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -405,7 +326,6 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
               : SingleChildScrollView(
                   child: Column(
                     children: [
-                      // Items Info Card
                       Container(
                         margin: EdgeInsets.all(size.width * 0.04),
                         padding: EdgeInsets.all(size.width * 0.05),
@@ -434,7 +354,7 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '${_filteredItems.length} Items',
+                                  '${_purchaseCtrl.filteredItems.length} Items',
                                   style: TextDesign.headingOne(
                                     color: theme.onPrimary,
                                     fontSize: 24,
@@ -478,7 +398,7 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
                           horizontal: size.width * 0.04,
                           vertical: size.height * 0.02,
                         ),
-                        child: _filteredItems.isEmpty
+                        child: _purchaseCtrl.filteredItems.isEmpty
                             ? Center(
                                 child: Padding(
                                   padding: const EdgeInsets.all(32),
@@ -493,9 +413,10 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
                             : ListView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _filteredItems.length,
+                                itemCount: _purchaseCtrl.filteredItems.length,
                                 itemBuilder: (context, index) {
-                                  final item = _filteredItems[index];
+                                  final item =
+                                      _purchaseCtrl.filteredItems[index];
                                   return _buildItemCard(item, size);
                                 },
                               ),
