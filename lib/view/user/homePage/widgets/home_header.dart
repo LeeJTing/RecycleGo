@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/app/default_url.dart';
 import 'package:recycle_go/services/storage_service.dart';
 
 class HomeHeader extends StatelessWidget {
@@ -15,9 +16,11 @@ class HomeHeader extends StatelessWidget {
     final size = MediaQuery.of(context).size;
 
     // Resolve URL: If it's just a file name, get the public URL from Supabase
-    String? resolvedUrl = photoUrl;
-    if (photoUrl != null && photoUrl!.isNotEmpty && !photoUrl!.startsWith('http')) {
-      resolvedUrl = StorageService().getPublicUrl('profiles', photoUrl!);
+    String resolvedUrl;
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.userProfileHeader + photoUrl!);
+    } else {
+      resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.userDefaultProfilePath);
     }
 
     return Row(
@@ -42,10 +45,7 @@ class HomeHeader extends StatelessWidget {
             CircleAvatar(
               radius: size.width * 0.06,
               backgroundColor: theme.surfaceVariant,
-              backgroundImage: resolvedUrl != null && resolvedUrl.isNotEmpty ? NetworkImage(resolvedUrl) : null,
-              child: resolvedUrl == null || resolvedUrl.isEmpty
-                  ? Icon(Icons.person, size: size.width * 0.06, color: theme.hint)
-                  : null,
+              backgroundImage: NetworkImage(resolvedUrl),
             ),
             Positioned(
               bottom: 0,
