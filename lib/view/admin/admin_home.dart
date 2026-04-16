@@ -3,6 +3,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/assets.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/view/admin/verify_recycle_item.dart';
 import 'package:recycle_go/view/admin/request_admin.dart';
@@ -36,7 +37,7 @@ class _AdminHomeState extends State<AdminHome> {
     const AdminInventory(),
     const RequestAdmin(),
     const AdminViewPurchase(),
-    const Center(child: Text("Profile Settings Content")),
+    const AdminProfileScreen(),
   ];
 
   @override
