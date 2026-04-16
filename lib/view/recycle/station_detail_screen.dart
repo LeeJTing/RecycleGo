@@ -507,8 +507,15 @@ class _CapacityCard extends StatelessWidget {
   final int remainingKg;
   const _CapacityCard({required this.capacity, required this.remainingKg});
 
+  Color getCapacityColor(int capacity) {
+    if (capacity >= 100) return Colors.red;
+    if (capacity >= 90) return Colors.orange;
+    return const Color(0xFF1DB954);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final color = getCapacityColor(capacity);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -532,8 +539,8 @@ class _CapacityCard extends StatelessWidget {
                 ),
                 Text(
                   '$capacity%',
-                  style: const TextStyle(
-                    color: Color(0xFF1DB954),
+                  style: TextStyle(
+                    color: color,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -547,8 +554,7 @@ class _CapacityCard extends StatelessWidget {
                 value: capacity / 100,
                 minHeight: 10,
                 backgroundColor: const Color(0xFFEEEEEE),
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF1DB954)),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
             const SizedBox(height: 6),
@@ -689,6 +695,7 @@ class _MaterialsGrid extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: TweenAnimationBuilder<double>(
+                      key: ValueKey(percent),
                       tween: Tween(begin: 0, end: percent.clamp(0, 1)),
                       duration: const Duration(milliseconds: 800),
                       builder: (context, value, _) {
