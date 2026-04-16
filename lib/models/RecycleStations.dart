@@ -69,11 +69,11 @@ class RecycleStation {
           cardboardStorage + metalStorage;
 
   List<RecycleMaterialType> get supportedMaterials => [
-    if (plasticStorage > 0) RecycleMaterialType.plastic,
-    if (paperStorage > 0) RecycleMaterialType.paper,
-    if (glassStorage > 0) RecycleMaterialType.glass,
-    if (cardboardStorage > 0) RecycleMaterialType.cardboard,
-    if (metalStorage > 0) RecycleMaterialType.metal,
+    RecycleMaterialType.plastic,
+    RecycleMaterialType.paper,
+    RecycleMaterialType.glass,
+    RecycleMaterialType.cardboard,
+    RecycleMaterialType.metal,
   ];
 
   RecycleStation copyWith({

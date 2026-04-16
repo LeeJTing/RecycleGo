@@ -36,6 +36,13 @@ class _MapScreenState extends State<MapScreen> {
 
   Set<Polyline> _polylines = {};
 
+  double _formatDistanceValue(RecycleStation s) {
+    return s.distanceFrom(
+      _currentPosition.latitude,
+      _currentPosition.longitude,
+    );
+  }
+
   Widget _modeItem(String mode, IconData icon) {
     final isSelected = _travelMode == mode;
 
@@ -855,13 +862,45 @@ class _MapScreenState extends State<MapScreen> {
                               borderRadius: BorderRadius.circular(20),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(20),
-                                onTap: () {
-                                  Navigator.push(
+                                onTap: () async {
+                                  final result = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => StationDetailScreen(station: s),
+                                      builder: (_) => StationDetailScreen(
+                                        station: s,
+                                        distanceKm: _formatDistanceValue(s),
+
+                                        duration: _durations[s.stationId],
+                                        routeDistance: _distances[s.stationId],
+                                      ),
                                     ),
                                   );
+
+                                  // 👇 如果是从 Navigate 按钮回来
+                                  if (result != null && result is RecycleStation) {
+                                    setState(() {
+                                      _selectedStation = result;
+                                    });
+
+                                    // 👉 移动地图
+                                    _mapController?.animateCamera(
+                                      CameraUpdate.newLatLng(
+                                        LatLng(result.latitude - 0.002, result.longitude),
+                                      ),
+                                    );
+
+                                    // 👉 画路线（最关键）
+                                    await _drawRoute(result);
+
+                                    // 👉 打开 bottom sheet
+                                    if (_sheetController.isAttached) {
+                                      _sheetController.animateTo(
+                                        0.45,
+                                        duration: Duration(milliseconds: 300),
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  }
                                 },
                                 child: _StationCard(
                                   station: s,

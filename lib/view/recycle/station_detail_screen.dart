@@ -1,43 +1,121 @@
 import 'package:flutter/material.dart';
 import 'qr_scan_screen.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 
-class StationDetailScreen extends StatelessWidget {
+class StationDetailScreen extends StatefulWidget {
   final RecycleStation station;
+  final double distanceKm;
+  final String? duration;
+  final String? routeDistance;
 
-  const StationDetailScreen({super.key, required this.station});
+  const StationDetailScreen({
+    super.key,
+    required this.station,
+    required this.distanceKm,
 
-  // Mock data — replace with real station model
-  static const List<Map<String, dynamic>> _materials = [
-    {'label': 'Plastic', 'icon': Icons.recycling, 'active': true},
-    {'label': 'Glass', 'icon': Icons.wine_bar_outlined, 'active': false},
-    {'label': 'Paper', 'icon': Icons.description_outlined, 'active': true},
-    {'label': 'E-Waste', 'icon': Icons.electrical_services_outlined, 'active': false},
-  ];
+    // ✅ constructor 也要加
+    this.duration,
+    this.routeDistance,
+  });
 
-  static const List<Map<String, dynamic>> _history = [
-    {
-      'name': 'Alex Rivera',
-      'detail': '12.5kg Plastic • 2 mins ago',
-      'points': '+450 pts',
-      'initials': 'AR',
-      'color': Color(0xFF4CAF50),
-    },
-    {
-      'name': 'Sarah Chen',
-      'detail': '8.2kg Paper • 1 hour ago',
-      'points': '+210 pts',
-      'initials': 'SC',
-      'color': Color(0xFF2196F3),
-    },
-    {
-      'name': 'Anonymous Hero',
-      'detail': '4.0kg Glass • 3 hours ago',
-      'points': '+120 pts',
-      'initials': '?',
-      'color': Color(0xFF9E9E9E),
-    },
-  ];
+  @override
+  State<StationDetailScreen> createState() => _StationDetailScreenState();
+}
+
+class _StationDetailScreenState extends State<StationDetailScreen> {
+
+  double co2Kg = 0.0;
+
+  bool isLoading = true;
+
+  List<Map<String, dynamic>> materials = [];
+  int capacity = 0;
+  int remainingKg = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchStationData();
+  }
+
+  Future<void> fetchStationData() async {
+    setState(() => isLoading = true);
+
+    try {
+      final data = await Supabase.instance.client
+          .from('recyclestation')
+          .select()
+          .eq('station_id', widget.station.stationId)
+          .maybeSingle();
+
+      if (data == null) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final plastic   = (data['plastic_storage']   as num? ?? 0).toDouble();
+      final glass     = (data['glasses_storage']   as num? ?? 0).toDouble();
+      final cardboard = (data['cardboard_storage'] as num? ?? 0).toDouble();
+      final metal     = (data['metal_storage']     as num? ?? 0).toDouble();
+
+      final total = plastic + glass + cardboard + metal;
+
+      const double maxCap = 500.0;
+
+      // ♻️ 每种材料的 CO2 减排系数（kg CO2 / kg）
+      const plasticFactor = 6.0;
+      const glassFactor = 0.5;
+      const cardboardFactor = 3.0;
+      const metalFactor = 9.0;
+
+      // ✅ 计算 CO2
+      final co2 =
+          (plastic * plasticFactor) +
+              (glass * glassFactor) +
+              (cardboard * cardboardFactor) +
+              (metal * metalFactor);
+
+      // ✅ 一次 setState
+      setState(() {
+        materials = [
+          {
+            'label': 'Plastic',
+            'icon': Icons.recycling,
+            'level': plastic,
+            'percent': maxCap > 0 ? plastic / maxCap : 0
+          },
+          {
+            'label': 'Glass',
+            'icon': Icons.wine_bar_outlined,
+            'level': glass,
+            'percent': maxCap > 0 ? glass / maxCap : 0
+          },
+          {
+            'label': 'Cardboard',
+            'icon': Icons.description_outlined,
+            'level': cardboard,
+            'percent': maxCap > 0 ? cardboard / maxCap : 0
+          },
+          {
+            'label': 'Metal',
+            'icon': Icons.settings,
+            'level': metal,
+            'percent': maxCap > 0 ? metal / maxCap : 0
+          },
+        ];
+
+        capacity = ((total / maxCap) * 100).clamp(0, 100).toInt();
+        remainingKg = (maxCap - total).clamp(0, maxCap).toInt();
+        co2Kg = co2;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,43 +123,46 @@ class StationDetailScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF4F7F4),
       body: Column(
         children: [
-          // ── Top bar ──────────────────────────────────────────────────
-          _TopBar(stationName: station.stationName ?? 'Station'),
+          _TopBar(stationName: widget.station.stationName ?? 'Station'),
 
-          // ── Scrollable content ───────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 100),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Station header card
-                  _StationHeaderCard(station: station),
 
-                  // Map thumbnail
+                  _StationHeaderCard(
+                    station: widget.station,
+                    distanceKm: widget.distanceKm,
+                    co2Kg: co2Kg,
+                    duration: widget.duration,
+                    routeDistance: widget.routeDistance,
+                  ),
+
                   _MapThumbnail(
-                    lat: station.latitude ?? 3.1390,
-                    lng: station.longitude ?? 101.6869,
+                    lat: widget.station.latitude ?? 3.1390,
+                    lng: widget.station.longitude ?? 101.6869,
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Real-time capacity
-                  _CapacityCard(capacity: 80, remainingKg: 240),
+                  // ✅ 用 DB
+                  _CapacityCard(
+                    capacity: capacity,
+                    remainingKg: remainingKg,
+                  ),
 
                   const SizedBox(height: 16),
 
-                  // Supported materials
                   const _SectionLabel(label: 'SUPPORTED MATERIALS'),
                   const SizedBox(height: 8),
-                  _MaterialsGrid(materials: _materials),
 
-                  const SizedBox(height: 16),
+                  // ✅ 用 DB
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _MaterialsGrid(materials: materials),
 
-                  // Historical activity
-                  const _SectionLabel(label: 'HISTORICAL ACTIVITY'),
-                  const SizedBox(height: 8),
-                  _ActivityList(history: _history),
                 ],
               ),
             ),
@@ -89,7 +170,6 @@ class StationDetailScreen extends StatelessWidget {
         ],
       ),
 
-      // ── Floating scan CTA ──────────────────────────────────────────
       bottomNavigationBar: _ScanCTA(
         onTap: () => Navigator.push(
           context,
@@ -163,7 +243,19 @@ class _TopBar extends StatelessWidget {
 
 class _StationHeaderCard extends StatelessWidget {
   final RecycleStation station;
-  const _StationHeaderCard({required this.station});
+  final double distanceKm;
+  final double co2Kg;
+
+  final String? duration;
+  final String? routeDistance;
+
+  const _StationHeaderCard({
+    required this.station,
+    required this.distanceKm,
+    required this.co2Kg,
+    this.duration,
+    this.routeDistance,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -176,13 +268,6 @@ class _StationHeaderCard extends StatelessWidget {
           // Station ID + Active badge
           Row(
             children: [
-              Text(
-                'STATION ID: #0824-LX',
-                style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 12,
-                    letterSpacing: 0.5),
-              ),
               const Spacer(),
               Container(
                 padding:
@@ -223,9 +308,9 @@ class _StationHeaderCard extends StatelessWidget {
               const Icon(Icons.location_on_outlined,
                   color: Color(0xFF666), size: 14),
               const SizedBox(width: 4),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '124 High Street, Ecosystem District, Metropolis',
+                  station.address ?? 'No address',
                   style: TextStyle(color: Color(0xFF666666), fontSize: 13),
                 ),
               ),
@@ -233,11 +318,28 @@ class _StationHeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
+          if (duration != null && routeDistance != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$duration • $routeDistance',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+
           // Navigate + Share buttons
           Row(
             children: [
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pop(context, station); // 👈 把站点传回去
+                },
                 icon: const Icon(Icons.navigation,
                     size: 16, color: Colors.white),
                 label: const Text('Navigate',
@@ -274,7 +376,7 @@ class _StationHeaderCard extends StatelessWidget {
           Row(
             children: [
               _StatTile(
-                value: '0.8km',
+                value: '${distanceKm.toStringAsFixed(1)} km',
                 label: 'DISTANCE FROM YOU',
                 icon: Icons.location_on,
                 iconColor: const Color(0xFF1DB954),
@@ -282,7 +384,9 @@ class _StationHeaderCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               _StatTile(
-                value: '1.2k',
+                value: co2Kg >= 1000
+                    ? '${(co2Kg / 1000).toStringAsFixed(1)}k'
+                    : co2Kg.toStringAsFixed(0),
                 label: 'CO2 OFFSET (KG)',
                 icon: Icons.bolt,
                 iconColor: const Color(0xFF1DB954),
@@ -488,46 +592,81 @@ class _MaterialsGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 2.2,
+          childAspectRatio: 1.8,
         ),
         itemCount: materials.length,
-        itemBuilder: (_, i) {
-          final m = materials[i];
-          final bool active = m['active'] as bool;
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: active
-                  ? Border.all(
-                  color: const Color(0xFF1DB954), width: 1.5)
-                  : null,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  m['icon'] as IconData,
-                  color: active
-                      ? const Color(0xFF1DB954)
-                      : const Color(0xFFAAAAAA),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  m['label'] as String,
-                  style: TextStyle(
-                    color: active
-                        ? const Color(0xFF0D1F0D)
-                        : const Color(0xFFAAAAAA),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+          itemBuilder: (_, i) {
+            final m = materials[i];
+            final double percent = (m['percent'] as double? ?? 0);
+            final double level = (m['level'] as double? ?? 0);
+
+            const double maxCap = 500.0;
+
+            Color color;
+
+            if (percent > 0.95) {
+              color = Colors.red;
+            } else if (percent > 0.8) {
+              color = Colors.orange;
+            } else {
+              color = const Color(0xFF1DB954);
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withOpacity(0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+
+                  // 🔹 Icon + Label
+                  Row(
+                    children: [
+                      Icon(m['icon'], color: color, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        m['label'],
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: color,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+
+                  const SizedBox(height: 8),
+
+                  // 🔹 kg 数字
+                  Text(
+                    '${level.toStringAsFixed(0)} / ${maxCap.toStringAsFixed(0)} kg',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF666),
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // 🔹 进度条
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: percent.clamp(0, 1),
+                      minHeight: 6,
+                      backgroundColor: const Color(0xFFEEEEEE),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
       ),
     );
   }
