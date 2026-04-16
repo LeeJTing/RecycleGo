@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'qr_scan_screen.dart';
+import 'package:recycle_go/models/RecycleStations.dart';
 
 class StationDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> station;
+  final RecycleStation station;
 
   const StationDetailScreen({super.key, required this.station});
 
@@ -45,7 +46,7 @@ class StationDetailScreen extends StatelessWidget {
       body: Column(
         children: [
           // ── Top bar ──────────────────────────────────────────────────
-          _TopBar(stationName: station['name'] ?? 'Station'),
+          _TopBar(stationName: station.stationName ?? 'Station'),
 
           // ── Scrollable content ───────────────────────────────────────
           Expanded(
@@ -59,8 +60,8 @@ class StationDetailScreen extends StatelessWidget {
 
                   // Map thumbnail
                   _MapThumbnail(
-                    lat: station['lat'] ?? 3.1390,
-                    lng: station['lng'] ?? 101.6869,
+                    lat: station.latitude ?? 3.1390,
+                    lng: station.longitude ?? 101.6869,
                   ),
 
                   const SizedBox(height: 16),
@@ -161,7 +162,7 @@ class _TopBar extends StatelessWidget {
 }
 
 class _StationHeaderCard extends StatelessWidget {
-  final Map<String, dynamic> station;
+  final RecycleStation station;
   const _StationHeaderCard({required this.station});
 
   @override
@@ -206,7 +207,7 @@ class _StationHeaderCard extends StatelessWidget {
 
           // Station name
           Text(
-            station['name'] ?? 'Station',
+            station.stationName ?? 'Station',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,

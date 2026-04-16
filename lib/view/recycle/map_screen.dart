@@ -5,6 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
 import 'package:recycle_go/services/station_service.dart';
 import 'package:recycle_go/view/recycle/station_detail_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -14,8 +17,260 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final ScrollController _horizontalController = ScrollController();
   final DraggableScrollableController _sheetController = DraggableScrollableController();
+
+  final PageController _pageController =
+  PageController(viewportFraction: 0.95);
+
+  String _travelMode = "driving";
+
+  // cache: stationId -> mode -> value
+  Map<String, Map<String, String>> _durationCache = {};
+  Map<String, Map<String, String>> _distanceCache = {};
+
+  Map<String, String> _durations = {};
+  Map<String, String> _distances = {};
+
+  int _currentIndex = 0;
+  Timer? _scrollDebounce;
+
+  Set<Polyline> _polylines = {};
+
+  Widget _modeItem(String mode, IconData icon) {
+    final isSelected = _travelMode == mode;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (_selectedStation == null) return;
+
+          setState(() {
+            _travelMode = mode;
+            _polylines.clear(); // 清路线（等用户点 View 才画）
+          });
+
+          _getRouteInfo(_selectedStation!);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 42,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF1DB954) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            color: isSelected ? Colors.white : Colors.black54,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _drawRoute(RecycleStation s) async {
+    final url =
+        'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=${_currentPosition.latitude},${_currentPosition.longitude}'
+        '&destination=${s.latitude},${s.longitude}'
+        '&mode=$_travelMode'
+        '&departure_time=now'
+        '&key=AIzaSyCpKVaF6ku0yKq-SV__pK8pCsrbao_k5pQ';
+
+    final res = await http.get(Uri.parse(url));
+    final data = json.decode(res.body);
+
+    if (data['routes'].isEmpty) return;
+
+    final points = data['routes'][0]['overview_polyline']['points'];
+    final decoded = _decodePolyline(points);
+
+    final leg = data['routes'][0]['legs'][0];
+
+    final durationText = leg['duration']['text'];   // e.g. "15 mins"
+    final durationValue = leg['duration']['value']; // 秒
+
+    final distanceText = leg['distance']['text'];   // e.g. "5.2 km"
+
+    setState(() {
+      _durations[s.stationId] = durationText;
+      _distances[s.stationId] = distanceText;
+
+      _polylines.clear();
+      _polylines.add(
+        Polyline(
+          polylineId: PolylineId("route"),
+          points: decoded,
+          color: Colors.blue,
+          width: 5,
+        ),
+      );
+    });
+
+    // ✅ 就放这里（最重要）
+    if (decoded.isNotEmpty) {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: decoded.reduce((a, b) => LatLng(
+              a.latitude < b.latitude ? a.latitude : b.latitude,
+              a.longitude < b.longitude ? a.longitude : b.longitude,
+            )),
+            northeast: decoded.reduce((a, b) => LatLng(
+              a.latitude > b.latitude ? a.latitude : b.latitude,
+              a.longitude > b.longitude ? a.longitude : b.longitude,
+            )),
+          ),
+          100,
+        ),
+      );
+    }
+  }
+
+  List<LatLng> _decodePolyline(String encoded) {
+    List<LatLng> poly = [];
+    int index = 0, len = encoded.length;
+    int lat = 0, lng = 0;
+
+    while (index < len) {
+      int b, shift = 0, result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlat = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlng = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+      lng += dlng;
+
+      poly.add(LatLng(lat / 1E5, lng / 1E5));
+    }
+
+    return poly;
+  }
+
+  Future<void> _getRouteInfo(RecycleStation s) async {
+    final stationId = s.stationId;
+    final mode = _travelMode;
+
+    // ✅ 如果 cache 已存在 → 直接用
+    if (_durationCache[stationId]?[mode] != null) {
+      setState(() {
+        _durations[stationId] = _durationCache[stationId]![mode]!;
+        _distances[stationId] = _distanceCache[stationId]![mode]!;
+      });
+      return;
+    }
+
+    final url =
+        'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=${_currentPosition.latitude},${_currentPosition.longitude}'
+        '&destination=${s.latitude},${s.longitude}'
+        '&mode=$_travelMode'
+        '&departure_time=now'
+        '&key=AIzaSyCpKVaF6ku0yKq-SV__pK8pCsrbao_k5pQ';
+
+    final res = await http.get(Uri.parse(url));
+    final data = json.decode(res.body);
+
+    if (data['routes'].isEmpty) return;
+
+    final leg = data['routes'][0]['legs'][0];
+
+    final duration = leg['duration']['text'];
+    final distance = leg['distance']['text'];
+
+    // ✅ 存进 cache
+    _durationCache.putIfAbsent(stationId, () => {});
+    _distanceCache.putIfAbsent(stationId, () => {});
+
+    _durationCache[stationId]![mode] = duration;
+    _distanceCache[stationId]![mode] = distance;
+
+    setState(() {
+      _durations[stationId] = duration;
+      _distances[stationId] = distance;
+    });
+  }
+
+  Future<void> _openDirections(RecycleStation s) async {
+    final lat = s.latitude;
+    final lng = s.longitude;
+
+    final Uri url = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+          '&origin=${_currentPosition.latitude},${_currentPosition.longitude}'
+          '&destination=$lat,$lng'
+          '&travelmode=driving',
+    );
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch map';
+    }
+  }
+
+  Widget _modeButton(String mode, IconData icon) {
+    final isSelected = _travelMode == mode;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _travelMode = mode;
+          _polylines.clear(); // 清路线
+          _getRouteInfo(_selectedStation!);
+        });
+
+        if (_selectedStation != null) {
+          _getRouteInfo(_selectedStation!);
+        }
+      },
+      child: Container(
+        width: 60,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isSelected ? Color(0xFF1DB954) : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? Colors.white : Colors.black54,
+        ),
+      ),
+    );
+  }
+
+  Widget _modeSelector() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _modeItem("driving", Icons.directions_car),
+          _modeItem("walking", Icons.directions_walk),
+        ],
+      ),
+    );
+  }
 
   // ── Map controller ────────────────────────────────────────────────
   GoogleMapController? _mapController;
@@ -144,24 +399,24 @@ class _MapScreenState extends State<MapScreen> {
           );
 
           if (index != -1) {
-            _horizontalController.animateTo(
-              index * 260,
+            _pageController.animateToPage(
+              index,
               duration: Duration(milliseconds: 400),
               curve: Curves.easeInOut,
             );
           }
 
-          // 🔥 让底部 sheet 弹上来
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_sheetController.isAttached) {
               _sheetController.animateTo(
-                0.3,
+                0.45,
                 duration: Duration(milliseconds: 300),
                 curve: Curves.easeOut,
               );
             }
           });
           setState(() => _selectedStation = s);
+          _getRouteInfo(s);
         },
       );
     }).toSet();
@@ -178,22 +433,64 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── 4. Search filter ──────────────────────────────────────────────
   void _onSearch(String query) {
+    final results = query.isEmpty
+        ? _stations
+        : _stations.where((s) =>
+    s.stationName.toLowerCase().contains(query.toLowerCase()) ||
+        s.address.toLowerCase().contains(query.toLowerCase())
+    ).toList();
+
     setState(() {
-      _filteredStations = query.isEmpty
-          ? _stations
-          : _stations
-          .where((s) =>
-      s.stationName.toLowerCase().contains(query.toLowerCase()) ||
-          s.address.toLowerCase().contains(query.toLowerCase()))
-          .toList();
+      _filteredStations = results;
     });
+
+    // ✅ 如果有结果 → 自动跳第一个
+    if (results.isNotEmpty) {
+      final s = results.first;
+
+      setState(() {
+        _selectedStation = s;
+      });
+
+      // 👉 移动地图
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLng(
+          LatLng(s.latitude - 0.002, s.longitude),
+        ),
+      );
+
+      // 👉 滑到对应卡片
+      final index = _filteredStations.indexOf(s);
+      if (index != -1) {
+        _pageController.animateToPage(
+          index,
+          duration: Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+
+      // 👉 拿 route info
+      _getRouteInfo(s);
+    }
   }
 
   // ── 5. Re-centre camera to user ───────────────────────────────────
   void _goToMyLocation() {
+    setState(() {
+      _polylines.clear();
+      _durations.clear();
+      _distances.clear();
+    });
+
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: _currentPosition, zoom: 15),
+        CameraPosition(
+          target: LatLng(
+            _currentPosition.latitude - 0.002,
+            _currentPosition.longitude,
+          ),
+          zoom: 15,
+        ),
       ),
     );
   }
@@ -216,10 +513,14 @@ class _MapScreenState extends State<MapScreen> {
           // ── Google Map ──────────────────────────────────────────
           GoogleMap(
             initialCameraPosition: CameraPosition(
-              target: _currentPosition,
+              target: LatLng(
+                _currentPosition.latitude - 0.002,
+                _currentPosition.longitude,
+              ),
               zoom: 14.5,
             ),
             markers: _markers,
+            polylines: _polylines,
             onMapCreated: (controller) {
               _mapController = controller;
               // If we already have GPS by the time map loads, move there
@@ -314,7 +615,14 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     child: TextField(
                       controller: _searchCtrl,
-                      onChanged: _onSearch,
+                      onChanged: (value) {
+                        setState(() {
+                          _filteredStations = _stations.where((s) =>
+                              s.stationName.toLowerCase().contains(value.toLowerCase())
+                          ).toList();
+                        });
+                      },
+                      onSubmitted: _onSearch,
                       decoration: InputDecoration(
                         hintText: 'Search recycle stations..',
                         hintStyle: TextStyle(
@@ -465,9 +773,9 @@ class _MapScreenState extends State<MapScreen> {
             ),
           DraggableScrollableSheet(
             controller: _sheetController,
-            initialChildSize: 0.15,
+            initialChildSize: 0.2,
             minChildSize: 0.1,
-            maxChildSize: 0.55,
+            maxChildSize: 0.5,
             builder: (context, scrollController) {
               return Container(
                 decoration: BoxDecoration(
@@ -483,7 +791,7 @@ class _MapScreenState extends State<MapScreen> {
                     // 👇 拖动条
                     Center(
                       child: Container(
-                        margin: EdgeInsets.symmetric(vertical: 10),
+                        margin: EdgeInsets.symmetric(vertical: 4),
                         width: 40,
                         height: 5,
                         decoration: BoxDecoration(
@@ -508,55 +816,98 @@ class _MapScreenState extends State<MapScreen> {
 
                     SizedBox(height: 15),
 
-                    // 🔥 横向滑动（重点）
+                    _modeSelector(),
+                    const SizedBox(height: 8),
+
                     SizedBox(
-                      height: 220,
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (scrollInfo) {
-                          final index = (_horizontalController.offset / 260).round();
+                      height: 200,
+                      child: PageView.builder(
+                        controller: _pageController,// 👈 卡片露一点
+                        itemCount: _filteredStations.length,
 
-                          if (index >= 0 && index < _filteredStations.length) {
-                            final s = _filteredStations[index];
+                        onPageChanged: (index) {
+                          final s = _filteredStations[index];
 
-                            _mapController?.animateCamera(
-                              CameraUpdate.newLatLng(
-                                LatLng(s.latitude, s.longitude),
-                              ),
-                            );
+                          setState(() {
+                            _selectedStation = s;
+                            _currentIndex = index;
+                          });
+                          _scrollDebounce?.cancel();
+                          _scrollDebounce = Timer(Duration(milliseconds: 400), () {
+                            _getRouteInfo(s);
+                          });
 
-                            setState(() => _selectedStation = s);
-                          }
+                          _mapController?.animateCamera(
+                            CameraUpdate.newLatLng(
+                              LatLng(s.latitude - 0.002, s.longitude),
+                            ),
+                          );
 
-                          return true;
                         },
-                        child: ListView.builder(
-                          controller: _horizontalController, // 别忘了这个
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _filteredStations.length,
-                          itemBuilder: (context, index) {
-                            final s = _filteredStations[index];
 
-                            return GestureDetector(
-                              onTap: () {
-                                _mapController?.animateCamera(
-                                  CameraUpdate.newLatLng(
-                                    LatLng(s.latitude, s.longitude),
-                                  ),
-                                );
-                                setState(() => _selectedStation = s);
-                              },
-                              child: Container(
-                                width: 260,
-                                margin: EdgeInsets.only(left: 16),
+                        itemBuilder: (context, index) {
+                          final s = _filteredStations[index];
+
+                          return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Material(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => StationDetailScreen(station: s),
+                                    ),
+                                  );
+                                },
                                 child: _StationCard(
                                   station: s,
                                   distance: _formatDistance(s),
-                                  onDirections: () {},
+                                  duration: _selectedStation?.stationId == s.stationId
+                                      ? _durations[s.stationId]
+                                      : null,
+                                  routeDistance: _selectedStation?.stationId == s.stationId
+                                      ? _distances[s.stationId]
+                                      : null,
+                                  onDirections: () async {
+                                    if (!context.mounted) return;
+
+                                    showModalBottomSheet(
+                                      context: context,
+                                      builder: (_) {
+                                        return SafeArea(
+                                          child: Wrap(
+                                            children: [
+                                              ListTile(
+                                                leading: Icon(Icons.map, color: Colors.green),
+                                                title: Text("View in App"),
+                                                onTap: () async {
+                                                  Navigator.pop(context);
+                                                  await _drawRoute(s);
+                                                },
+                                              ),
+                                              ListTile(
+                                                leading: Icon(Icons.open_in_new, color: Colors.blue),
+                                                title: Text("Open in Google Maps"),
+                                                onTap: () {
+                                                  Navigator.pop(context);
+                                                  _openDirections(s);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
                       ),
                     ),
 
@@ -611,11 +962,15 @@ class _StationCard extends StatelessWidget {
   final RecycleStation station;
   final String distance;
   final VoidCallback onDirections;
+  final String? duration;
+  final String? routeDistance;
 
   const _StationCard({
     required this.station,
     required this.distance,
     required this.onDirections,
+    this.duration,
+    this.routeDistance,
   });
 
   @override
@@ -624,7 +979,7 @@ class _StationCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
@@ -733,6 +1088,20 @@ class _StationCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (duration != null && routeDistance != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.access_time, size: 12, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$duration • $routeDistance',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),

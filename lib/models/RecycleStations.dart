@@ -1,4 +1,5 @@
 import 'package:recycle_go/models/Connector.dart';
+import 'dart:math';
 
 // lib/models/recycle_station_model.dart
 
@@ -115,27 +116,20 @@ class RecycleStation {
   // Distance in km from a given point (Haversine formula)
   double distanceFrom(double lat, double lng) {
     const R = 6371.0;
+
     final dLat = _toRad(latitude - lat);
     final dLng = _toRad(longitude - lng);
-    final a = _sin2(dLat / 2) +
-        _cos(lat) * _cos(latitude) * _sin2(dLng / 2);
-    return R * 2 * _asin(_sqrt(a));
+
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRad(lat)) * cos(_toRad(latitude)) *
+            sin(dLng / 2) * sin(dLng / 2);
+
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a.clamp(0, 1)));
+
+    return R * c;
   }
 
-  static double _toRad(double deg) => deg * 3.141592653589793 / 180;
-  static double _sin2(double x) => _sin(x) * _sin(x);
-  static double _sin(double x) => x - x * x * x / 6;
-  static double _cos(double deg) {
-    final r = _toRad(deg);
-    return 1 - r * r / 2;
-  }
-  static double _asin(double x) => x + x * x * x / 6;
-  static double _sqrt(double x) {
-    if (x <= 0) return 0;
-    double r = x;
-    for (int i = 0; i < 20; i++) r = (r + x / r) / 2;
-    return r;
-  }
+  static double _toRad(double deg) => deg * pi / 180;
 
   Map<String, dynamic> toMap() => {
     'station_id': stationId,
@@ -160,7 +154,7 @@ class RecycleStation {
     stationName: map['station_name'] ?? '',
     address: map['address'] ?? '',
     latitude: (map['latitude'] ?? 0).toDouble(),
-    longitude: (map['longitude'] ?? map['longitude'] ?? 0).toDouble(),
+    longitude: (map['longitude'] ?? 0).toDouble(),
     description: map['description'],
     stationStatus: StationStatus.values.firstWhere(
           (s) =>
