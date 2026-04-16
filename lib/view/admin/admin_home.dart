@@ -18,6 +18,7 @@ import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart
 import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
 import 'package:recycle_go/utils/async_task_runner.dart';
 import 'package:recycle_go/view/admin/widgets/pending_vouchers_section.dart';
+import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -436,7 +437,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
           PendingVouchersSection(
             pendingVouchers: _pendingVouchers,
             theme: theme,
-            onViewAll: () {},
+            maxItems: 1,
+            onViewAll: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminPendingVouchers()),
+              );
+              await _loadPendingVouchers();
+            },
             onProcessed: _loadPendingVouchers,
           ),
         ],

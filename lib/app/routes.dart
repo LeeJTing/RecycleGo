@@ -32,4 +32,9 @@ class Routes {
   static const String adminVoucherManagement = '/admin/voucher-management';
   static const String adminAddVoucher = '/admin/voucher/add';
   static const String adminEditVoucher = '/admin/voucher/edit';
+  static const String userPurchase = '/user/purchase';
+  static const String userPurchaseHistory = '/user/purchase-history';
+  static const String userPurchaseDetail = '/user/purchase-detail';
+  static const String paymentVerification = '/payment-verification';
+  static const String paymentSuccess = '/payment-success';
 }

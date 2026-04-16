@@ -4,6 +4,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/models/RedeemedVouchers.dart';
+import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/controller/redeemed_voucher/redeemed_voucher_ctrl.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
@@ -16,6 +17,34 @@ import 'package:recycle_go/view/voucher/redeemed_voucher_card.dart';
 import 'package:recycle_go/view/voucher/redeemed_voucher_dialogs.dart';
 import 'package:recycle_go/view/voucher/voucher_use_confirmation_screen.dart';
 import 'package:recycle_go/view/voucher/qr_code_helpers.dart';
+
+class _RankTier {
+  final String rankName;
+  final int minPoints;
+  final String? nextRankName;
+  final int? nextRankGoal;
+
+  const _RankTier({
+    required this.rankName,
+    required this.minPoints,
+    this.nextRankName,
+    this.nextRankGoal,
+  });
+}
+
+class _RankProgress {
+  final String currentRank;
+  final String? nextRank;
+  final int? nextGoal;
+  final double progress;
+
+  const _RankProgress({
+    required this.currentRank,
+    required this.nextRank,
+    required this.nextGoal,
+    required this.progress,
+  });
+}
 
 class VoucherManagement extends StatefulWidget {
   final int currentPoints;
@@ -36,8 +65,31 @@ class VoucherManagement extends StatefulWidget {
 }
 
 class _VoucherManagementState extends State<VoucherManagement> {
+  static const List<_RankTier> _rankTiers = [
+    _RankTier(
+      rankName: 'BRONZE MEMBER',
+      minPoints: 0,
+      nextRankName: 'SILVER RANK',
+      nextRankGoal: 2000,
+    ),
+    _RankTier(
+      rankName: 'SILVER MEMBER',
+      minPoints: 2000,
+      nextRankName: 'GOLD RANK',
+      nextRankGoal: 5000,
+    ),
+    _RankTier(
+      rankName: 'GOLD MEMBER',
+      minPoints: 5000,
+      nextRankName: 'PLATINUM RANK',
+      nextRankGoal: 10000,
+    ),
+    _RankTier(rankName: 'PLATINUM MEMBER', minPoints: 10000),
+  ];
+
   final VoucherCtrl _voucherCtrl = VoucherCtrl();
   final RedeemVoucherCtrl _redeemCtrl = RedeemVoucherCtrl();
+  final UsersModel _usersModel = UsersModel();
   String _filterStatus = 'active'; // Always active for users
   TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
@@ -61,6 +113,7 @@ class _VoucherManagementState extends State<VoucherManagement> {
   Future<void> _loadVouchers() async {
     setState(() => _isLoading = true);
     try {
+      await _refreshCurrentUserPoints();
       await _voucherCtrl.fetchVouchers();
       _filterVouchers();
       setState(() => _isLoading = false);
@@ -75,6 +128,28 @@ class _VoucherManagementState extends State<VoucherManagement> {
         );
       }
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _refreshCurrentUserPoints() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final currentUser = userProvider.user;
+    if (currentUser?.userId == null) {
+      return;
+    }
+
+    try {
+      final latestUser = await _usersModel.client
+          .from('users')
+          .select()
+          .eq('user_id', currentUser!.userId!)
+          .maybeSingle();
+
+      if (latestUser != null && mounted) {
+        userProvider.setUser(Users.fromJson(latestUser));
+      }
+    } catch (_) {
+      // Keep existing local value if refresh fails.
     }
   }
 
@@ -245,6 +320,38 @@ class _VoucherManagementState extends State<VoucherManagement> {
     );
   }
 
+  _RankProgress _resolveRankProgress(int points) {
+    var activeTier = _rankTiers.first;
+    for (final tier in _rankTiers) {
+      if (points >= tier.minPoints) {
+        activeTier = tier;
+      }
+    }
+
+    if (activeTier.nextRankGoal == null) {
+      return _RankProgress(
+        currentRank: activeTier.rankName,
+        nextRank: null,
+        nextGoal: null,
+        progress: 1.0,
+      );
+    }
+
+    final currentRangeStart = activeTier.minPoints;
+    final nextGoal = activeTier.nextRankGoal!;
+    final range = nextGoal - currentRangeStart;
+    final double normalizedProgress = range <= 0
+        ? 1.0
+        : ((points - currentRangeStart) / range).clamp(0, 1).toDouble();
+
+    return _RankProgress(
+      currentRank: activeTier.rankName,
+      nextRank: activeTier.nextRankName,
+      nextGoal: nextGoal,
+      progress: normalizedProgress,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
@@ -255,7 +362,7 @@ class _VoucherManagementState extends State<VoucherManagement> {
         // Get current points from provider, fall back to widget parameter
         final currentPoints =
             userProvider.user?.totalPoints ?? widget.currentPoints;
-        final progress = currentPoints / widget.goalPoints;
+        final rankProgress = _resolveRankProgress(currentPoints);
 
         return _isLoading
             ? Center(child: CircularProgressIndicator(color: theme.primary))
@@ -296,7 +403,7 @@ class _VoucherManagementState extends State<VoucherManagement> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Current Balance',
+                                  'Point Balance',
                                   style: TextDesign.smallText(
                                     color: theme.onPrimary.withOpacity(0.9),
                                   ),
@@ -335,14 +442,18 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      '${widget.nextRank} Goal',
+                                      rankProgress.nextRank == null
+                                          ? 'Top Rank Reached'
+                                          : '${rankProgress.nextRank} Goal',
                                       style: TextDesign.smallText(
                                         color: theme.onPrimary,
                                       ),
                                     ),
                                     const Spacer(),
                                     Text(
-                                      '${VoucherHelpers.formatWithCommas(currentPoints)} / ${VoucherHelpers.formatWithCommas(widget.goalPoints)}',
+                                      rankProgress.nextGoal == null
+                                          ? 'MAX'
+                                          : '${VoucherHelpers.formatWithCommas(currentPoints)} / ${VoucherHelpers.formatWithCommas(rankProgress.nextGoal!)}',
                                       style: TextDesign.smallText(
                                         color: theme.onPrimary,
                                       ),
@@ -353,7 +464,7 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: LinearProgressIndicator(
-                                    value: progress.clamp(0, 1),
+                                    value: rankProgress.progress,
                                     minHeight: 8,
                                     backgroundColor: theme.onPrimary
                                         .withOpacity(0.25),
@@ -366,7 +477,7 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                 Row(
                                   children: [
                                     Text(
-                                      widget.memberRank,
+                                      rankProgress.currentRank,
                                       style: TextDesign.smallText(
                                         color: theme.onPrimary.withOpacity(
                                           0.95,
@@ -375,7 +486,9 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                     ),
                                     const Spacer(),
                                     Text(
-                                      'NEXT: ${widget.nextRank}',
+                                      rankProgress.nextRank == null
+                                          ? 'NEXT: MAX'
+                                          : 'NEXT: ${rankProgress.nextRank}',
                                       style: TextDesign.smallText(
                                         color: theme.onPrimary.withOpacity(
                                           0.95,
@@ -456,10 +569,13 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => VoucherViewAllScreen(
-                                          currentPoints: widget.currentPoints,
-                                          goalPoints: widget.goalPoints,
-                                          memberRank: widget.memberRank,
-                                          nextRank: widget.nextRank,
+                                          currentPoints: currentPoints,
+                                          goalPoints:
+                                              rankProgress.nextGoal ??
+                                              currentPoints,
+                                          memberRank: rankProgress.currentRank,
+                                          nextRank:
+                                              rankProgress.nextRank ?? 'MAX',
                                         ),
                                       ),
                                     );
