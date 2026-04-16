@@ -6,24 +6,20 @@ import 'package:recycle_go/app/default_url.dart';
 import 'package:recycle_go/services/storage_service.dart';
 import 'package:intl/intl.dart';
 
-class ProfileInfo extends StatelessWidget {
+class AdminProfileInfo extends StatelessWidget {
   final String name;
   final String? photoUrl;
   final DateTime? createdAt;
   final String email;
-  final String? phone;
-  final String? countryCode;
   final Function(ImageSource) onPickImage;
   final VoidCallback onEditProfile;
 
-  const ProfileInfo({
+  const AdminProfileInfo({
     super.key,
     required this.name,
     this.photoUrl,
     this.createdAt,
     required this.email,
-    this.phone,
-    this.countryCode,
     required this.onPickImage,
     required this.onEditProfile,
   });
@@ -39,10 +35,10 @@ class ProfileInfo extends StatelessWidget {
       if (photoUrl!.startsWith('http')) {
         resolvedUrl = photoUrl!;
       } else {
-        resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.userProfileHeader + photoUrl!);
+        resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.adminProfileHeader + photoUrl!);
       }
     } else {
-      resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.userDefaultProfilePath);
+      resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.adminDefaultProfilePath);
     }
 
     return Column(
@@ -72,7 +68,7 @@ class ProfileInfo extends StatelessWidget {
                         ),
                       );
                     },
-                    errorBuilder: (context, error, stackTrace) => Icon(Icons.person, size: size.width * 0.15, color: theme.hint),
+                    errorBuilder: (context, error, stackTrace) => Icon(Icons.admin_panel_settings, size: size.width * 0.15, color: theme.hint),
                   ),
                 ),
               ),
@@ -109,12 +105,11 @@ class ProfileInfo extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Eco-Warrior since $joinDate',
+          'Administrator since $joinDate',
           style: TextDesign.mediumText(color: theme.primary, fontSize: size.width * 0.035),
         ),
         const SizedBox(height: 12),
         _buildContactRow(Icons.email_outlined, email, size),
-        _buildContactRow(Icons.phone_outlined, phone != null && phone!.isNotEmpty ? '${countryCode ?? ""} $phone' : 'Add phone number', size),
       ],
     );
   }
@@ -122,14 +117,14 @@ class ProfileInfo extends StatelessWidget {
   void _showImageSourceActionSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Gallery'),
               onTap: () {
-                Navigator.of(context).pop();
+                Navigator.of(sheetContext).pop();
                 onPickImage(ImageSource.gallery);
               },
             ),
@@ -137,7 +132,7 @@ class ProfileInfo extends StatelessWidget {
               leading: const Icon(Icons.photo_camera),
               title: const Text('Camera'),
               onTap: () {
-                Navigator.of(context).pop();
+                Navigator.of(sheetContext).pop();
                 onPickImage(ImageSource.camera);
               },
             ),

@@ -7,7 +7,7 @@ class Admins {
   final String email;
   final String adminStatus;
   final String role;
-  final String? profilePhoto; // Added profilePhoto
+  final String? profilePhoto;
   final DateTime? createdAt;
   final String? hashedPassword;
 
@@ -36,16 +36,39 @@ class Admins {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'admin_id': adminId,
+    final Map<String, dynamic> data = {
       'username': username,
       'email': email,
       'admin_status': adminStatus,
       'role': role,
       'profile_photo': profilePhoto,
-      'created_at': createdAt?.toIso8601String(),
-      'hashed_password': hashedPassword,
     };
+    if (adminId != null) data['admin_id'] = adminId;
+    if (createdAt != null) data['created_at'] = createdAt!.toIso8601String();
+    if (hashedPassword != null) data['hashed_password'] = hashedPassword;
+    return data;
+  }
+
+  Admins copyWith({
+    String? adminId,
+    String? username,
+    String? email,
+    String? adminStatus,
+    String? role,
+    String? profilePhoto,
+    DateTime? createdAt,
+    String? hashedPassword,
+  }) {
+    return Admins(
+      adminId: adminId ?? this.adminId,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      adminStatus: adminStatus ?? this.adminStatus,
+      role: role ?? this.role,
+      profilePhoto: profilePhoto ?? this.profilePhoto,
+      createdAt: createdAt ?? this.createdAt,
+      hashedPassword: hashedPassword ?? this.hashedPassword,
+    );
   }
 }
 
@@ -67,6 +90,37 @@ class AdminsModel extends Connector {
       return Admins.fromJson(response);
     }
     return null;
+  }
+  
+  Future<void> updateName(String adminId, String name) async {
+    await client
+        .from('admins')
+        .update({'username': name})
+        .eq('admin_id', adminId);
+  }
+
+  Future<void> updateRole(String adminId, String role) async {
+    await client
+        .from('admins')
+        .update({'role': role})
+        .eq('admin_id', adminId);
+  }
+
+  Future<Admins> updateAdmin(Admins admin) async {
+    final Map<String, dynamic> updateData = admin.toJson();
+    
+    // Ensure hashedPassword is not overwritten with null if not provided
+    if (admin.hashedPassword == null) {
+      updateData.remove('hashed_password');
+    }
+
+    final response = await client
+        .from('admins')
+        .update(updateData)
+        .eq('admin_id', admin.adminId!)
+        .select()
+        .single();
+    return Admins.fromJson(response);
   }
 
   Future<bool?> adminIsActive(String email) async {
@@ -90,14 +144,24 @@ class AdminsModel extends Connector {
 
     return response.isNotEmpty;
   }
-  
-  Future<Admins> updateAdmin(Admins admin) async {
+
+  Future<List<Admins>> getAllAdmins() async {
     final response = await client
         .from('admins')
-        .update(admin.toJson())
-        .eq('admin_id', admin.adminId!)
         .select()
-        .single();
-    return Admins.fromJson(response);
+        .order('created_at', ascending: false);
+    
+    return (response as List).map((json) => Admins.fromJson(json)).toList();
+  }
+
+  Future<void> insertAdmin(Admins admin) async {
+    await client.from('admins').insert(admin.toJson());
+  }
+
+  Future<void> updateStatus(String adminId, String status) async {
+    await client
+        .from('admins')
+        .update({'admin_status': status})
+        .eq('admin_id', adminId);
   }
 }
