@@ -15,7 +15,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final LoginCtrl ctrl = LoginCtrl();
   final _formKey = GlobalKey<FormState>();
   
@@ -27,8 +27,23 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Register observer
     _validateFields();
     _checkRememberMe();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Clean up observer
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When user returns to the app from the browser after Google Sign-In
+    if (state == AppLifecycleState.resumed) {
+      ctrl.handleAuthRedirect(context);
+    }
   }
 
   Future<void> _checkRememberMe() async {
@@ -208,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   SocialAuthButton(
                     text: 'Google',
                     assetIcon: '${imagePath}google_logo.png',
-                    onPressed: () {},
+                    onPressed: () => ctrl.signInWithGoogle(context),
                   ),
                   
                   const SizedBox(height: 24),
