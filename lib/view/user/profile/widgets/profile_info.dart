@@ -44,6 +44,7 @@ class ProfileInfo extends StatelessWidget {
     } else {
       // Use default image from profiles bucket if photoUrl is null or empty
       resolvedUrl = StorageService().getPublicUrl('profiles', 'userProfile/default.png');
+
     }
 
     return Column(
