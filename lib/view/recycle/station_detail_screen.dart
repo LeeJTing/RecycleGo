@@ -30,6 +30,8 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
   bool isLoading = true;
 
+  bool isFull = false;
+
   List<Map<String, dynamic>> materials = [];
   int capacity = 0;
   int remainingKg = 0;
@@ -63,6 +65,8 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       final total = plastic + glass + cardboard + metal;
 
       const double maxCap = 500.0;
+
+      final full = total >= maxCap;
 
       // ♻️ 每种材料的 CO2 减排系数（kg CO2 / kg）
       const plasticFactor = 6.0;
@@ -108,6 +112,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
         capacity = ((total / maxCap) * 100).clamp(0, 100).toInt();
         remainingKg = (maxCap - total).clamp(0, maxCap).toInt();
+        isFull = full;
         co2Kg = co2;
         isLoading = false;
       });
@@ -171,7 +176,10 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       ),
 
       bottomNavigationBar: _ScanCTA(
-        onTap: () => Navigator.push(
+        disabled: isFull,
+        onTap: isFull
+            ? null
+            : () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const QrScanScreen()),
         ),
@@ -604,7 +612,9 @@ class _MaterialsGrid extends StatelessWidget {
 
             Color color;
 
-            if (percent > 0.95) {
+            final bool isFull = percent >= 1;
+
+            if (isFull) {
               color = Colors.red;
             } else if (percent > 0.8) {
               color = Colors.orange;
@@ -640,14 +650,36 @@ class _MaterialsGrid extends StatelessWidget {
                     ],
                   ),
 
+// 👇👇👇 就加在这里 👇👇👇
+                  if (isFull)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'FULL',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
                   const SizedBox(height: 8),
 
                   // 🔹 kg 数字
                   Text(
-                    '${level.toStringAsFixed(0)} / ${maxCap.toStringAsFixed(0)} kg',
-                    style: const TextStyle(
+                    isFull
+                        ? 'FULL'
+                        : '${level.toStringAsFixed(0)} / ${maxCap.toStringAsFixed(0)} kg',
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF666),
+                      color: isFull ? Colors.red : const Color(0xFF666),
+                      fontWeight: isFull ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
 
@@ -656,11 +688,17 @@ class _MaterialsGrid extends StatelessWidget {
                   // 🔹 进度条
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: percent.clamp(0, 1),
-                      minHeight: 6,
-                      backgroundColor: const Color(0xFFEEEEEE),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: percent.clamp(0, 1)),
+                      duration: const Duration(milliseconds: 800),
+                      builder: (context, value, _) {
+                        return LinearProgressIndicator(
+                          value: value,
+                          minHeight: 6,
+                          backgroundColor: const Color(0xFFEEEEEE),
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -756,9 +794,13 @@ class _ActivityList extends StatelessWidget {
 }
 
 class _ScanCTA extends StatelessWidget {
-  final VoidCallback onTap;
-  const _ScanCTA({required this.onTap});
+  final VoidCallback? onTap;
+  final bool disabled;
 
+  const _ScanCTA({
+    this.onTap,
+    this.disabled = false,
+  });
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -766,32 +808,37 @@ class _ScanCTA extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(
           16, 10, 16, MediaQuery.of(context).padding.bottom + 10),
       child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D1F0D),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.qr_code_scanner,
-                  color: Color(0xFF1DB954), size: 20),
-              SizedBox(width: 10),
-              Text(
-                'SCAN QR TO START',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                  fontSize: 14,
+        onTap: disabled ? null : onTap,
+        child: Opacity(
+          opacity: disabled ? 0.5 : 1,
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: disabled
+                  ? Colors.grey   // 👈 灰掉
+                  : const Color(0xFF0D1F0D),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.qr_code_scanner,
+                    color: Color(0xFF1DB954), size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  disabled ? 'STATION FULL' : 'SCAN QR TO START', // 👈 关键
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+      )
     );
   }
 }
