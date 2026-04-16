@@ -54,41 +54,72 @@ class LoginCtrl {
 
     Loading.show(context);
     try {
+      // 1. Check if it's a User account
       bool? isUserActive = await _usersModel.userIsActive(email);
-      if (isUserActive == true) {
-        final user = await _usersModel.authenticate(email, password);
-        if (user != null) {
-          if (rememberMe) await _saveCredentials(email, password, 'user');
+      if (isUserActive != null) { // User exists
+        if (isUserActive == true) {
+          final user = await _usersModel.authenticate(email, password);
+          if (user != null) {
+            if (rememberMe) await _saveCredentials(email, password, 'user');
+            if (context.mounted) {
+              Provider.of<UserProvider>(context, listen: false).setUser(user);
+              Loading.hide(context);
+              Navigator.pushReplacementNamed(context, Routes.userHomePage);
+            }
+            return;
+          } else {
+            // Found user but password failed
+            if (context.mounted) {
+              Loading.hide(context);
+              _showError(context, "Incorrect password for your user account.");
+            }
+            return;
+          }
+        } else {
+          // User exists but is inactive
           if (context.mounted) {
-            Provider.of<UserProvider>(context, listen: false).setUser(user);
             Loading.hide(context);
-            Navigator.pushReplacementNamed(context, Routes.userHomePage);
+            _showError(context, "This user account is inactive. Please contact support.");
           }
           return;
         }
       }
 
+      // 2. Check if it's an Admin account
       bool? isAdminActive = await _adminsModel.adminIsActive(email);
-      if (isAdminActive == true) {
-        final admin = await _adminsModel.authenticate(email, password);
-        if (admin != null) {
-          if (rememberMe) await _saveCredentials(email, password, 'admin');
+      if (isAdminActive != null) { // Admin exists
+        if (isAdminActive == true) {
+          final admin = await _adminsModel.authenticate(email, password);
+          if (admin != null) {
+            if (rememberMe) await _saveCredentials(email, password, 'admin');
+            if (context.mounted) {
+              Provider.of<AdminProvider>(context, listen: false).setAdmin(admin);
+              Loading.hide(context);
+              Navigator.pushReplacementNamed(context, Routes.adminHome);
+            }
+            return;
+          } else {
+            // Found admin but password failed
+            if (context.mounted) {
+              Loading.hide(context);
+              _showError(context, "Incorrect password for your admin account.");
+            }
+            return;
+          }
+        } else {
+          // Admin exists but is inactive
           if (context.mounted) {
-            Provider.of<AdminProvider>(context, listen: false).setAdmin(admin);
             Loading.hide(context);
-            Navigator.pushReplacementNamed(context, Routes.adminHome);
+            _showError(context, "This admin account is inactive. Please contact support.");
           }
           return;
         }
       }
 
+      // 3. Email not found in either table
       if (context.mounted) {
         Loading.hide(context);
-        if (isUserActive == false || isAdminActive == false) {
-          _showError(context, "This account is inactive. Please contact support.");
-        } else {
-          _showError(context, "Email not found or password does not match");
-        }
+        _showError(context, "This email is not registered in our system.");
       }
     } catch (e) {
       if (context.mounted) {

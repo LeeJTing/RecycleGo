@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/view/user/bottom_nav_bar.dart';
 import 'package:recycle_go/view/user/homePage/widgets/home_header.dart';
@@ -82,6 +83,9 @@ class _HomeContent extends StatelessWidget {
                 return HomeHeader(
                   name: user?.userName ?? 'User',
                   photoUrl: user?.profilePhoto,
+                  onProfileTap: () {
+                    Navigator.pushReplacementNamed(context, Routes.userProfile);
+                  },
                 );
               },
             ),

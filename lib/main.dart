@@ -28,6 +28,7 @@ import 'package:recycle_go/view/user/purchase/purchase_detail.dart';
 import 'package:recycle_go/view/user/purchase/payment_success.dart';
 import 'package:recycle_go/view/user/purchase/payment_verification.dart';
 import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
+import 'package:recycle_go/view/admin/adminManagement/admin_management_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -141,6 +142,11 @@ class _MainAppState extends State<MainApp> {
             const AdminVoucherManagement(),
         Routes.userPurchase: (context) => const UserPurchaseScreen(),
         Routes.userPurchaseHistory: (context) => const PurchaseHistoryScreen(),
+        
+        // Management Routes
+        Routes.adminUserManagement: (context) => Scaffold(appBar: AppBar(title: const Text("User management")), body: const Center(child: Text("User Management Screen"))),
+        Routes.adminManagement: (context) => const AdminManagementScreen(),
+        Routes.adminAppealReview: (context) => Scaffold(appBar: AppBar(title: const Text("Appeal Review")), body: const Center(child: Text("Appeal Review Screen"))),
       },
     );
   }

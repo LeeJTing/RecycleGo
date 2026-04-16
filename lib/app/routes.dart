@@ -6,6 +6,7 @@ class Routes {
   static const String adminProfile = '/admin/profile';
   static const String userProfile = '/user/profile';
   static const String editProfile = '/user/edit-profile';
+  static const String changePassword = '/change-password';
 
   static const String adminHome = '/admin/homePage';
   static const String userHomePage = '/user/homePage';
@@ -37,4 +38,9 @@ class Routes {
   static const String userPurchaseDetail = '/user/purchase-detail';
   static const String paymentVerification = '/payment-verification';
   static const String paymentSuccess = '/payment-success';
+
+  // Management Routes
+  static const String adminUserManagement = '/admin/user-management';
+  static const String adminManagement = '/admin/admin-management';
+  static const String adminAppealReview = '/admin/appeal-review';
 }
