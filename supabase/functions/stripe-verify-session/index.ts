@@ -50,12 +50,56 @@ serve(async (req) => {
       });
     }
 
+    // Log session details for debugging
+    console.log("Session retrieved:", {
+      id: session.id,
+      payment_status: session.payment_status,
+      payment_intent: session.payment_intent,
+      customer_email: session.customer_email,
+      custom_fields: session.custom_fields,
+    });
+
     // Determine payment status
+    // For FPX: check payment_intent.status since FPX is asynchronous
+    // For cards: check session.payment_status
     let paymentStatus = "pending";
-    if (session.payment_status === "paid") {
+
+    if (session.payment_intent) {
+      // Retrieve payment intent for detailed status
+      const paymentIntent = await stripe.paymentIntents.retrieve(
+        session.payment_intent as string,
+      );
+
+      console.log("Payment Intent status:", paymentIntent.status);
+
+      if (paymentIntent.status === "succeeded") {
+        paymentStatus = "success";
+      } else if (
+        paymentIntent.status === "requires_action" ||
+        paymentIntent.status === "processing"
+      ) {
+        paymentStatus = "pending"; // Still processing (FPX)
+      } else if (
+        paymentIntent.status === "requires_payment_method" ||
+        paymentIntent.status === "canceled"
+      ) {
+        paymentStatus = "failed";
+      }
+    } else if (session.payment_status === "paid") {
       paymentStatus = "success";
     } else if (session.payment_status === "unpaid") {
-      paymentStatus = "failed";
+      paymentStatus = "pending"; // Changed from "failed" - user might still be paying
+    }
+
+    // Extract bank account from custom fields
+    let bankAccount = null;
+    if (session.custom_fields && session.custom_fields.length > 0) {
+      const bankAccountField = session.custom_fields.find(
+        (field: any) => field.key === "bank_account",
+      );
+      if (bankAccountField && bankAccountField.text) {
+        bankAccount = bankAccountField.text.value;
+      }
     }
 
     return new Response(
@@ -65,6 +109,7 @@ serve(async (req) => {
         paymentStatus,
         paymentIntent: session.payment_intent,
         customerEmail: session.customer_email,
+        bankAccount: bankAccount,
         metadata: session.metadata || {},
       }),
       {

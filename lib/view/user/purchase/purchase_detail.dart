@@ -2,11 +2,244 @@ import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/RecyclePurchases.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:share_plus/share_plus.dart';
 
-class PurchaseDetailScreen extends StatelessWidget {
+class PurchaseDetailScreen extends StatefulWidget {
   final RecyclePurchases purchase;
 
   const PurchaseDetailScreen({super.key, required this.purchase});
+
+  @override
+  State<PurchaseDetailScreen> createState() => _PurchaseDetailScreenState();
+}
+
+class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
+  bool _isGeneratingInvoice = false;
+
+  Future<void> _generateAndShareInvoice() async {
+    try {
+      setState(() {
+        _isGeneratingInvoice = true;
+      });
+
+      final pdf = pw.Document();
+      final theme = AppThemes.color;
+      final now = DateTime.now();
+      final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'RecycleGo',
+                      style: pw.TextStyle(
+                        fontSize: 24,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.Text(
+                      'INVOICE',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 8),
+                pw.Divider(),
+                pw.SizedBox(height: 16),
+
+                // Invoice Details
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Invoice Number:',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(widget.purchase.purchaseId ?? 'N/A'),
+                        pw.SizedBox(height: 12),
+                        pw.Text(
+                          'Date:',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(_formatDate(widget.purchase.createdAt)),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 24),
+
+                // Items Table
+                pw.Text(
+                  'Order Details',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Table(
+                  border: pw.TableBorder.all(),
+                  children: [
+                    // Header row
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(
+                        color: PdfColor.fromInt(0xFF32A852),
+                      ),
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            'Item',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            'Amount',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Data row
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text('Recycled Item'),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            _formatPrice(widget.purchase.totalPrice),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 16),
+
+                // Total
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'Total Amount:',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          _formatPrice(widget.purchase.totalPrice),
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                if (widget.purchase.bankAccount != null &&
+                    widget.purchase.bankAccount!.isNotEmpty) ...[
+                  pw.SizedBox(height: 16),
+                  pw.Text(
+                    'Payment Details:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text('Bank Account: ${widget.purchase.bankAccount}'),
+                ],
+
+                pw.SizedBox(height: 32),
+
+                // Footer
+                pw.Divider(),
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  'Thank you for your purchase! This invoice is proof of your transaction.',
+                  style: pw.TextStyle(fontSize: 10),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  'RecycleGo - Sustainable Recycling Platform',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      // Save PDF to file
+      final output = await getApplicationDocumentsDirectory();
+      final file = File(
+        '${output.path}/RecycleGo_Invoice_${widget.purchase.purchaseId}.pdf',
+      );
+      await file.writeAsBytes(await pdf.save());
+
+      // Share the PDF
+      if (mounted) {
+        await Share.shareXFiles([
+          XFile(file.path),
+        ], subject: 'RecycleGo Invoice - ${widget.purchase.purchaseId}');
+      }
+
+      setState(() {
+        _isGeneratingInvoice = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isGeneratingInvoice = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate invoice: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   Color _getPaymentStatusColor(String status) {
     final theme = AppThemes.color;
@@ -35,7 +268,7 @@ class PurchaseDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
     final size = MediaQuery.of(context).size;
-    final statusColor = _getPaymentStatusColor(purchase.paymentStatus);
+    final statusColor = _getPaymentStatusColor(widget.purchase.paymentStatus);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -45,10 +278,7 @@ class PurchaseDetailScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Purchase Details',
-          style: TextDesign.normalText(),
-        ),
+        title: Text('Purchase Details', style: TextDesign.normalText()),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
           child: Container(color: theme.appbarBackground, height: 1),
@@ -83,9 +313,7 @@ class PurchaseDetailScreen extends StatelessWidget {
                     children: [
                       Text(
                         'Payment Status',
-                        style: TextDesign.smallText(
-                          color: Colors.grey[600],
-                        ),
+                        style: TextDesign.smallText(color: Colors.grey[600]),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -98,7 +326,7 @@ class PurchaseDetailScreen extends StatelessWidget {
                           border: Border.all(color: statusColor, width: 1),
                         ),
                         child: Text(
-                          purchase.paymentStatus.toUpperCase(),
+                          widget.purchase.paymentStatus.toUpperCase(),
                           style: TextDesign.badgeText(
                             color: statusColor,
                             fontSize: 12,
@@ -109,10 +337,8 @@ class PurchaseDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _formatPrice(purchase.totalPrice),
-                    style: TextDesign.priceText(
-                      fontSize: 24,
-                    ),
+                    _formatPrice(widget.purchase.totalPrice),
+                    style: TextDesign.priceText(fontSize: 24),
                   ),
                 ],
               ),
@@ -152,7 +378,7 @@ class PurchaseDetailScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          purchase.purchaseId ?? 'N/A',
+                          widget.purchase.purchaseId ?? 'N/A',
                           style: TextDesign.normalText(fontSize: 14),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -197,7 +423,7 @@ class PurchaseDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    purchase.userId,
+                    widget.purchase.userId,
                     style: TextDesign.normalText(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -230,16 +456,12 @@ class PurchaseDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _formatPrice(purchase.totalPrice),
+                        _formatPrice(widget.purchase.totalPrice),
                         style: TextDesign.priceText(fontSize: 18),
                       ),
                     ],
                   ),
-                  Icon(
-                    Icons.attach_money,
-                    color: theme.primary,
-                    size: 32,
-                  ),
+                  Icon(Icons.attach_money, color: theme.primary, size: 32),
                 ],
               ),
             ),
@@ -269,16 +491,12 @@ class PurchaseDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _formatDate(purchase.createdAt),
+                        _formatDate(widget.purchase.createdAt),
                         style: TextDesign.normalText(fontSize: 14),
                       ),
                     ],
                   ),
-                  Icon(
-                    Icons.calendar_today,
-                    color: theme.primary,
-                    size: 24,
-                  ),
+                  Icon(Icons.calendar_today, color: theme.primary, size: 24),
                 ],
               ),
             ),
@@ -286,32 +504,43 @@ class PurchaseDetailScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Action Buttons
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invoice download coming soon'),
-                      duration: Duration(seconds: 2),
+            // Only show download invoice for successful payments
+            if (widget.purchase.paymentStatus.toLowerCase() == 'success')
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: _isGeneratingInvoice
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.download),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: Colors.deepOrange,
+                  ),
+                  onPressed: _isGeneratingInvoice
+                      ? null
+                      : _generateAndShareInvoice,
+                  label: Text(
+                    _isGeneratingInvoice
+                        ? 'Generating Invoice...'
+                        : 'Download Invoice',
+                    style: TextDesign.badgeText(
+                      color: Colors.white,
+                      fontSize: 13,
                     ),
-                  );
-                },
-                child: Text(
-                  'Download Invoice',
-                  style: TextDesign.badgeText(
-                    color: theme.onPrimary,
-                    fontSize: 13,
                   ),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 12),
-
+            if (widget.purchase.paymentStatus.toLowerCase() == 'success')
+              const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -328,9 +557,7 @@ class PurchaseDetailScreen extends StatelessWidget {
                 },
                 child: Text(
                   'Contact Support',
-                  style: TextDesign.smallText(
-                    color: theme.primary,
-                  ),
+                  style: TextDesign.smallText(color: theme.primary),
                 ),
               ),
             ),

@@ -82,6 +82,7 @@ class _MainAppState extends State<MainApp> {
               quantity: args['quantity'] as double,
               totalPrice: args['totalPrice'] as double,
               purchaseId: args['purchaseId'] as String,
+              bankAccount: args['bankAccount'] as String?,
             ),
           );
         }
@@ -94,6 +95,7 @@ class _MainAppState extends State<MainApp> {
               itemName: args['itemName'] as String,
               quantity: args['quantity'] as double,
               totalPrice: args['totalPrice'] as double,
+              inventoryId: args['inventoryId'] as String,
             ),
           );
         }
