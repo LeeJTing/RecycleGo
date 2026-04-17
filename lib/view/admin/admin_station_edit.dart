@@ -2,7 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
-import 'package:uuid/uuid.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/services/storage_service.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -21,6 +25,26 @@ class StationEditScreen extends StatefulWidget {
 class _StationEditScreenState extends State<StationEditScreen> {
   final _formKey = GlobalKey<FormState>();
   bool get _isEdit => widget.station != null;
+
+  // QR
+  late final _qrCtrl = TextEditingController(
+    text: widget.station?.qrCodeValue ?? '',
+  );
+
+  // Image
+  File? _selectedImage;
+  String? _imageUrl;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+
+    if (picked != null) {
+      setState(() {
+        _selectedImage = File(picked.path);
+      });
+    }
+  }
 
   // ── Form controllers ───────────────────────────────────────────────
   late final _nameCtrl    = TextEditingController(text: widget.station?.stationName ?? '');
@@ -51,7 +75,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
   StationStatus _status = StationStatus.active;
 
   // ── Capacity slider (total kg, 1k–50k) ────────────────────────────
-  double _capacitySlider = 12500;
+  double _capacitySlider = 1000;
 
   // ── Selected material toggles ──────────────────────────────────────
   final Set<RecycleMaterialType> _selectedMats = {};
@@ -59,10 +83,14 @@ class _StationEditScreenState extends State<StationEditScreen> {
   @override
   void initState() {
     super.initState();
+    _latCtrl.addListener(() => setState(() {}));
+    _lngCtrl.addListener(() => setState(() {}));
+
     if (widget.station != null) {
       _status = widget.station!.stationStatus;
-      _capacitySlider = widget.station!.totalCapacity.clamp(1000, 50000);
+      _capacitySlider = widget.station!.stationCapacity.clamp(1000, 50000);
       _selectedMats.addAll(widget.station!.supportedMaterials);
+      _imageUrl = widget.station!.imageUrl;
     }
   }
 
@@ -73,13 +101,128 @@ class _StationEditScreenState extends State<StationEditScreen> {
       _plasticCtrl, _paperCtrl, _glassCtrl, _cardboardCtrl, _metalCtrl,
     ]) { c.dispose(); }
     super.dispose();
+    _qrCtrl.dispose();
   }
 
   // ── Save ───────────────────────────────────────────────────────────
   void _save() async {
+
+    String? finalImageUrl = _imageUrl;
+
+    Future<void> uploadImage({
+      required String bucketName,
+      required String path,
+      required File file,
+    }) async {
+      final client = Supabase.instance.client;
+
+      await client.storage.from(bucketName).upload(
+        path,
+        file,
+        fileOptions: const FileOptions(
+          cacheControl: '3600',
+          upsert: true,
+        ),
+      );
+    }
+
+    if (_selectedImage != null) {
+      final client = Supabase.instance.client;
+      final storage = StorageService();
+
+      final fileName = 'station_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = 'stations/$fileName';
+
+      // ✅ 先保存旧图
+      final oldImageUrl = _imageUrl;
+
+      try {
+        await storage.uploadImage(
+          bucketName: 'station-images',
+          path: path,
+          file: _selectedImage!,
+        );
+
+        finalImageUrl = storage.getPublicUrl('station-images', path);
+
+        // ✅ 更新新图
+        setState(() => _imageUrl = finalImageUrl);
+
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Upload Error: ${e.toString()}")),
+        );
+        return;
+      }
+
+      // ✅ 用 oldImageUrl 删除旧图（不是新图！）
+      if (oldImageUrl != null && oldImageUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(oldImageUrl);
+          final segments = uri.pathSegments;
+
+          final index = segments.indexOf('station-images');
+          final oldPath = segments.sublist(index + 1).join('/');
+
+          await client.storage
+              .from('station-images')
+              .remove([oldPath]);
+        } catch (e) {
+          print('Delete failed: $e');
+        }
+      }
+    }
+    print("FINAL IMAGE URL => $finalImageUrl");
+
+    if (_capacitySlider <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Capacity must be greater than 0')),
+      );
+      return;
+    }
+
+    if (_selectedMats.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one material')),
+      );
+      return;
+    }
+
+    double totalStorage = 0;
+
+    if (_selectedMats.contains(RecycleMaterialType.plastic)) {
+      totalStorage += double.tryParse(_plasticCtrl.text) ?? 0;
+    }
+    if (_selectedMats.contains(RecycleMaterialType.paper)) {
+      totalStorage += double.tryParse(_paperCtrl.text) ?? 0;
+    }
+    if (_selectedMats.contains(RecycleMaterialType.glass)) {
+      totalStorage += double.tryParse(_glassCtrl.text) ?? 0;
+    }
+    if (_selectedMats.contains(RecycleMaterialType.cardboard)) {
+      totalStorage += double.tryParse(_cardboardCtrl.text) ?? 0;
+    }
+    if (_selectedMats.contains(RecycleMaterialType.metal)) {
+      totalStorage += double.tryParse(_metalCtrl.text) ?? 0;
+    }
+
+    if (totalStorage > _capacitySlider) {
+      double overflow = totalStorage - _capacitySlider;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exceeded by ${overflow.toStringAsFixed(0)} kg'),
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
+    print('STATUS BEFORE SAVE => ${_status.name}');
+
     final station = RecycleStation(
+      stationCapacity: _capacitySlider,
       stationId: _isEdit ? widget.station!.stationId : null,
       stationName: _nameCtrl.text.trim(),
       address: _addressCtrl.text.trim(),
@@ -88,6 +231,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
       description: _descCtrl.text.trim().isEmpty
           ? null
           : _descCtrl.text.trim(),
+      imageUrl: finalImageUrl,
       stationStatus: _status,
 
       plasticStorage: _selectedMats.contains(RecycleMaterialType.plastic)
@@ -110,9 +254,9 @@ class _StationEditScreenState extends State<StationEditScreen> {
           ? (double.tryParse(_metalCtrl.text) ?? 0)
           : null,
 
-      qrCodeValue: _isEdit
-          ? widget.station!.qrCodeValue
-          : 'ECO-${DateTime.now().millisecondsSinceEpoch}',
+      qrCodeValue: _qrCtrl.text.trim().isEmpty
+          ? 'ECO-${DateTime.now().millisecondsSinceEpoch}'
+          : _qrCtrl.text.trim(),
 
       createdAt: _isEdit
           ? widget.station!.createdAt
@@ -178,7 +322,8 @@ class _StationEditScreenState extends State<StationEditScreen> {
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFDDDDDD)),
+                          // 将颜色改为更明显的灰色或品牌绿
+                          side: const BorderSide(color: Color(0xFF999999)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10)),
                           padding: const EdgeInsets.symmetric(
@@ -186,8 +331,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         ),
                         child: const Text('CANCEL',
                             style: TextStyle(
-                                color: Color(0xFF555), fontSize: 12,
-                                fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                                color: Color(0xFF444444), // 加深文字颜色
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5)),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -272,8 +419,71 @@ class _StationEditScreenState extends State<StationEditScreen> {
                             ctrl: _descCtrl,
                             hint: 'Brief note about this station...',
                             maxLines: 2),
+                        const SizedBox(height: 20),
+
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'STATION IMAGE',
+                            style: TextStyle(
+                              color: Color(0xFF888),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            height: 140,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F4F0),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFE0E0E0)),
+                            ),
+                            child: _selectedImage != null
+                                ? ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                            )
+                                : _imageUrl != null
+                                ? ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(_imageUrl!, fit: BoxFit.cover),
+                            )
+                                : const Center(child: Text("Tap to upload image")),
+                          ),
+                        ),
                       ]),
                     ),
+                    const SizedBox(height: 14),
+
+                    _FormField(
+                      label: 'QR CODE VALUE',
+                      ctrl: _qrCtrl,
+                      hint: 'e.g. ECO-123456',
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _qrCtrl.text = 'ECO-${DateTime.now().millisecondsSinceEpoch}';
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(backgroundColor: _green),
+                          child: const Text("AUTO GENERATE"),
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(height: 16),
 
                     // ── Section: Supported Materials ─────────────────
@@ -315,7 +525,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                               keyboardType: TextInputType.number,
                               suffix: 'kg',
                               inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
+                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))
                               ],
                             ),
                           )),
@@ -656,7 +866,7 @@ class _MaterialGrid extends StatelessWidget {
       _MatItem(type: RecycleMaterialType.plastic,   icon: Icons.recycling,           label: 'PLASTIC'),
       _MatItem(type: RecycleMaterialType.glass,     icon: Icons.wine_bar_outlined,   label: 'GLASS'),
       _MatItem(type: RecycleMaterialType.paper,     icon: Icons.description_outlined, label: 'PAPER'),
-      _MatItem(type: RecycleMaterialType.cardboard, icon: Icons.inventory_2_outlined, label: 'E-WASTE'),
+      _MatItem(type: RecycleMaterialType.cardboard, icon: Icons.inventory_2_outlined, label: 'CARDBOARD'),
       _MatItem(type: RecycleMaterialType.metal,     icon: Icons.settings_outlined,   label: 'METAL'),
     ];
     return GridView.builder(
@@ -722,9 +932,12 @@ class _StatusOption extends StatelessWidget {
 
   Color get _dotColor {
     switch (status) {
-      case StationStatus.active:      return _green;
-      case StationStatus.maintenance: return const Color(0xFFF5A623);
-      case StationStatus.offline:     return const Color(0xFFBBBBBB);
+      case StationStatus.active:
+        return _green;
+      case StationStatus.maintenance:
+        return const Color(0xFFF5A623); // 橙色
+      case StationStatus.offline:
+        return const Color(0xFFE53935); // 🔥 红色（error）
     }
   }
 
@@ -757,7 +970,7 @@ class _StatusOption extends StatelessWidget {
               style: TextStyle(
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 13,
-                  color: selected ? _darkGreen : const Color(0xFF888))),
+                color: selected ? _darkGreen : const Color(0xFF555555),)),
           const Spacer(),
           if (selected)
             Container(
@@ -781,49 +994,97 @@ class _LivePreviewMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Stack(children: [
-        // Dark grid placeholder — swap with GoogleMap(initialCameraPosition: ...)
-        Container(
-          height: 180,
-          color: const Color(0xFF0D1F0D),
-          child: CustomPaint(
-            painter: _GridPainter(),
-            child: const SizedBox.expand(),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FullMapScreen(lat: lat, lng: lng),
           ),
-        ),
-        // Pin
-        const Center(
-          child: Icon(Icons.location_on,
-              color: Color(0xFF888888), size: 48),
-        ),
-        // Live preview badge
-        Positioned(
-          bottom: 12, left: 12,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(20),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            SizedBox(
+              height: 180,
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(lat, lng),
+                  zoom: 15,
+                ),
+                markers: {
+                  Marker(
+                    markerId: MarkerId("preview"),
+                    position: LatLng(lat, lng),
+                  ),
+                },
+                zoomControlsEnabled: false,
+                myLocationButtonEnabled: false,
+                mapToolbarEnabled: false,
+                liteModeEnabled: true,
+              ),
             ),
-            child: const Text('LIVE PREVIEW',
-                style: TextStyle(color: Colors.white70, fontSize: 11,
-                    fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-          ),
+
+            // 👇 这个你保留
+            Positioned(
+              bottom: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'LIVE PREVIEW',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        // Expand icon
-        Positioned(
-          bottom: 10, right: 10,
-          child: Container(
-            width: 30, height: 30,
-            decoration: const BoxDecoration(
-                color: _green, shape: BoxShape.circle),
-            child: const Icon(Icons.open_in_full,
-                color: Colors.white, size: 15),
-          ),
+      ),
+    );
+  }
+}
+
+class FullMapScreen extends StatelessWidget {
+  final double lat;
+  final double lng;
+
+  const FullMapScreen({
+    super.key,
+    required this.lat,
+    required this.lng,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Location"),
+        backgroundColor: const Color(0xFF1DB954),
+      ),
+      body: GoogleMap(
+        initialCameraPosition: CameraPosition(
+          target: LatLng(lat, lng),
+          zoom: 17,
         ),
-      ]),
+        markers: {
+          Marker(
+            markerId: const MarkerId("full_map"),
+            position: LatLng(lat, lng),
+          ),
+        },
+        myLocationEnabled: true,
+        zoomControlsEnabled: true,
+      ),
     );
   }
 }

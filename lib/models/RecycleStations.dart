@@ -46,6 +46,7 @@ class RecycleStation {
   final String qrCodeValue;
   final DateTime createdAt;
   final String? imageUrl;
+  final double stationCapacity;
 
   const RecycleStation({
     this.stationId,
@@ -63,6 +64,7 @@ class RecycleStation {
     required this.qrCodeValue,
     required this.createdAt,
     this.imageUrl,
+    required this.stationCapacity,
   });
 
   double get totalCapacity =>
@@ -110,6 +112,7 @@ class RecycleStation {
     String? qrCodeValue,
     DateTime? createdAt,
     String? imageUrl,
+    double? stationCapacity,
     bool setPlasticNull = false,
     bool setPaperNull = false,
     bool setGlassNull = false,
@@ -148,6 +151,7 @@ class RecycleStation {
       qrCodeValue: qrCodeValue ?? this.qrCodeValue,
       createdAt: createdAt ?? this.createdAt,
       imageUrl: imageUrl ?? this.imageUrl,
+      stationCapacity: stationCapacity ?? this.stationCapacity,
     );
   }
 
@@ -187,6 +191,7 @@ class RecycleStation {
       'qr_code_value': qrCodeValue,
       'created_at': createdAt.toIso8601String(),
       'image_url': imageUrl,
+      'station_capacity': stationCapacity,
     };
 
     // ✅ 只有 update 才传 id
@@ -231,6 +236,7 @@ class RecycleStation {
     qrCodeValue: map['qr_code_value'] ?? '',
     createdAt: DateTime.tryParse(map['created_at'] ?? '') ?? DateTime.now(),
     imageUrl: map['image_url']?.toString(),
+    stationCapacity: (map['station_capacity'] ?? 0).toDouble(),
   );
 
   factory RecycleStation.fromJson(Map<String, dynamic> json) {
@@ -295,6 +301,8 @@ class RecycleStationModel extends Connector {
       if (s.stationId == null) {
         throw Exception('stationId is null, cannot update');
       }
+
+      print('UPDATE DATA => ${s.toMap()}');
 
       final res = await client
           .from('recyclestation')

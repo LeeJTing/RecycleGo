@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 
+
 class StorageService {
   final SupabaseClient _client = SupabaseService().client;
 

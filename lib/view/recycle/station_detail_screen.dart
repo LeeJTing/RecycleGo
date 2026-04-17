@@ -25,6 +25,7 @@ class StationDetailScreen extends StatefulWidget {
 }
 
 class _StationDetailScreenState extends State<StationDetailScreen> {
+  double maxCap = 500.0;
 
   double co2Kg = 0.0;
 
@@ -75,13 +76,9 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
               (cardboard ?? 0) +
               (metal ?? 0);
 
-      const double maxCap = 500.0;
+      maxCap = (data['station_capacity'] as num?)?.toDouble() ?? 500.0;
 
-      final full =
-          (plastic != null && plastic >= maxCap) ||
-              (glass != null && glass >= maxCap) ||
-              (cardboard != null && cardboard >= maxCap) ||
-              (metal != null && metal >= maxCap);
+      final full = total >= maxCap;
 
       // ♻️ 每种材料的 CO2 减排系数（kg CO2 / kg）
       const plasticFactor = 6.0;
@@ -173,7 +170,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                     capacity: capacity,
                     remainingKg: remainingKg,
                     usedKg: totalKg,
-                    maxCapKg: 500,
+                    maxCapKg: maxCap,
                   ),
 
                   const SizedBox(height: 16),
@@ -187,6 +184,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                       : _MaterialsGrid(
                     materials: materials,
                     totalKg: totalKg, // ✅ 加这个
+                    maxCap: maxCap,
                   ),
 
                 ],
@@ -687,10 +685,12 @@ class _SectionLabel extends StatelessWidget {
 class _MaterialsGrid extends StatelessWidget {
   final List<Map<String, dynamic>> materials;
   final double totalKg; // ✅ 加这个
+  final double maxCap;
 
   const _MaterialsGrid({
     required this.materials,
     required this.totalKg,
+    required this.maxCap,
   });
 
   @override
@@ -715,13 +715,9 @@ class _MaterialsGrid extends StatelessWidget {
           final double level = (rawLevel as num? ?? 0).toDouble();
 
           // ✅ 重点：算 percent
-          const double maxCap = 500.0;
           final percent = (level / maxCap).clamp(0.0, 1.0);
-
-          final int pctInt = (percent * 100).round();
-
-          // ✅ FULL 逻辑（只看有没有 + 有没有满）
           final bool isFull = level >= maxCap;
+          final int pctInt = (percent * 100).round();
 
           Color color;
 
