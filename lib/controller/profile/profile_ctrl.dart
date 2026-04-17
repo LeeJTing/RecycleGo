@@ -14,7 +14,7 @@ import 'package:path/path.dart' as path;
 class ProfileCtrl {
   final AchievementModel _achievementModel = AchievementModel();
   final UsersModel _usersModel = UsersModel();
-  final RecyclingSubmissionModel _submissionModel = RecyclingSubmissionModel();
+  // final RecyclingSubmissionModel _submissionModel = RecyclingSubmissionModel();
   final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
 
@@ -22,9 +22,9 @@ class ProfileCtrl {
     return await _achievementModel.getUserAchievements(userId);
   }
 
-  Future<int> getTotalRecycledItems(String userId) async {
-    return await _submissionModel.getTotalSubmissionsByUserId(userId);
-  }
+  // Future<int> getTotalRecycledItems(String userId) async {
+  //   return await _submissionModel.getTotalSubmissionsByUserId(userId);
+  // }
 
   void signOut(BuildContext context) {
     Provider.of<UserProvider>(context, listen: false).clearUser();
