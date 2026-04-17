@@ -177,4 +177,26 @@ class RecycleStation {
   }
 }
 
-class RecycleStationModel extends Connector {}
+class RecycleStationModel extends Connector {
+  static final RecycleStationModel _instance = RecycleStationModel._internal();
+  factory RecycleStationModel() => _instance;
+  RecycleStationModel._internal();
+
+  Future<RecycleStation?> getNearestStation() async {
+    try {
+      final response = await client
+          .from('recyclestation')
+          .select()
+          .eq('station_status', 'active')
+          .limit(1)
+          .maybeSingle();
+
+      if (response != null) {
+        return RecycleStation.fromJson(response);
+      }
+    } catch (e) {
+      print('DEBUG: Error fetching nearest station: $e');
+    }
+    return null;
+  }
+}

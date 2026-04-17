@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 
 class TextDesign {
+  static final TextDesign _instance = TextDesign._internal();
+
+  TextDesign._internal();
+
+  factory TextDesign() => _instance;
+
   static final AppColors theme = AppThemes.color;
 
   static TextStyle headingOne({Color? color, double fontSize = 24}) => TextStyle(
@@ -12,31 +18,31 @@ class TextDesign {
   );
 
   static TextStyle headingTwo({Color? color, double fontSize = 22}) => TextStyle(
-    fontSize: fontSize ?? 22,
+    fontSize: fontSize,
     fontWeight: FontWeight.w600,
     color: color ?? theme.onSurface,
   );
 
-  static TextStyle headingThree({Color? color, double? fontSize}) => TextStyle(
-    fontSize: fontSize ?? 20,
+  static TextStyle headingThree({Color? color, double fontSize = 20}) => TextStyle(
+    fontSize: fontSize,
     fontWeight: FontWeight.w600,
     color: color ?? theme.onSurface,
   );
 
-  static TextStyle largeText({Color? color, double? fontSize}) => TextStyle(
-    fontSize: fontSize ?? 18,
+  static TextStyle largeText({Color? color, double fontSize = 18}) => TextStyle(
+    fontSize: fontSize,
     fontWeight: FontWeight.w500,
     color: color ?? theme.onSurface,
   );
 
-  static TextStyle normalText({Color? color, double? fontSize}) => TextStyle(
-    fontSize: fontSize ?? 16,
+  static TextStyle normalText({Color? color, double fontSize = 16}) => TextStyle(
+    fontSize: fontSize,
     fontWeight: FontWeight.w400,
     color: color ?? theme.onSurface,
   );
 
-  static TextStyle smallText({Color? color, double? fontSize}) => TextStyle(
-    fontSize: fontSize ?? 14,
+  static TextStyle smallText({Color? color, double fontSize = 14}) => TextStyle(
+    fontSize: fontSize,
     fontWeight: FontWeight.w400,
     color: color ?? theme.onSurface.withOpacity(0.7),
   );
