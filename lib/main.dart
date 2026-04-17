@@ -30,6 +30,9 @@ import 'package:recycle_go/view/user/purchase/payment_verification.dart';
 import 'package:recycle_go/view/recycle/qr_scan_screen.dart';
 import 'package:recycle_go/view/admin/adminManagement/admin_management_screen.dart';
 
+import 'controller/admin/category_controller.dart';
+import 'controller/admin/inventory_controller.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService.initialize();
@@ -39,6 +42,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => AdminProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryController()),
       ],
       child: const MainApp(),
     ),
@@ -60,7 +64,7 @@ class _MainAppState extends State<MainApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
-      initialRoute: Routes.login,
+      initialRoute: Routes.adminHome,
       onGenerateRoute: (settings) {
         if (settings.name == Routes.editProfile) {
           final args = settings.arguments as Map<String, dynamic>;
@@ -114,26 +118,15 @@ class _MainAppState extends State<MainApp> {
         Routes.adminPurchaseUpdate: (context) =>
             const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
-        Routes.adminViewInventory: (context) => AdminViewInventory(
-          item: RecycleInventory(
-            inventoryId: '',
-            inventoryName: '',
-            pricePerKg: 0.0,
-            totalWeightAvailable: 0.0,
-            status: '',
-          ),
-        ),
+        Routes.adminViewInventory: (context) {
+          final item = ModalRoute.of(context)!.settings.arguments as RecycleInventory;
+          return AdminViewInventory(item: item);
+        },
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
-
-        Routes.adminUpdateInventory: (context) => AdminUpdateInventory(
-          item: RecycleInventory(
-            inventoryId: '',
-            inventoryName: '',
-            pricePerKg: 0.0,
-            totalWeightAvailable: 0.0,
-            status: '',
-          ),
-        ),
+        Routes.adminUpdateInventory: (context) {
+          final item = ModalRoute.of(context)!.settings.arguments as RecycleInventory;
+          return AdminUpdateInventory(item: item);
+        },
         Routes.map: (context) => const UserHomeScreen(initialIndex: 2),
         Routes.qrScan: (context) => const UserHomeScreen(initialIndex: 1),
 
