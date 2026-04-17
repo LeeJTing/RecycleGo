@@ -43,26 +43,35 @@ class VoucherCtrl {
     }
   }
 
-  // Toggle voucher status (currently local, should sync to Supabase)
-  void toggleVoucherStatus(int index) {
-    if (index >= 0 && index < vouchers.length) {
-      final voucher = vouchers[index];
-      final newStatus = voucher.voucherStatus == 'active'
-          ? 'inactive'
-          : 'active';
-      vouchers[index] = Vouchers(
-        voucherId: voucher.voucherId,
-        voucherName: voucher.voucherName,
-        description: voucher.description,
-        pointsRequired: voucher.pointsRequired,
-        voucherStatus: newStatus,
-        voucherCategory: voucher.voucherCategory,
-        numberOfVouchers: voucher.numberOfVouchers,
-        createdAt: voucher.createdAt,
-        updatedAt: DateTime.now(),
-        voucherDuration: voucher.voucherDuration,
-        isInfinite: voucher.isInfinite,
-      );
+  // Toggle voucher status and sync to Supabase
+  Future<void> toggleVoucherStatus(String voucherId) async {
+    try {
+      final index = vouchers.indexWhere((v) => v.voucherId == voucherId);
+      if (index >= 0) {
+        final voucher = vouchers[index];
+        final newStatus = voucher.voucherStatus == 'active'
+            ? 'inactive'
+            : 'active';
+        final updatedVoucher = Vouchers(
+          voucherId: voucher.voucherId,
+          voucherName: voucher.voucherName,
+          description: voucher.description,
+          pointsRequired: voucher.pointsRequired,
+          voucherStatus: newStatus,
+          voucherCategory: voucher.voucherCategory,
+          numberOfVouchers: voucher.numberOfVouchers,
+          createdAt: voucher.createdAt,
+          updatedAt: DateTime.now(),
+          voucherDuration: voucher.voucherDuration,
+          isInfinite: voucher.isInfinite,
+        );
+        // Update in Supabase
+        await _vouchersModel.updateVouchers(voucherId, updatedVoucher);
+        // Update local list
+        vouchers[index] = updatedVoucher;
+      }
+    } catch (e) {
+      throw Exception('Failed to toggle voucher status: $e');
     }
   }
 

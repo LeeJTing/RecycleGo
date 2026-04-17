@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const String _supabaseURL = 'https://ngcrvuzbxzwinnzmcwxj.supabase.co';
-const String _supabaseKey = 'sb_publishable_1yK9-NCtNnVTIEiJWU8zUg_zEE9AdFa';
+const String _supabaseKey = 'sb_secret_BI12ya7Iu0j_6nBiveE4gw_rw-Btqfe';
 
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();

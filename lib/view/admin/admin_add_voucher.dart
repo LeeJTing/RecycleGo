@@ -24,7 +24,7 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
   String selectedCategory = 'Food';
   bool isInfinite = true;
 
-  final List<String> categories = ['Food', 'Shopping'];
+  final List<String> categories = ['Food', 'Shopping', 'Exchange'];
 
   @override
   void initState() {

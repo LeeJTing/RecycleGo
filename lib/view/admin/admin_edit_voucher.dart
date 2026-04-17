@@ -30,7 +30,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
   late String selectedCategory;
   bool isInfinite = false;
 
-  final List<String> categories = ['Food', 'Shopping'];
+  final List<String> categories = ['Food', 'Shopping', 'Exchange'];
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
     // Initialize controllers with existing data
     nameController = TextEditingController(text: widget.voucher.voucherName);
     descController = TextEditingController(
-      text: widget.voucher.description ?? '',
+      text: widget.voucher.description,
     );
     pointsController = TextEditingController(
       text: widget.voucher.pointsRequired.toString(),
@@ -50,7 +50,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
       text: widget.voucher.voucherDuration?.toString() ?? '',
     );
     selectedCategory = widget.voucher.voucherCategory;
-    isInfinite = widget.voucher.isInfinite ?? false;
+    isInfinite = widget.voucher.isInfinite;
   }
 
   @override
