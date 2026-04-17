@@ -1,4 +1,5 @@
 import 'package:recycle_go/models/Connector.dart';
+import 'dart:math';
 
 // lib/models/recycle_station_model.dart
 
@@ -68,11 +69,11 @@ class RecycleStation {
           cardboardStorage + metalStorage;
 
   List<RecycleMaterialType> get supportedMaterials => [
-    if (plasticStorage > 0) RecycleMaterialType.plastic,
-    if (paperStorage > 0) RecycleMaterialType.paper,
-    if (glassStorage > 0) RecycleMaterialType.glass,
-    if (cardboardStorage > 0) RecycleMaterialType.cardboard,
-    if (metalStorage > 0) RecycleMaterialType.metal,
+    RecycleMaterialType.plastic,
+    RecycleMaterialType.paper,
+    RecycleMaterialType.glass,
+    RecycleMaterialType.cardboard,
+    RecycleMaterialType.metal,
   ];
 
   RecycleStation copyWith({
@@ -110,6 +111,26 @@ class RecycleStation {
         imageUrl: imageUrl ?? this.imageUrl,
       );
 
+  bool get isActive => stationStatus == StationStatus.active;
+
+  // Distance in km from a given point (Haversine formula)
+  double distanceFrom(double lat, double lng) {
+    const R = 6371.0;
+
+    final dLat = _toRad(latitude - lat);
+    final dLng = _toRad(longitude - lng);
+
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRad(lat)) * cos(_toRad(latitude)) *
+            sin(dLng / 2) * sin(dLng / 2);
+
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a.clamp(0, 1)));
+
+    return R * c;
+  }
+
+  static double _toRad(double deg) => deg * pi / 180;
+
   Map<String, dynamic> toMap() => {
     'station_id': stationId,
     'station_name': stationName,
@@ -133,7 +154,7 @@ class RecycleStation {
     stationName: map['station_name'] ?? '',
     address: map['address'] ?? '',
     latitude: (map['latitude'] ?? 0).toDouble(),
-    longitude: (map['longitude'] ?? map['longitude'] ?? 0).toDouble(),
+    longitude: (map['longitude'] ?? 0).toDouble(),
     description: map['description'],
     stationStatus: StationStatus.values.firstWhere(
           (s) =>
