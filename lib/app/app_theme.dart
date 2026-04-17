@@ -54,11 +54,12 @@ class AppColors {
   });
 }
 
-class AppThemes {
+class AppThemes extends ChangeNotifier {
   static String _currentTheme = 'light';
   static final AppThemes _instance = AppThemes._internal();
 
   static AppColors get color => (_currentTheme == 'light' ? _light : _dark);
+  static String get currentTheme => _currentTheme;
 
   factory AppThemes() {
     return _instance;
@@ -66,15 +67,26 @@ class AppThemes {
 
   AppThemes._internal();
 
+  void setTheme(String theme) {
+    if (theme == 'light mode') theme = 'light';
+    if (theme == 'dark mode') theme = 'dark';
+    
+    if (_currentTheme != theme) {
+      _currentTheme = theme;
+      notifyListeners();
+    }
+  }
+
   void toggleTheme() {
     _currentTheme = _currentTheme == 'light' ? 'dark' : 'light';
+    notifyListeners();
   }
 
   static const _light = AppColors(
     appbarBackground: Color(0xFFB5B5B5),
     appbarTitle: Color(0xFFFFFFFF),
 
-    primary: Color(0xFF1DC964), // Eco-Green from design
+    primary: Color(0xFF1DC964),
     secondary: Color(0xFF0288D1),
     background: Color(0xFFF5F5F5),
     surface: Color(0xFFFFFFFF),

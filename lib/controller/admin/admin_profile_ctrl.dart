@@ -3,40 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/default_url.dart';
-import 'package:recycle_go/models/Achievements.dart';
-import 'package:recycle_go/models/RecyclingSubmission.dart';
-import 'package:recycle_go/models/Users.dart';
-import 'package:recycle_go/provider/UserProvider.dart';
+import 'package:recycle_go/models/Admins.dart';
+import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/services/storage_service.dart';
 import 'package:recycle_go/utils/permission_helper.dart';
 import 'package:recycle_go/utils/async_task_runner.dart';
-import 'package:path/path.dart' as path;
-import 'package:recycle_go/controller/autho/login_ctrl.dart';
 
-class ProfileCtrl {
-  final AchievementModel _achievementModel = AchievementModel();
-  final UsersModel _usersModel = UsersModel();
-  final RecycleSubmissionModel _submissionModel = RecycleSubmissionModel();
+class AdminProfileCtrl {
+  final AdminsModel _adminsModel = AdminsModel();
   final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
 
-  Future<List<Achievement>> getAchievements(String userId) async {
-    return await _achievementModel.getUserAchievements(userId);
-  }
-
-  Future<int> getTotalRecycledItems(String userId) async {
-    return await _submissionModel.getTotalItemsByUserId(userId);
-  }
-
-  void signOut(BuildContext context) {
-    LoginCtrl().signOut(context);
-  }
-
-  Future<void> updateProfile(BuildContext context, Users updatedUser) async {
+  Future<void> updateAdminProfile(BuildContext context, Admins updatedAdmin) async {
     try {
-      final newUser = await _usersModel.updateUser(updatedUser);
+      final newAdmin = await _adminsModel.updateAdmin(updatedAdmin);
       if (context.mounted) {
-        Provider.of<UserProvider>(context, listen: false).setUser(newUser);
+        Provider.of<AdminProvider>(context, listen: false).setAdmin(newAdmin);
       }
     } catch (e) {
       rethrow;
@@ -62,14 +44,14 @@ class ProfileCtrl {
     if (image == null) return;
 
     if (!context.mounted) return;
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final user = userProvider.user;
-    if (user == null) return;
+    final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+    final admin = adminProvider.admin;
+    if (admin == null) return;
 
     final file = File(image.path);
-    final fileExt = path.extension(image.path);
-    final fileName = 'user_${user.userId}$fileExt';
-    final String uploadPath = DefaultUrl.userProfileHeader + fileName;
+    // Fixed naming convention: admin_UUID.exp
+    final fileName = 'admin_${admin.adminId}.exp';
+    final String uploadPath = DefaultUrl.adminProfileHeader + fileName;
 
     await TaskRunner.run(
       context: context,
@@ -81,8 +63,8 @@ class ProfileCtrl {
         );
 
         if (response != null) {
-          final updatedUser = user.copyWith(profilePhoto: fileName);
-          await updateProfile(context, updatedUser);
+          final updatedAdmin = admin.copyWith(profilePhoto: fileName);
+          await updateAdminProfile(context, updatedAdmin);
         } else {
           throw Exception('Failed to upload image to storage');
         }

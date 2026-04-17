@@ -13,8 +13,8 @@ class StorageService {
   }) async {
     try {
       print('DEBUG: [StorageService] Attempting upload to bucket: "$bucketName", path: "$path"');
-      // Upload the file
-      final response = await _client.storage.from(bucketName).upload(
+      
+      final String response = await _client.storage.from(bucketName).upload(
             path,
             file,
             fileOptions: const FileOptions(upsert: true),
@@ -34,11 +34,11 @@ class StorageService {
     }
   }
 
-  /// Generates the public URL for a file.
+  /// Generates the public URL for a file using the manual legacy path.
   String getPublicUrl(String bucketName, String path) {
     try {
-      final url = _client.storage.from(bucketName).getPublicUrl(path);
-      print('DEBUG: [StorageService] Generated Public URL for "$path": $url');
+      String url = _client.storage.from(bucketName).getPublicUrl(path);
+      print('DEBUG: [StorageService] Generated Manual Public URL for "$path": $url');
       return url;
     } catch (e) {
       print('DEBUG: [StorageService] Error generating Public URL: $e');
