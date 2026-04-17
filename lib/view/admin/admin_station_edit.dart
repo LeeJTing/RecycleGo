@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
+import 'package:uuid/uuid.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -32,15 +33,19 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
   // ── Material storage controllers (kg) ──────────────────────────────
   late final _plasticCtrl  = TextEditingController(
-      text: widget.station?.plasticStorage.toStringAsFixed(0) ?? '0');
+      text: widget.station?.plasticStorage?.toStringAsFixed(0) ?? '');
+
   late final _paperCtrl    = TextEditingController(
-      text: widget.station?.paperStorage.toStringAsFixed(0) ?? '0');
+      text: widget.station?.paperStorage?.toStringAsFixed(0) ?? '');
+
   late final _glassCtrl    = TextEditingController(
-      text: widget.station?.glassStorage.toStringAsFixed(0) ?? '0');
+      text: widget.station?.glassStorage?.toStringAsFixed(0) ?? '');
+
   late final _cardboardCtrl= TextEditingController(
-      text: widget.station?.cardboardStorage.toStringAsFixed(0) ?? '0');
+      text: widget.station?.cardboardStorage?.toStringAsFixed(0) ?? '');
+
   late final _metalCtrl    = TextEditingController(
-      text: widget.station?.metalStorage.toStringAsFixed(0) ?? '0');
+      text: widget.station?.metalStorage?.toStringAsFixed(0) ?? '');
 
   // ── Status ─────────────────────────────────────────────────────────
   StationStatus _status = StationStatus.active;
@@ -71,36 +76,78 @@ class _StationEditScreenState extends State<StationEditScreen> {
   }
 
   // ── Save ───────────────────────────────────────────────────────────
-  void _save() {
+  void _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final result = RecycleStation(
-      stationId:       _isEdit
-          ? widget.station!.stationId
-          : 'ST-${DateTime.now().millisecondsSinceEpoch % 9000 + 1000}',
-      stationName:     _nameCtrl.text.trim(),
-      address:         _addressCtrl.text.trim(),
-      latitude:        double.tryParse(_latCtrl.text) ?? 0,
-      longitude:       double.tryParse(_lngCtrl.text) ?? 0,
-      description:     _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-      stationStatus:   _status,
-      plasticStorage:  _selectedMats.contains(RecycleMaterialType.plastic)
-          ? (double.tryParse(_plasticCtrl.text) ?? 0) : 0,
-      paperStorage:    _selectedMats.contains(RecycleMaterialType.paper)
-          ? (double.tryParse(_paperCtrl.text) ?? 0) : 0,
-      glassStorage:    _selectedMats.contains(RecycleMaterialType.glass)
-          ? (double.tryParse(_glassCtrl.text) ?? 0) : 0,
-      cardboardStorage:_selectedMats.contains(RecycleMaterialType.cardboard)
-          ? (double.tryParse(_cardboardCtrl.text) ?? 0) : 0,
-      metalStorage:    _selectedMats.contains(RecycleMaterialType.metal)
-          ? (double.tryParse(_metalCtrl.text) ?? 0) : 0,
-      qrCodeValue:     _isEdit
-          ? widget.station!.qrCodeValue
-          : 'ECO-ST-${DateTime.now().millisecondsSinceEpoch}',
-      createdAt:       _isEdit ? widget.station!.createdAt : DateTime.now(),
-    );
+    final station = RecycleStation(
+      stationId: _isEdit ? widget.station!.stationId : null,
+      stationName: _nameCtrl.text.trim(),
+      address: _addressCtrl.text.trim(),
+      latitude: double.tryParse(_latCtrl.text) ?? 0,
+      longitude: double.tryParse(_lngCtrl.text) ?? 0,
+      description: _descCtrl.text.trim().isEmpty
+          ? null
+          : _descCtrl.text.trim(),
+      stationStatus: _status,
 
-    Navigator.pop(context, result);
+      plasticStorage: _selectedMats.contains(RecycleMaterialType.plastic)
+          ? (double.tryParse(_plasticCtrl.text) ?? 0)
+          : null,
+
+      paperStorage: _selectedMats.contains(RecycleMaterialType.paper)
+          ? (double.tryParse(_paperCtrl.text) ?? 0)
+          : null,
+
+      glassStorage: _selectedMats.contains(RecycleMaterialType.glass)
+          ? (double.tryParse(_glassCtrl.text) ?? 0)
+          : null,
+
+      cardboardStorage: _selectedMats.contains(RecycleMaterialType.cardboard)
+          ? (double.tryParse(_cardboardCtrl.text) ?? 0)
+          : null,
+
+      metalStorage: _selectedMats.contains(RecycleMaterialType.metal)
+          ? (double.tryParse(_metalCtrl.text) ?? 0)
+          : null,
+
+      qrCodeValue: _isEdit
+          ? widget.station!.qrCodeValue
+          : 'ECO-${DateTime.now().millisecondsSinceEpoch}',
+
+      createdAt: _isEdit
+          ? widget.station!.createdAt
+          : DateTime.now(),
+    );
+    print('DATA => ${station.toMap()}');
+
+
+    final model = RecycleStationModel();
+
+    try {
+      RecycleStation? result;
+
+      if (_isEdit) {
+        // ✅ UPDATE
+        result = await model.updateStation(station);
+      } else {
+        // ✅ INSERT
+        result = await model.insertStation(station);
+      }
+
+      if (result != null) {
+        Navigator.pop(context, result); // 成功才返回
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Save failed')),
+        );
+      }
+    } catch (e) {
+      print('SAVE ERROR: $e');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
   }
 
   @override

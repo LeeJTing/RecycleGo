@@ -60,7 +60,7 @@ class _MainAppState extends State<MainApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
-      initialRoute: Routes.login,
+      initialRoute: Routes.adminStationRegistry,
       onGenerateRoute: (settings) {
         if (settings.name == Routes.editProfile) {
           final args = settings.arguments as Map<String, dynamic>;
