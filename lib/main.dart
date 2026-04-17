@@ -66,6 +66,20 @@ class _MainAppState extends State<MainApp> {
       locale: const Locale('en'),
       initialRoute: Routes.adminHome,
       onGenerateRoute: (settings) {
+        // Handle payment deep links from Stripe
+        if (settings.name?.startsWith('recyclego://payment/') == true) {
+          if (settings.name == 'recyclego://payment/success') {
+            // Payment succeeded - close browser and go to home
+            return MaterialPageRoute(
+              builder: (context) => const UserHomeScreen(initialIndex: 0),
+            );
+          } else if (settings.name == 'recyclego://payment/cancelled') {
+            // Payment cancelled - go back to purchase screen
+            return MaterialPageRoute(
+              builder: (context) => const UserPurchaseScreen(),
+            );
+          }
+        }
         if (settings.name == Routes.editProfile) {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
@@ -88,6 +102,9 @@ class _MainAppState extends State<MainApp> {
               totalPrice: args['totalPrice'] as double,
               purchaseId: args['purchaseId'] as String,
               bankAccount: args['bankAccount'] as String?,
+              pickupLocationId: args['pickupLocationId'] as String?,
+              pickupLocationName: args['pickupLocationName'] as String?,
+              pickupAddress: args['pickupAddress'] as String?,
             ),
           );
         }
@@ -101,6 +118,9 @@ class _MainAppState extends State<MainApp> {
               quantity: args['quantity'] as double,
               totalPrice: args['totalPrice'] as double,
               inventoryId: args['inventoryId'] as String,
+              pickupLocationId: args['pickupLocationId'] as String?,
+              pickupLocationName: args['pickupLocationName'] as String?,
+              pickupAddress: args['pickupAddress'] as String?,
             ),
           );
         }
@@ -135,11 +155,17 @@ class _MainAppState extends State<MainApp> {
             const AdminVoucherManagement(),
         Routes.userPurchase: (context) => const UserPurchaseScreen(),
         Routes.userPurchaseHistory: (context) => const PurchaseHistoryScreen(),
-        
+
         // Management Routes
-        Routes.adminUserManagement: (context) => Scaffold(appBar: AppBar(title: const Text("User management")), body: const Center(child: Text("User Management Screen"))),
+        Routes.adminUserManagement: (context) => Scaffold(
+          appBar: AppBar(title: const Text("User management")),
+          body: const Center(child: Text("User Management Screen")),
+        ),
         Routes.adminManagement: (context) => const AdminManagementScreen(),
-        Routes.adminAppealReview: (context) => Scaffold(appBar: AppBar(title: const Text("Appeal Review")), body: const Center(child: Text("Appeal Review Screen"))),
+        Routes.adminAppealReview: (context) => Scaffold(
+          appBar: AppBar(title: const Text("Appeal Review")),
+          body: const Center(child: Text("Appeal Review Screen")),
+        ),
       },
     );
   }

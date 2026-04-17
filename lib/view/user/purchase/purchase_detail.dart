@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/RecyclePurchases.dart';
@@ -120,7 +121,18 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
                           child: pw.Text(
-                            'Amount',
+                            'Quantity (kg)',
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                            textAlign: pw.TextAlign.center,
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            'Total Amount',
                             style: pw.TextStyle(
                               color: PdfColors.white,
                               fontWeight: pw.FontWeight.bold,
@@ -135,7 +147,18 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                       children: [
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text('Recycled Item'),
+                          child: pw.Text(
+                            widget.purchase.itemName ?? 'Recycled Item',
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            widget.purchase.quantity != null
+                                ? widget.purchase.quantity!.toStringAsFixed(2)
+                                : 'N/A',
+                            textAlign: pw.TextAlign.center,
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
@@ -183,6 +206,22 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                   ),
                   pw.SizedBox(height: 4),
                   pw.Text('Bank Account: ${widget.purchase.bankAccount}'),
+                ],
+
+                if (widget.purchase.pickupLocationId != null ||
+                    widget.purchase.pickupAddress != null) ...[
+                  pw.SizedBox(height: 16),
+                  pw.Text(
+                    'Pickup Location:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.SizedBox(height: 4),
+                  if (widget.purchase.pickupLocationName != null)
+                    pw.Text(widget.purchase.pickupLocationName!),
+                  if (widget.purchase.pickupAddress != null) ...[
+                    pw.SizedBox(height: 4),
+                    pw.Text('Address: ${widget.purchase.pickupAddress}'),
+                  ],
                 ],
 
                 pw.SizedBox(height: 32),
@@ -365,37 +404,42 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Purchase ID',
-                    style: TextDesign.smallText(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Text(
-                          widget.purchase.purchaseId ?? 'N/A',
-                          style: TextDesign.normalText(fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        'Purchase ID',
+                        style: TextDesign.smallText(
+                          color: Colors.grey[600],
+                          fontSize: 12,
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.copy, size: 18),
-                        onPressed: () {
-                          // Copy to clipboard
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Purchase ID copied!'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
+                      SizedBox(
+                        height: 30,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.copy, size: 18),
+                          onPressed: () {
+                            final purchaseId =
+                                widget.purchase.purchaseId ?? 'N/A';
+                            Clipboard.setData(ClipboardData(text: purchaseId));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Purchase ID copied to clipboard!',
+                                ),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    widget.purchase.purchaseId ?? 'N/A',
+                    style: TextDesign.normalText(fontSize: 14),
                   ),
                 ],
               ),
@@ -414,18 +458,40 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'User ID',
-                    style: TextDesign.smallText(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'User ID',
+                        style: TextDesign.smallText(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                      SizedBox(
+                        height: 30,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.copy, size: 18),
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(text: widget.purchase.userId),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('User ID copied to clipboard!'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  SelectableText(
                     widget.purchase.userId,
                     style: TextDesign.normalText(fontSize: 14),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -461,12 +527,95 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                       ),
                     ],
                   ),
-                  Icon(Icons.attach_money, color: theme.primary, size: 32),
+                  Icon(
+                    Icons.attach_money,
+                    color: AppThemes.color.primary,
+                    size: 32,
+                  ),
                 ],
               ),
             ),
 
             const SizedBox(height: 12),
+
+            // Quantity (if available)
+            if (widget.purchase.quantity != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quantity',
+                          style: TextDesign.smallText(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.purchase.quantity!.toStringAsFixed(2)} kg',
+                          style: TextDesign.normalText(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    Icon(Icons.scale, color: AppThemes.color.primary, size: 24),
+                  ],
+                ),
+              ),
+
+            if (widget.purchase.quantity != null) const SizedBox(height: 12),
+
+            // Item Name (if available)
+            if (widget.purchase.itemName != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Item',
+                            style: TextDesign.smallText(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.purchase.itemName!,
+                            style: TextDesign.normalText(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.inventory,
+                      color: AppThemes.color.primary,
+                      size: 24,
+                    ),
+                  ],
+                ),
+              ),
+
+            if (widget.purchase.itemName != null) const SizedBox(height: 12),
 
             // Date
             Container(
@@ -496,10 +645,76 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                       ),
                     ],
                   ),
-                  Icon(Icons.calendar_today, color: theme.primary, size: 24),
+                  Icon(
+                    Icons.calendar_today,
+                    color: AppThemes.color.primary,
+                    size: 24,
+                  ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 12),
+
+            // Pickup Location (if available)
+            if (widget.purchase.pickupLocationId != null ||
+                widget.purchase.pickupAddress != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pickup Location',
+                      style: TextDesign.smallText(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          color: AppThemes.color.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (widget.purchase.pickupLocationName != null)
+                                Text(
+                                  widget.purchase.pickupLocationName!,
+                                  style: TextDesign.normalText(fontSize: 14),
+                                ),
+                              if (widget.purchase.pickupAddress != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.purchase.pickupAddress!,
+                                  style: TextDesign.smallText(
+                                    color: Colors.grey[600],
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             const SizedBox(height: 24),
 

@@ -15,6 +15,9 @@ class PaymentSuccessScreen extends StatefulWidget {
   final double totalPrice;
   final String purchaseId;
   final String? bankAccount;
+  final String? pickupLocationId;
+  final String? pickupAddress;
+  final String? pickupLocationName;
 
   const PaymentSuccessScreen({
     super.key,
@@ -23,6 +26,9 @@ class PaymentSuccessScreen extends StatefulWidget {
     required this.totalPrice,
     required this.purchaseId,
     this.bankAccount,
+    this.pickupLocationId,
+    this.pickupAddress,
+    this.pickupLocationName,
   });
 
   @override
@@ -94,6 +100,21 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(dateFormat.format(now)),
+                        if (widget.pickupLocationName != null &&
+                            widget.pickupLocationName!.isNotEmpty) ...[
+                          pw.SizedBox(height: 12),
+                          pw.Text(
+                            'Pickup Location:',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.SizedBox(height: 4),
+                          pw.Text(widget.pickupLocationName!),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            widget.pickupAddress ?? 'N/A',
+                            style: pw.TextStyle(fontSize: 10),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -212,6 +233,19 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   ),
                   pw.SizedBox(height: 4),
                   pw.Text('Bank Account: ${widget.bankAccount}'),
+                ],
+
+                if (widget.pickupLocationName != null &&
+                    widget.pickupLocationName!.isNotEmpty) ...[
+                  pw.SizedBox(height: 16),
+                  pw.Text(
+                    'Pickup Location:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text('Location: ${widget.pickupLocationName}'),
+                  pw.SizedBox(height: 4),
+                  pw.Text('Address: ${widget.pickupAddress ?? 'N/A'}'),
                 ],
 
                 pw.SizedBox(height: 32),
@@ -389,6 +423,23 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                         theme,
                       ),
                     ],
+                    if (widget.pickupLocationName != null &&
+                        widget.pickupLocationName!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Divider(color: Colors.grey.withOpacity(0.3)),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        'Pickup Location:',
+                        widget.pickupLocationName!,
+                        theme,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        'Pickup Address:',
+                        widget.pickupAddress ?? 'N/A',
+                        theme,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -408,7 +459,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Your order has been confirmed. You can view your purchase history anytime.',
+                        widget.pickupLocationName != null
+                            ? 'Please pick up your recycled items at ${widget.pickupLocationName} according to the provided address.'
+                            : 'Your order has been confirmed. You can view your purchase history anytime.',
                         style: TextDesign.smallText(color: theme.primary),
                       ),
                     ),
