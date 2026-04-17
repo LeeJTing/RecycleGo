@@ -112,6 +112,8 @@ class AdminsModel extends Connector {
     // Ensure hashedPassword is not overwritten with null if not provided
     if (admin.hashedPassword == null) {
       updateData.remove('hashed_password');
+    } else {
+      updateData['hashed_password'] = Hashing.hashString(admin.hashedPassword!);
     }
 
     final response = await client
@@ -121,6 +123,13 @@ class AdminsModel extends Connector {
         .select()
         .single();
     return Admins.fromJson(response);
+  }
+
+  Future<void> updateAdminPassword(String adminId, String hashedPassword) async {
+    await client
+        .from('admins')
+        .update({'hashed_password': hashedPassword})
+        .eq('admin_id', adminId);
   }
 
   Future<bool?> adminIsActive(String email) async {
@@ -154,8 +163,14 @@ class AdminsModel extends Connector {
     return (response as List).map((json) => Admins.fromJson(json)).toList();
   }
 
-  Future<void> insertAdmin(Admins admin) async {
-    await client.from('admins').insert(admin.toJson());
+  Future<Admins> insertAdmin(Admins admin) async {
+    final Map<String, dynamic> adminData = admin.toJson();
+    if (adminData['hashed_password'] != null) {
+      adminData['hashed_password'] = Hashing.hashString(adminData['hashed_password']);
+    }
+    
+    final response = await client.from('admins').insert(adminData).select().single();
+    return Admins.fromJson(response);
   }
 
   Future<void> updateStatus(String adminId, String status) async {

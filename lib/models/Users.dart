@@ -174,4 +174,27 @@ class UsersModel extends Connector {
         .single();
     return Users.fromJson(response);
   }
+
+  Future<void> updateUserPassword(String userId, String hashedPassword) async {
+    await client
+        .from('users')
+        .update({'hashed_password': hashedPassword})
+        .eq('user_id', userId);
+  }
+
+  Future<List<Users>> getAllUsers() async {
+    final response = await client
+        .from('users')
+        .select()
+        .order('created_at', ascending: false);
+    
+    return (response as List).map((json) => Users.fromJson(json)).toList();
+  }
+
+  Future<void> updateUserStatus(String userId, String status) async {
+    await client
+        .from('users')
+        .update({'account_status': status})
+        .eq('user_id', userId);
+  }
 }

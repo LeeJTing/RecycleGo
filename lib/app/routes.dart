@@ -2,6 +2,7 @@ class Routes {
   static const String login = '/login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
+  static const String resetPassword = '/reset-password';
 
   static const String adminProfile = '/admin/profile';
   static const String userProfile = '/user/profile';
@@ -12,6 +13,7 @@ class Routes {
   static const String userHomePage = '/user/homePage';
 
   static const String adminNotification = '/admin/notification';
+  static const String userNotification = '/user/notification';
   static const String adminPurchaseDetail = '/admin/purchase-detail';
   static const String adminPurchaseUpdate = '/admin/purchase-update';
 
@@ -29,7 +31,7 @@ class Routes {
   static const String stationDetail = '/station-detail';
   static const String qrScan = '/qr-scan';
 
-  static const adminStationRegistry = '/admin-station-registry';
+  static const String adminStationRegistry = '/admin-station-registry';
   static const String adminVoucherManagement = '/admin/voucher-management';
   static const String adminAddVoucher = '/admin/voucher/add';
   static const String adminEditVoucher = '/admin/voucher/edit';
@@ -39,8 +41,12 @@ class Routes {
   static const String paymentVerification = '/payment-verification';
   static const String paymentSuccess = '/payment-success';
 
+  static const String userAppealList = '/user/appeal-list';
+  static const String userAppealDetail = '/user/appeal-detail';
+
   // Management Routes
   static const String adminUserManagement = '/admin/user-management';
   static const String adminManagement = '/admin/admin-management';
   static const String adminAppealReview = '/admin/appeal-review';
 }
+
