@@ -113,17 +113,6 @@ serve(async (req) => {
         userId,
         merchantName,
       },
-      custom_fields: [
-        {
-          key: "bank_account",
-          label: {
-            type: "custom",
-            custom: "Bank Account",
-          },
-          type: "text",
-          optional: false,
-        },
-      ],
       ...(successUrl && { success_url: successUrl }),
       ...(cancelUrl && { cancel_url: cancelUrl }),
     });

@@ -91,7 +91,7 @@ serve(async (req) => {
       paymentStatus = "pending"; // Changed from "failed" - user might still be paying
     }
 
-    // Extract bank account from custom fields
+    // Extract bank account number from custom fields
     let bankAccount = null;
     if (session.custom_fields && session.custom_fields.length > 0) {
       const bankAccountField = session.custom_fields.find(
