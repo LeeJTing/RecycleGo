@@ -48,10 +48,6 @@ class PurchaseItemController {
     double quantityPurchased,
   ) async {
     try {
-      print('=== UPDATE INVENTORY ===');
-      print('Inventory ID: $inventoryId');
-      print('Quantity to deduct: $quantityPurchased');
-
       // Get current stock
       final currentResponse = await _connector.client
           .from('recycleinventory')
@@ -64,14 +60,8 @@ class PurchaseItemController {
             currentResponse['total_weight_available']?.toString() ?? '0',
           ) ??
           0.0;
-
-      print('Current stock: $currentStock');
-
       // Calculate new stock
       final newStock = currentStock - quantityPurchased;
-
-      print('New stock after deduction: $newStock');
-
       // Update database with .select() to confirm
       if (newStock >= 0) {
         final updateResponse = await _connector.client
@@ -79,9 +69,6 @@ class PurchaseItemController {
             .update({'total_weight_available': newStock})
             .eq('inventory_id', inventoryId)
             .select(); // Add .select() to get response confirmation
-
-        print('Update response: $updateResponse');
-        print('Updated rows: ${updateResponse?.length ?? 0}');
 
         if (updateResponse != null && updateResponse.isNotEmpty) {
           print('=== INVENTORY UPDATED SUCCESSFULLY ===');
@@ -137,13 +124,12 @@ class PurchaseItemController {
   Future<Map<String, dynamic>> processPurchase(
     RecycleInventory item,
     double quantity,
-    String userId, [
+    String userId,
     String? userEmail,
-  ]) async {
+  ) async {
     try {
       // Calculate total amount in cents
       final totalAmountInCents = (item.pricePerKg * quantity * 100).toInt();
-
       // Call Stripe Edge Function to create checkout session
       final response = await _connector.client.functions.invoke(
         'stripe-create-checkout-session',
@@ -156,14 +142,9 @@ class PurchaseItemController {
           'amountInCents': totalAmountInCents,
           'currency': 'myr',
           'paymentMethodType': 'fpx',
-          'customerEmail': userEmail, // Pass email to Stripe for custom fields
-          'customFields': {
-            'bankAccount': {
-              'label': 'Bank Account',
-              'type': 'text',
-              'placeholder': 'e.g., Maybank 1234567890',
-            },
-          },
+          'customerEmail': userEmail,
+          'successUrl': 'https://example.com/payment/success',
+          'cancelUrl': 'https://example.com/payment/cancelled',
         },
       );
 
@@ -228,8 +209,11 @@ class PurchaseItemController {
   Future<String> createPurchaseRecord(
     String userId,
     RecycleInventory item,
-    double quantity,
-  ) async {
+    double quantity, {
+    String? pickupLocationId,
+    String? pickupLocationName,
+    String? pickupAddress,
+  }) async {
     try {
       // Generate sequential purchase ID
       final purchaseId = await generateNextPurchaseId();
@@ -242,6 +226,11 @@ class PurchaseItemController {
         userId: userId,
         totalPrice: totalPrice,
         paymentStatus: 'pending',
+        itemName: item.inventoryName,
+        quantity: quantity,
+        pickupLocationId: pickupLocationId,
+        pickupLocationName: pickupLocationName,
+        pickupAddress: pickupAddress,
       );
       await purchasesModel.createPurchase(purchase);
 

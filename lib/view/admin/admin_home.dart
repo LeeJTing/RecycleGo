@@ -31,7 +31,7 @@ class AdminHome extends StatefulWidget {
 
 class _AdminHomeState extends State<AdminHome> {
   int _currentIndex = 0; // Default to 'Home'
-  
+
   // A list of the different 'Bodies' for each navigation button
   final List<Widget> _pages = [
     const AdminDashboard(),
@@ -325,7 +325,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: const Text("Verify Recycle Item"),
           ),
           const SizedBox(height: 24),
-          
+
           Text("Management", style: TextDesign.headingThree()),
           const SizedBox(height: 12),
           _buildManagementTile(
@@ -367,168 +367,80 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
 
           const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  "Available Vouchers",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: theme.onSurface,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AdminVoucherManagement(),
-                    ),
-                  );
-                },
-                child: Text(
-                  "View All",
-                  style: TextStyle(
-                    color: theme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          Text("Voucher Management", style: TextDesign.headingThree()),
           const SizedBox(height: 12),
-          if (_sampleVouchers.isEmpty)
-            Center(
-              child: Text(
-                "No vouchers available",
-                style: TextStyle(color: theme.hint),
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _sampleVouchers.length,
-              itemBuilder: (context, index) {
-                return VoucherCard(
-                  voucher: _sampleVouchers[index],
-                  theme: theme,
-                  onEdit: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AdminEditVoucher(
-                          voucher: _sampleVouchers[index],
-                          index: index,
-                        ),
-                      ),
-                    );
-                    if (result == true) {
-                      _loadVouchers();
-                    }
-                  },
-                  onDelete: () {
-                    showDeleteVoucherDialog(
-                      context: context,
-                      voucher: _sampleVouchers[index],
-                      voucherCtrl: _voucherCtrl,
-                      onDeleted: _loadVouchers,
-                    );
-                  },
-                  onToggleStatus: () async {
-                    try {
-                      await _voucherCtrl.toggleVoucherStatus(
-                        _sampleVouchers[index].voucherId ?? '',
-                      );
-
-                      if (!mounted) return;
-
-                      await _loadVouchers();
-
-                      if (!mounted) return;
-
-                      final newStatus = _voucherCtrl.vouchers
-                          .firstWhere(
-                            (v) =>
-                                v.voucherId == _sampleVouchers[index].voucherId,
-                          )
-                          .voucherStatus;
-                      final message =
-                          (newStatus ?? '').toLowerCase() == 'active'
-                          ? 'Voucher activated'
-                          : 'Voucher inactivated';
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(message),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    } catch (e) {
-                      if (mounted) {
-                        final theme = AppThemes.color;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error: $e'),
-                            backgroundColor: theme.error,
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  onViewDetails: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AdminVoucherDetails(
-                          voucher: _sampleVouchers[index],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          const SizedBox(height: 32),
-          PendingVouchersSection(
-            pendingVouchers: _pendingVouchers,
+          _buildManagementTile(
+            context,
+            icon: Icons.card_giftcard_outlined,
+            title: "Available Vouchers",
+            subtitle:
+                "${_voucherCtrl.vouchers.where((v) => v.voucherStatus?.toLowerCase() == 'active').length} active vouchers",
+            route: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminVoucherManagement(),
+                ),
+              );
+              // Reload vouchers after returning from management screen
+              await _loadData();
+            },
             theme: theme,
-            maxItems: 1,
-            onViewAll: () async {
+          ),
+          const SizedBox(height: 8),
+          _buildManagementTile(
+            context,
+            icon: Icons.pending_actions_outlined,
+            title: "Pending Vouchers",
+            subtitle: "${_pendingVouchers.length} pending",
+            route: () async {
               await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AdminPendingVouchers()),
               );
               await _loadPendingVouchers();
             },
-            onProcessed: _loadPendingVouchers,
+            theme: theme,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildManagementTile(BuildContext context, {required IconData icon, required String title, required String subtitle, required String route, required AppColors theme}) {
+  Widget _buildManagementTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required dynamic route, // Can be String or Function
+    required AppColors theme,
+  }) {
     return Card(
       elevation: 0,
       color: theme.surfaceVariant.withOpacity(0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: theme.border)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.border),
+      ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: theme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: theme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Icon(icon, color: theme.primary),
         ),
         title: Text(title, style: TextDesign.largeText()),
         subtitle: Text(subtitle, style: TextDesign.smallText()),
         trailing: Icon(Icons.arrow_forward_ios, size: 16, color: theme.hint),
         onTap: () {
-          Navigator.pushNamed(context, route);
+          if (route is String) {
+            Navigator.pushNamed(context, route);
+          } else if (route is Function) {
+            route();
+          }
         },
       ),
     );

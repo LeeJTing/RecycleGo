@@ -8,6 +8,11 @@ class RecyclePurchases {
   final String paymentStatus; // e.g., 'success', 'pending', 'failed'
   final DateTime? createdAt; // Auto-generated timestamp
   final String? bankAccount; // Bank account for payment
+  final String? itemName; // Item purchased
+  final double? quantity; // Quantity in kg
+  final String? pickupLocationId; // UUID - FK to recycle_station
+  final String? pickupLocationName; // Station name
+  final String? pickupAddress; // Full address of pickup location
 
   RecyclePurchases({
     this.purchaseId,
@@ -16,6 +21,11 @@ class RecyclePurchases {
     required this.paymentStatus,
     this.createdAt,
     this.bankAccount,
+    this.itemName,
+    this.quantity,
+    this.pickupLocationId,
+    this.pickupLocationName,
+    this.pickupAddress,
   });
 
   factory RecyclePurchases.fromJson(Map<String, dynamic> json) {
@@ -29,6 +39,11 @@ class RecyclePurchases {
           ? DateTime.parse(json['created_at'])
           : null,
       bankAccount: json['bank_account']?.toString(),
+      itemName: json['item_name']?.toString(),
+      quantity: double.tryParse(json['quantity']?.toString() ?? '0'),
+      pickupLocationId: json['pickup_location_id']?.toString(),
+      pickupLocationName: json['pickup_location_name']?.toString(),
+      pickupAddress: json['pickup_address']?.toString(),
     );
   }
 
@@ -51,6 +66,26 @@ class RecyclePurchases {
       map['bank_account'] = bankAccount;
     }
 
+    if (itemName != null && itemName!.isNotEmpty) {
+      map['item_name'] = itemName;
+    }
+
+    if (quantity != null) {
+      map['quantity'] = quantity;
+    }
+
+    if (pickupLocationId != null && pickupLocationId!.isNotEmpty) {
+      map['pickup_location_id'] = pickupLocationId;
+    }
+
+    if (pickupLocationName != null && pickupLocationName!.isNotEmpty) {
+      map['pickup_location_name'] = pickupLocationName;
+    }
+
+    if (pickupAddress != null && pickupAddress!.isNotEmpty) {
+      map['pickup_address'] = pickupAddress;
+    }
+
     return map;
   }
 
@@ -61,6 +96,11 @@ class RecyclePurchases {
     String? paymentStatus,
     DateTime? createdAt,
     String? bankAccount,
+    String? itemName,
+    double? quantity,
+    String? pickupLocationId,
+    String? pickupLocationName,
+    String? pickupAddress,
   }) {
     return RecyclePurchases(
       purchaseId: purchaseId ?? this.purchaseId,
@@ -69,6 +109,11 @@ class RecyclePurchases {
       paymentStatus: paymentStatus ?? this.paymentStatus,
       createdAt: createdAt ?? this.createdAt,
       bankAccount: bankAccount ?? this.bankAccount,
+      itemName: itemName ?? this.itemName,
+      quantity: quantity ?? this.quantity,
+      pickupLocationId: pickupLocationId ?? this.pickupLocationId,
+      pickupLocationName: pickupLocationName ?? this.pickupLocationName,
+      pickupAddress: pickupAddress ?? this.pickupAddress,
     );
   }
 }

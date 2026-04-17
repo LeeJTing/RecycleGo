@@ -31,7 +31,7 @@ class Routes {
   static const String stationDetail = '/station-detail';
   static const String qrScan = '/qr-scan';
 
-  static const adminStationRegistry = '/admin-station-registry';
+  static const String adminStationRegistry = '/admin-station-registry';
   static const String adminVoucherManagement = '/admin/voucher-management';
   static const String adminAddVoucher = '/admin/voucher/add';
   static const String adminEditVoucher = '/admin/voucher/edit';
@@ -49,3 +49,4 @@ class Routes {
   static const String adminManagement = '/admin/admin-management';
   static const String adminAppealReview = '/admin/appeal-review';
 }
+

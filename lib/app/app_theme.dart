@@ -28,6 +28,9 @@ class AppColors {
   final Color onSuccessContainer;
   final Color warningContainer;
 
+  final Color errorContainer;
+  final Color onErrorContainer;
+
   const AppColors({
     required this.primary,
     required this.secondary,
@@ -51,6 +54,8 @@ class AppColors {
     required this.warningContainer,
     required this.appbarBackground,
     required this.appbarTitle,
+    required this.errorContainer,
+    required this.onErrorContainer,
   });
 }
 
@@ -59,6 +64,7 @@ class AppThemes extends ChangeNotifier {
   static final AppThemes _instance = AppThemes._internal();
 
   static AppColors get color => (_currentTheme == 'light' ? _light : _dark);
+
   static String get currentTheme => _currentTheme;
 
   factory AppThemes() {
@@ -70,7 +76,7 @@ class AppThemes extends ChangeNotifier {
   void setTheme(String theme) {
     if (theme == 'light mode') theme = 'light';
     if (theme == 'dark mode') theme = 'dark';
-    
+
     if (_currentTheme != theme) {
       _currentTheme = theme;
       notifyListeners();
@@ -107,6 +113,9 @@ class AppThemes extends ChangeNotifier {
     border: Color(0xFFEEEEEE),
     shadow: Color(0x1F000000),
     warningContainer: Color(0xFFFEF3C7),
+
+    errorContainer: Color(0xFFFFE4E6),
+    onErrorContainer: Color(0xFF7F1D1D),
   );
 
   static const _dark = AppColors(
@@ -124,6 +133,9 @@ class AppThemes extends ChangeNotifier {
     successContainer: Color(0xFF064E3B),
     onSuccessContainer: Color(0xFF34D399),
     warning: Color(0xFFFBBF24),
+
+    errorContainer: Color(0xFF7F1D1D),
+    onErrorContainer: Color(0xFFFECACA),
 
     onPrimary: Color(0xFFFFFFFF),
     onSecondary: Color(0xFF000000),
