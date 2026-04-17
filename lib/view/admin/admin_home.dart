@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/assets.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/view/admin/verify_recycle_item.dart';
 import 'package:recycle_go/view/admin/request_admin.dart';
@@ -16,8 +19,8 @@ import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/widgets/voucher_card.dart';
 import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart';
 import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
-import 'package:recycle_go/utils/async_task_runner.dart';
 import 'package:recycle_go/view/admin/widgets/pending_vouchers_section.dart';
+import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -27,15 +30,15 @@ class AdminHome extends StatefulWidget {
 }
 
 class _AdminHomeState extends State<AdminHome> {
-  int _currentIndex = 0; // Default to 'Verify' as per your UI
-  final _supabase = SupabaseService().client;
+  int _currentIndex = 0; // Default to 'Home'
+  
   // A list of the different 'Bodies' for each navigation button
   final List<Widget> _pages = [
-    const AdminDashboard(), //AdminDashboard()
+    const AdminDashboard(),
     const AdminInventory(),
     const RequestAdmin(),
     const AdminViewPurchase(),
-    const Center(child: Text("Profile Settings Content")),
+    const AdminProfileScreen(),
   ];
 
   @override
@@ -67,7 +70,7 @@ class _AdminHomeState extends State<AdminHome> {
       child: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: size.width * 0.02,
+            horizontal: size.width * 0.01,
             vertical: size.height * 0.01,
           ),
           child: SalomonBottomBar(
@@ -76,7 +79,7 @@ class _AdminHomeState extends State<AdminHome> {
             selectedItemColor: theme.primary,
             unselectedItemColor: theme.hint,
             itemPadding: EdgeInsets.symmetric(
-              vertical: size.height * 0.02,
+              vertical: size.height * 0.01,
               horizontal: size.width * 0.02,
             ),
             items: [
@@ -118,7 +121,7 @@ class _AdminHomeState extends State<AdminHome> {
               ),
               SalomonBottomBarItem(
                 icon: const Icon(Icons.person_outline),
-                activeIcon: const Icon(Icons.person), // Matches Admin profile
+                activeIcon: const Icon(Icons.person),
                 title: const Text("Profile"),
               ),
             ],
@@ -135,7 +138,6 @@ class _AdminHomeState extends State<AdminHome> {
         children: [
           IconButton(
             onPressed: () {
-              Navigator.pop(context);
               setState(() => _currentIndex = 0);
             },
             icon: Image.asset(AppAssets.logo, height: 36),
@@ -156,23 +158,40 @@ class _AdminHomeState extends State<AdminHome> {
             Navigator.pushNamed(context, Routes.adminNotification);
           },
           icon: Badge(
-            label: const Text('9'), // Matches the "9" pending items in your UI
+            label: const Text('9'),
             child: Icon(Icons.notifications_none, color: theme.onSurface),
           ),
         ),
         const SizedBox(width: 2),
         Padding(
-          padding: const EdgeInsets.only(
-            right: 10.0,
-          ), // Moves the button away from the screen edge
+          padding: const EdgeInsets.only(right: 10.0),
           child: IconButton(
             onPressed: () {
-              // Profile button
+              setState(() => _currentIndex = 4);
             },
-            icon: CircleAvatar(
-              radius: 22,
-              backgroundColor: theme.primary.withOpacity(0.1),
-              child: Icon(Icons.person, color: theme.primary, size: 24),
+            icon: Consumer<AdminProvider>(
+              builder: (context, adminProvider, _) {
+                return CircleAvatar(
+                  radius: 22,
+                  backgroundColor: theme.primary.withOpacity(0.1),
+                  child: ClipOval(
+                    child: Image.network(
+                      adminProvider.getProfileImageUrl(),
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) =>
+                          Icon(Icons.person, color: theme.primary, size: 24),
+                    ),
+                  ),
+                );
+              },
             ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -184,7 +203,7 @@ class _AdminHomeState extends State<AdminHome> {
       toolbarHeight: 72,
       backgroundColor: theme.onPrimary,
       centerTitle: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
       ),
     );
@@ -306,6 +325,48 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: const Text("Verify Recycle Item"),
           ),
           const SizedBox(height: 24),
+          
+          Text("Management", style: TextDesign.headingThree()),
+          const SizedBox(height: 12),
+          _buildManagementTile(
+            context,
+            icon: Icons.people_outline,
+            title: "User Management",
+            subtitle: "Manage and block users",
+            route: Routes.adminUserManagement,
+            theme: theme,
+          ),
+          Consumer<AdminProvider>(
+            builder: (context, provider, _) {
+              if (provider.admin?.role.toLowerCase() == 'super admin') {
+                return Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    _buildManagementTile(
+                      context,
+                      icon: Icons.admin_panel_settings_outlined,
+                      title: "Admin Management",
+                      subtitle: "Add or inactive admins",
+                      route: Routes.adminManagement,
+                      theme: theme,
+                    ),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildManagementTile(
+            context,
+            icon: Icons.gavel_outlined,
+            title: "Appeal Review",
+            subtitle: "Review user appeal submissions",
+            route: Routes.adminAppealReview,
+            theme: theme,
+          ),
+
+          const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -436,10 +497,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
           PendingVouchersSection(
             pendingVouchers: _pendingVouchers,
             theme: theme,
-            onViewAll: () {},
+            maxItems: 1,
+            onViewAll: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminPendingVouchers()),
+              );
+              await _loadPendingVouchers();
+            },
             onProcessed: _loadPendingVouchers,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildManagementTile(BuildContext context, {required IconData icon, required String title, required String subtitle, required String route, required AppColors theme}) {
+    return Card(
+      elevation: 0,
+      color: theme.surfaceVariant.withOpacity(0.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: theme.border)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: theme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+          child: Icon(icon, color: theme.primary),
+        ),
+        title: Text(title, style: TextDesign.largeText()),
+        subtitle: Text(subtitle, style: TextDesign.smallText()),
+        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: theme.hint),
+        onTap: () {
+          Navigator.pushNamed(context, route);
+        },
       ),
     );
   }

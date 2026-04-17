@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/app/default_url.dart';
 import 'package:recycle_go/services/storage_service.dart';
 import 'package:intl/intl.dart';
 
@@ -33,10 +34,15 @@ class ProfileInfo extends StatelessWidget {
     final size = MediaQuery.of(context).size;
     final joinDate = createdAt != null ? DateFormat('MMM yyyy').format(createdAt!) : 'N/A';
 
-    // Resolve URL: If it's just a file name, get the public URL from Supabase
-    String? resolvedUrl = photoUrl;
-    if (photoUrl != null && photoUrl!.isNotEmpty && !photoUrl!.startsWith('http')) {
-      resolvedUrl = StorageService().getPublicUrl('profiles', photoUrl!);
+    String resolvedUrl;
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      if (photoUrl!.startsWith('http')) {
+        resolvedUrl = photoUrl!;
+      } else {
+        resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.userProfileHeader + photoUrl!);
+      }
+    } else {
+      resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.userDefaultProfilePath);
     }
 
     return Column(
@@ -48,10 +54,27 @@ class ProfileInfo extends StatelessWidget {
               CircleAvatar(
                 radius: size.width * 0.15,
                 backgroundColor: theme.surfaceVariant,
-                backgroundImage: resolvedUrl != null && resolvedUrl.isNotEmpty ? NetworkImage(resolvedUrl) : null,
-                child: resolvedUrl == null || resolvedUrl.isEmpty
-                    ? Icon(Icons.person, size: size.width * 0.15, color: theme.hint)
-                    : null,
+                child: ClipOval(
+                  child: Image.network(
+                    resolvedUrl,
+                    width: size.width * 0.3,
+                    height: size.width * 0.3,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : null,
+                          strokeWidth: 2,
+                          color: theme.primary,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => Icon(Icons.person, size: size.width * 0.15, color: theme.hint),
+                  ),
+                ),
               ),
               Positioned(
                 bottom: 0,

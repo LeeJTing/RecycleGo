@@ -10,6 +10,7 @@ import 'package:recycle_go/models/Recycle_category.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
 import 'package:recycle_go/controller/admin/category_controller.dart';
 import 'package:recycle_go/controller/admin/inventory_controller.dart';
+import 'package:uuid/uuid.dart';
 
 class AdminAddInventory extends StatefulWidget {
   const AdminAddInventory({super.key});
@@ -38,9 +39,12 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
 
   XFile? _selectedImage;
 
+  late final CategoryController _categoryController;
+
   @override
   void initState() {
     super.initState();
+    _categoryController = CategoryController();
     _fetchCategories();
   }
 
@@ -56,9 +60,9 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
 
   Future<void> _fetchCategories() async {
     try {
-      final fetchedCategories = await CategoryController.getCategories();
+      await _categoryController.fetchCategories();
       setState(() {
-        _categories = fetchedCategories;
+        _categories = _categoryController.categories;
         _isLoadingCategories = false;
       });
     } catch (e) {
@@ -150,7 +154,7 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
               ),
 
               // Status Dropdown
-              _buildLabel("Initial Status"),
+              _buildLabel("Status"),
               DropdownButtonFormField<String>(
                 value: _selectedStatus,
                 decoration: _inputDecoration("Select status", theme),
@@ -307,8 +311,26 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     }
   }
 
+  String _generateCode(String name) {
+    final prefix = name.length >= 3
+        ? name.substring(0, 3).toUpperCase()
+        : name.toUpperCase();
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final short = timestamp.toString().substring(0, 3);
+
+    return "$prefix-$short";
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedCategoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a category")),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     String? imageUrl;
 
@@ -318,26 +340,35 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
         if (imageUrl == null) throw Exception("Image upload failed.");
       }
 
+      final inventoryCode = _generateCode(_nameController.text.trim());
+      final inventoryId = const Uuid().v4();
       final newItem = RecycleInventory(
-        // BUG FIX: Removed inventoryId: '' entirely so Supabase auto-generates the UUID
+        inventoryId: inventoryId,
+        inventoryCode: inventoryCode,
         inventoryName: _nameController.text.trim(),
         pricePerKg: double.parse(_priceController.text.trim()),
         totalWeightAvailable: double.parse(_weightController.text.trim()),
+        status: _selectedStatus == 'active' ? InventoryStatus.active : InventoryStatus.inactive,
+        categoryId: _selectedCategoryId!,
+        imgPath: imageUrl ?? '',
+        description: _descController.text.trim().isEmpty ? '' : _descController.text.trim(),
         minWeightLevel: double.tryParse(_minWeightController.text.trim()),
-        status: _selectedStatus,
-        categoryId: _selectedCategoryId,
-        description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
-        imgPath: imageUrl, inventoryId: '',
       );
 
       await InventoryController.addInventory(newItem);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Success!")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Inventory added successfully!")),
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

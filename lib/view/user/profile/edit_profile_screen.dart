@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/controller/profile/profile_ctrl.dart';
 import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/utils/validators.dart';
+import 'package:recycle_go/utils/async_task_runner.dart';
 import 'package:recycle_go/view/autho/widgets/auth_label.dart';
 import 'package:recycle_go/view/autho/widgets/auth_text_field.dart';
 
@@ -64,7 +66,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: theme.surface,
@@ -146,6 +147,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 filled: true,
                 fillColor: theme.surfaceVariant.withOpacity(0.5),
               ),
+
               const SizedBox(height: 40),
               
               SizedBox(
@@ -169,13 +171,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  Widget _buildNavigationTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    required AppColors theme,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: theme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.border.withOpacity(0.5)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.primary, size: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: TextDesign.mediumText(color: theme.onSurface),
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: theme.onHint, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _saveProfile() async {
     final updatedUser = widget.user.copyWith(
       userName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
       countryCallingCode: _selectedCountryCode,
     );
-    await _ctrl.updateProfile(context, updatedUser);
+
+    await TaskRunner.run(
+      context: context,
+      task: () => _ctrl.updateProfile(context, updatedUser),
+      loadingMessage: "Saving changes...",
+      successMessage: "Profile updated successfully!",
+    );
+
     if (mounted) Navigator.pop(context);
   }
 }

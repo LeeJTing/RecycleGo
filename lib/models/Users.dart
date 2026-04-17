@@ -62,6 +62,8 @@ class Users {
     return data;
   }
 
+  String getUserProfileURL() => UsersModel().getUserProfileURL(profilePhoto);
+
   Users copyWith({
     String? userName,
     String? email,
@@ -157,6 +159,10 @@ class UsersModel extends Connector {
     } catch (e) {
       rethrow;
     }
+  }
+
+  String getUserProfileURL(String? profilePhoto) {
+    return storage.getPublicUrl('profiles', profilePhoto ?? '');
   }
 
   Future<Users> updateUser(Users user) async {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import '../../app/routes.dart';
+import '../../controller/admin/category_controller.dart';
 import '../../controller/admin/inventory_controller.dart';
 import '../../models/RecycleInventory.dart';
 
@@ -40,14 +42,28 @@ class _AdminInventoryState extends State<AdminInventory> {
   List<RecycleInventory> get _filteredItems {
     return _inventoryItems.where((item) {
       final searchLower = _searchQuery.toLowerCase().trim();
-      final matchesSearch = searchLower.isEmpty ||
-          item.inventoryName!.toLowerCase().contains(searchLower);
+      final matchesSearch =
+          searchLower.isEmpty ||
+          item.inventoryName.toLowerCase().contains(searchLower);
 
-      final matchesInventory = _selectedInventory == "All" ||
-          item.inventoryName?.trim().toLowerCase() == _selectedInventory.trim().toLowerCase();
+      final matchesInventory =
+          _selectedInventory == "All" ||
+          item.inventoryName.trim().toLowerCase() ==
+              _selectedInventory.trim().toLowerCase();
 
       return matchesSearch && matchesInventory;
     }).toList();
+  }
+
+  Color _getStatusColor(InventoryStatus status, AppColors theme) {
+    switch (status) {
+      case InventoryStatus.active:
+        return theme.success;
+      case InventoryStatus.lowStock:
+        return theme.warning;
+      case InventoryStatus.inactive:
+        return theme.error;
+    }
   }
 
   @override
@@ -57,30 +73,37 @@ class _AdminInventoryState extends State<AdminInventory> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body:  _isLoading
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _inventoryItems.isEmpty
           ? _buildNoDataState(theme)
           : _filteredItems.isEmpty
           ? _buildEmptyState(theme)
           : Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSearchHeader(theme),
-          Padding(
-            padding: const EdgeInsets.only(left: 28.0, top: 12.0, bottom: 8.0),
-            child: Text("Items", style: TextDesign.headingThree()),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: _filteredItems.length,
-              itemBuilder: (context, index) =>
-                  _buildInventoryCard(_filteredItems[index], theme),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchHeader(theme),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 28.0,
+                    top: 12.0,
+                    bottom: 8.0,
+                  ),
+                  child: Text("Items", style: TextDesign.headingThree()),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    itemCount: _filteredItems.length,
+                    itemBuilder: (context, index) =>
+                        _buildInventoryCard(_filteredItems[index], theme),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pushNamed(context, Routes.adminAddInventory),
         backgroundColor: theme.primary,
@@ -96,7 +119,11 @@ class _AdminInventoryState extends State<AdminInventory> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 80, color: theme.hint.withOpacity(0.3)),
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 80,
+            color: theme.hint.withOpacity(0.3),
+          ),
           const SizedBox(height: 16),
           Text(
             "No inventory items found",
@@ -131,7 +158,11 @@ class _AdminInventoryState extends State<AdminInventory> {
                 decoration: InputDecoration(
                   hintText: "Search items...",
                   hintStyle: TextDesign.hintText(), // predefined
-                  prefixIcon: Icon(Icons.search, color: theme.primary, size: 20),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: theme.primary,
+                    size: 20,
+                  ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 15),
                 ),
@@ -157,15 +188,14 @@ class _AdminInventoryState extends State<AdminInventory> {
   }
 
   Widget _buildInventoryCard(RecycleInventory item, AppColors theme) {
-    // 1. Map variables exactly to your model
     final double weight = item.totalWeightAvailable;
     final double price = item.pricePerKg;
-    final double minWeight = item.minWeightLevel ?? 50.0; // Fallback to 50 if null
-    final String name = item.inventoryName ?? "Unnamed Item";
+    final double minWeight = item.minWeightLevel ?? 50.0;
 
-    // 2. Dynamic Stock Status Logic (Using minWeightLevel!)
+    final statusColor = _getStatusColor(item.status, theme);
     String stockText;
     Color stockColor;
+
     if (weight <= 0) {
       stockText = "OUT OF STOCK";
       stockColor = theme.error;
@@ -177,10 +207,10 @@ class _AdminInventoryState extends State<AdminInventory> {
       stockColor = theme.success;
     }
 
-    // 3. Format the date beautifully (e.g., 2026-04-15)
     String dateFormatted = "Unknown";
     if (item.updatedAt != null) {
-      dateFormatted = "${item.updatedAt!.year}-${item.updatedAt!.month.toString().padLeft(2, '0')}-${item.updatedAt!.day.toString().padLeft(2, '0')}";
+      dateFormatted =
+          "${item.updatedAt!.year}-${item.updatedAt!.month.toString().padLeft(2, '0')}-${item.updatedAt!.day.toString().padLeft(2, '0')}";
     }
 
     return Container(
@@ -189,152 +219,170 @@ class _AdminInventoryState extends State<AdminInventory> {
         color: theme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: theme.border.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: () => Navigator.pushNamed(
-            context,
-            Routes.adminViewInventory,
-            arguments: item,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- LEFT: Image ---
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 90,
-                    height: 100,
-                    color: theme.surfaceVariant,
-                    child: (item.imgPath != null && item.imgPath!.isNotEmpty)
-                        ? Image.asset(
-                      'assets/images/${item.imgPath!}', // 👈 important
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Icon(Icons.broken_image_outlined, color: theme.hint),
-                    )
-                        : Icon(Icons.inventory_2_outlined,
-                        color: theme.primary, size: 36),
-                  ),
-                ),
-                const SizedBox(width: 16),
-
-                // --- MIDDLE: Content & Details ---
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title
-                      Text(
-                        name,
-                        style: TextDesign.mediumText().copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          height: 1.2,
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(
+          context,
+          Routes.adminViewInventory,
+          arguments: item,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // IMAGE
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 90,
+                  height: 100,
+                  color: theme.surfaceVariant,
+                  child: item.imgPath.isNotEmpty
+                      ? (item.imgPath.startsWith('http')
+                            ? Image.network(
+                                item.imgPath,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: theme.primary,
+                                  size: 36,
+                                ),
+                              )
+                            : Image.asset(
+                                'assets/images/${item.imgPath}',
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: theme.primary,
+                                  size: 36,
+                                ),
+                              ))
+                      : Icon(
+                          Icons.inventory_2_outlined,
+                          color: theme.primary,
+                          size: 36,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Badges Row (Stock Level & DB Status)
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          // Stock Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: stockColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              stockText,
-                              style: TextStyle(
-                                color: stockColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          // DB Status Badge (Active/Inactive)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: item.status == 'active'
-                                  ? theme.primary.withOpacity(0.1)
-                                  : theme.hint.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item.status.toUpperCase(),
-                              style: TextStyle(
-                                color: item.status == 'active' ? theme.primary : theme.hint,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Information Grid
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildInfoColumn("Stock", "${weight.toStringAsFixed(1)} kg", theme),
-                          _buildInfoColumn("Price", "RM ${price.toStringAsFixed(2)}", theme),
-                          _buildInfoColumn("Min", "${minWeight.toStringAsFixed(1)} kg", theme),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Footer Data (Category & Updated At)
-                      Text(
-                        "Cat ID: ${item.categoryId ?? 'N/A'} • Updated: $dateFormatted",
-                        style: TextDesign.smallText(color: theme.hint).copyWith(fontSize: 11),
-                      ),
-                    ],
-                  ),
                 ),
+              ),
 
-                // --- RIGHT: Action Buttons ---
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
+              const SizedBox(width: 16),
+
+              // CONTENT
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        Routes.adminUpdateInventory,
-                        arguments: item,
+                    Text(
+                      item.inventoryName.trim(),
+                      style: TextDesign.mediumText().copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      icon: Icon(Icons.edit_note_rounded, color: theme.warning, size: 26),
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.only(bottom: 12, left: 8),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    IconButton(
-                      onPressed: () => _confirmDelete(item, theme), // Assuming you have this method
-                      icon: Icon(Icons.delete_outline_rounded, color: theme.error, size: 24),
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.only(left: 8),
+
+                    const SizedBox(height: 8),
+
+                    // BADGES
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        // STOCK BADGE
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: stockColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            stockText,
+                            style: TextStyle(
+                              color: stockColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+
+                        // STATUS BADGE (FIXED ENUM)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.status.name.toUpperCase(),
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildInfoColumn(
+                          "Stock",
+                          "${weight.toStringAsFixed(1)} kg",
+                          theme,
+                        ),
+                        _buildInfoColumn(
+                          "Price",
+                          "RM ${price.toStringAsFixed(2)}",
+                          theme,
+                        ),
+                        _buildInfoColumn(
+                          "Min",
+                          "${minWeight.toStringAsFixed(1)} kg",
+                          theme,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Text(
+                      "Cat ID: ${item.categoryId} • Updated: $dateFormatted",
+                      style: TextDesign.smallText(color: theme.hint),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // ACTIONS
+              Column(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      Routes.adminUpdateInventory,
+                      arguments: item,
+                    ),
+                    icon: Icon(Icons.edit_note_rounded, color: theme.warning),
+                  ),
+                  IconButton(
+                    onPressed: () => _confirmDelete(item, theme),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: theme.error,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -348,61 +396,63 @@ class _AdminInventoryState extends State<AdminInventory> {
       children: [
         Text(
           label,
-          style: TextStyle(color: theme.hint, fontSize: 10, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: theme.hint,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: TextStyle(color: theme.onSurface, fontSize: 13, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: theme.onSurface,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
   }
 
   void _showFilterSheet(BuildContext context, AppColors theme) {
-    final categories = ["All", "Plastic", "Paper", "Glasses", "CardBoard", "Metal"];
+
+    final categoryController = context.read<CategoryController>();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
+
+        final categories = [
+          "All",
+          ...categoryController.categories.map((c) => c.categoryName),
+        ];
+
         return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Filter by Inventory", style: TextDesign.headingThree()),
-              const SizedBox(height: 20),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: categories.length,
-                  separatorBuilder: (_, __) => Divider(color: theme.border.withOpacity(0.5)),
-                  itemBuilder: (context, index) {
-                    final cat = categories[index];
-                    bool isSelected = _selectedInventory == cat;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        cat,
-                        style: TextDesign.mediumText(
-                          color: isSelected ? theme.primary : theme.onSurface,
-                        ),
-                      ),
-                      trailing: isSelected ? Icon(Icons.check_circle, color: theme.primary) : null,
-                      onTap: () {
-                        setState(() => _selectedInventory = cat);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
+          padding: const EdgeInsets.all(24),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+
+              final cat = categories[index];
+              bool isSelected = _selectedInventory == cat;
+
+              return ListTile(
+                title: Text(cat),
+                trailing: isSelected
+                    ? Icon(Icons.check_circle, color: theme.primary)
+                    : null,
+                onTap: () {
+                  setState(() => _selectedInventory = cat);
+                  Navigator.pop(sheetContext);
+                },
+              );
+            },
           ),
         );
       },
@@ -429,12 +479,12 @@ class _AdminInventoryState extends State<AdminInventory> {
               Navigator.pop(context); // close dialog
               setState(() => _isLoading = true);
               try {
-                await InventoryController.deleteInventory(item.inventoryId);
+                await InventoryController.deleteInventory(item.inventoryId!);
                 await _loadInventory();
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Delete failed: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
               } finally {
                 setState(() => _isLoading = false);
               }
