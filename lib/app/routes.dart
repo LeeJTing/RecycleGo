@@ -13,6 +13,7 @@ class Routes {
   static const String userHomePage = '/user/homePage';
 
   static const String adminNotification = '/admin/notification';
+  static const String userNotification = '/user/notification';
   static const String adminPurchaseDetail = '/admin/purchase-detail';
   static const String adminPurchaseUpdate = '/admin/purchase-update';
 
@@ -39,6 +40,9 @@ class Routes {
   static const String userPurchaseDetail = '/user/purchase-detail';
   static const String paymentVerification = '/payment-verification';
   static const String paymentSuccess = '/payment-success';
+
+  static const String userAppealList = '/user/appeal-list';
+  static const String userAppealDetail = '/user/appeal-detail';
 
   // Management Routes
   static const String adminUserManagement = '/admin/user-management';

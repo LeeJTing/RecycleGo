@@ -4,8 +4,9 @@ import 'package:recycle_go/app/app_theme.dart';
 
 class ScoreCards extends StatelessWidget {
   final int totalPoints;
+  final int streakCount;
 
-  const ScoreCards({super.key, required this.totalPoints});
+  const ScoreCards({super.key, required this.totalPoints, this.streakCount = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -14,16 +15,6 @@ class ScoreCards extends StatelessWidget {
     
     return Row(
       children: [
-        Expanded(
-          child: _InfoCard(
-            value: '850',
-            label: 'SCORE',
-            color: theme.secondary,
-            icon: Icons.stars,
-            size: size,
-          ),
-        ),
-        SizedBox(width: size.width * 0.03),
         Expanded(
           child: _InfoCard(
             value: totalPoints.toString(),
@@ -36,7 +27,7 @@ class ScoreCards extends StatelessWidget {
         SizedBox(width: size.width * 0.03),
         Expanded(
           child: _InfoCard(
-            value: '12',
+            value: streakCount.toString(),
             label: 'Streak',
             color: theme.primary,
             icon: Icons.local_fire_department,

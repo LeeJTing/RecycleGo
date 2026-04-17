@@ -30,6 +30,8 @@ import 'package:recycle_go/view/user/purchase/purchase_detail.dart';
 import 'package:recycle_go/view/user/purchase/payment_success.dart';
 import 'package:recycle_go/view/user/purchase/payment_verification.dart';
 import 'package:recycle_go/view/admin/adminManagement/admin_management_screen.dart';
+import 'package:recycle_go/view/user/notifications/notification_list_screen.dart';
+import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:app_links/app_links.dart';
 
 Future<void> main() async {
@@ -234,7 +236,8 @@ class _MainAppState extends State<MainApp> {
         // Management Routes
         Routes.adminUserManagement: (context) => const UserManagementScreen(),
         Routes.adminManagement: (context) => const AdminManagementScreen(),
-        Routes.adminAppealReview: (context) => Scaffold(appBar: AppBar(title: const Text("Appeal Review")), body: const Center(child: Text("Appeal Review Screen"))),
+        Routes.adminAppealReview: (context) => const AppealReviewScreen(),
+        Routes.userNotification: (context) => const NotificationListScreen(),
       },
     );
   }
