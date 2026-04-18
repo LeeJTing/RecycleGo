@@ -12,6 +12,7 @@ import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/controller/puchase_item/purchase_item_ctrl.dart';
 import 'package:recycle_go/view/user/purchase/stripe_webview_checkout.dart';
 import 'package:recycle_go/widgets/location_picker_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserPurchaseScreen extends StatefulWidget {
   const UserPurchaseScreen({super.key});
@@ -22,14 +23,26 @@ class UserPurchaseScreen extends StatefulWidget {
 
 class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
   late TextEditingController _searchController;
+  FocusNode _searchFocusNode = FocusNode();
   final PurchaseItemController _purchaseCtrl = PurchaseItemController();
   bool _isLoading = true;
+  List<String> _searchHistory = [];
+  bool _showHistory = false;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    _searchController.addListener(_filterItems);
+    _loadSearchHistory();
+    _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(() {
+      setState(() {
+        _showHistory =
+            _searchFocusNode.hasFocus &&
+            _searchController.text.isEmpty &&
+            _searchHistory.isNotEmpty;
+      });
+    });
     _loadItems();
   }
 
@@ -58,6 +71,7 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -67,8 +81,230 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
     setState(() {});
   }
 
+  void _onSearchChanged() {
+    setState(() {
+      _showHistory =
+          _searchFocusNode.hasFocus &&
+          _searchController.text.isEmpty &&
+          _searchHistory.isNotEmpty;
+    });
+    _filterItems();
+  }
+
+  Future<void> _loadSearchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _searchHistory = prefs.getStringList('purchase_search_history') ?? [];
+    });
+  }
+
+  Future<void> _addToHistory(String query) async {
+    if (query.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+
+    List<String> history = List.from(_searchHistory);
+    history.remove(query);
+    history.insert(0, query);
+
+    if (history.length > 5) {
+      history = history.sublist(0, 5);
+    }
+
+    await prefs.setStringList('purchase_search_history', history);
+    setState(() {
+      _searchHistory = history;
+    });
+  }
+
+  Future<void> _removeFromHistory(String query) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> history = List.from(_searchHistory);
+    history.remove(query);
+    await prefs.setStringList('purchase_search_history', history);
+    setState(() {
+      _searchHistory = history;
+    });
+  }
+
+  Widget _buildHistoryList(AppColors theme) {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 200),
+      width: double.infinity,
+      color: theme.onPrimary,
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: _searchHistory.length,
+        itemBuilder: (context, index) {
+          final query = _searchHistory[index];
+          return ListTile(
+            leading: Icon(Icons.history, color: theme.hint, size: 20),
+            title: Text(query),
+            trailing: IconButton(
+              icon: Icon(Icons.close, size: 16, color: theme.hint),
+              onPressed: () => _removeFromHistory(query),
+            ),
+            onTap: () {
+              _searchController.text = query;
+              _searchFocusNode.unfocus();
+              _onSearchChanged();
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen(AppColors theme, Size size) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Header skeleton
+          Container(
+            margin: EdgeInsets.all(size.width * 0.04),
+            padding: EdgeInsets.all(size.width * 0.05),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [theme.primary, theme.primary.withOpacity(0.85)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 14,
+                      width: 150,
+                      decoration: BoxDecoration(
+                        color: theme.onPrimary.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 28,
+                      width: 100,
+                      decoration: BoxDecoration(
+                        color: theme.onPrimary.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
+                Icon(
+                  Icons.local_offer,
+                  size: 64,
+                  color: theme.onPrimary.withOpacity(0.1),
+                ),
+              ],
+            ),
+          ),
+
+          // Search bar skeleton
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.04,
+              vertical: size.height * 0.01,
+            ),
+            child: Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: theme.onPrimary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+
+          // Items skeleton
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.04,
+              vertical: size.height * 0.02,
+            ),
+            child: Column(
+              children: List.generate(
+                5,
+                (index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.onPrimary,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: theme.appbarBackground.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              height: 16,
+                              width: 150,
+                              decoration: BoxDecoration(
+                                color: theme.appbarBackground.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            Container(
+                              height: 16,
+                              width: 80,
+                              decoration: BoxDecoration(
+                                color: theme.appbarBackground.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 14,
+                          width: 200,
+                          decoration: BoxDecoration(
+                            color: theme.appbarBackground.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handlePurchase(RecycleInventory item) async {
     final theme = AppThemes.color;
+
+    // Show loading dialog while getting location
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: theme.primary),
+              const SizedBox(height: 16),
+              const Text('Getting your location...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     double quantity = 5.0;
     final quantityController = TextEditingController(text: '5.0');
     RecycleStation? selectedStation;
@@ -89,14 +325,45 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
               return lastPosition;
             },
           );
-    } catch (e) {
+
+      // Close loading dialog on success
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // Show permission request dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Location Permission'),
             content: const Text(
-              'Could not get your location. Please enable location services and try again.',
+              'Unable to get your location. Please enable location services and permissions, then try again.',
             ),
-            backgroundColor: theme.error,
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // Optionally open app settings
+                  Geolocator.openLocationSettings();
+                },
+                child: const Text('Open Settings'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // Retry the purchase
+                  _handlePurchase(item);
+                },
+                child: const Text('Retry'),
+              ),
+            ],
           ),
         );
       }
@@ -495,7 +762,7 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); 
+        Navigator.pop(context);
         // Provide specific error messages
         String errorMessage = 'Payment error: $e';
         if (e.toString().contains('401')) {
@@ -683,7 +950,7 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
       body: Consumer<UserProvider>(
         builder: (context, userProvider, _) {
           return _isLoading
-              ? Center(child: CircularProgressIndicator(color: theme.primary))
+              ? _buildLoadingScreen(theme, size)
               : SingleChildScrollView(
                   child: Column(
                     children: [
@@ -740,9 +1007,20 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
                         ),
                         child: TextField(
                           controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          onSubmitted: (value) => _addToHistory(value),
                           decoration: InputDecoration(
                             hintText: 'Search items...',
                             prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {});
+                                    },
+                                  )
+                                : null,
                             filled: true,
                             fillColor: theme.onPrimary,
                             border: OutlineInputBorder(
@@ -752,6 +1030,14 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
                           ),
                         ),
                       ),
+
+                      if (_showHistory)
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: size.width * 0.04,
+                          ),
+                          child: _buildHistoryList(theme),
+                        ),
 
                       // Items List
                       Padding(
