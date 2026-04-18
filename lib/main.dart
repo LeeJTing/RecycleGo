@@ -39,7 +39,6 @@ import 'package:recycle_go/view/admin/admin_notification_screen.dart';
 import 'package:app_links/app_links.dart';
 
 import 'controller/admin/category_controller.dart';
-import 'controller/admin/inventory_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -161,7 +160,7 @@ class _MainAppState extends State<MainApp> {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
 
-      initialRoute: Routes.adminHome,
+      initialRoute: Routes.login,
       onGenerateRoute: (settings) {
         // Handle payment deep links from Stripe
         if (settings.name?.startsWith('recyclego://payment/') == true) {
@@ -286,26 +285,10 @@ class _MainAppState extends State<MainApp> {
         // Management Routes
         Routes.adminUserManagement: (context) => const UserManagementScreen(),
         Routes.adminManagement: (context) => const AdminManagementScreen(),
-        Routes.adminAppealReview: (context) => Scaffold(
-          appBar: AppBar(title: const Text("Appeal Review")),
-          body: const Center(child: Text("Appeal Review Screen")),
-        ),
+        Routes.adminAppealReview: (context) => const AppealReviewScreen(),
         Routes.userNotification: (context) => const NotificationListScreen(),
         Routes.adminNotification: (context) => const AdminNotificationScreen(),
-        Routes.adminPurchaseDetail: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseDetail;
-          return AdminPurchaseDetail(
-            purchase: args.purchase,
-            items: args.items,
-          );
-        },
-        Routes.adminPurchaseUpdate: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseUpdate;
-          return AdminPurchaseUpdate(
-            purchase: args.purchase,
-            items: args.items,
-          );
-        },
+        
         Routes.scanRecycleItem: (context) => const VerifyRecycleItem(),
         Routes.adminFullRequestReview: (context) => const AdminSubmissionFullReview(),
 
