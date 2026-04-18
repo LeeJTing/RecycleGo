@@ -1,4 +1,3 @@
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
 
@@ -45,12 +44,9 @@ class StationService {
 
   // ── CREATE ────────────────────────────────────────────────────────
   static Future<RecycleStation?> create(RecycleStation station) async {
-    final map = station.toMap()..remove('station_id'); // let Supabase generate UUID
-    final response = await _db
-        .from(_table)
-        .insert(map)
-        .select()
-        .single();
+    final map = station.toMap()
+      ..remove('station_id'); // let Supabase generate UUID
+    final response = await _db.from(_table).insert(map).select().single();
 
     return RecycleStation.fromMap(response as Map<String, dynamic>);
   }
@@ -78,5 +74,29 @@ class StationService {
   // ── DELETE ────────────────────────────────────────────────────────
   static Future<void> delete(String stationId) async {
     await _db.from(_table).delete().eq('station_id', stationId);
+  }
+
+  static Future<List<StationWithDistance>> getNearestStations(
+    double userLatitude,
+    double userLongitude, {
+    int limit = 10,
+  }) async {
+    final stations = await fetchActive();
+
+    // Calculate distance for each station
+    final stationsWithDistance = stations
+        .map(
+          (station) => StationWithDistance(
+            station: station,
+            distance: station.distanceFrom(userLatitude, userLongitude),
+          ),
+        )
+        .toList();
+
+    // Sort by distance (nearest first)
+    stationsWithDistance.sort((a, b) => a.distance.compareTo(b.distance));
+
+    // Return limited results
+    return stationsWithDistance.take(limit).toList();
   }
 }
