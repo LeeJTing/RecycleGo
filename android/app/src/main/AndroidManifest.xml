@@ -40,7 +40,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="recyclego" />
-
+            </intent-filter>
             <!-- Custom Scheme Deep Link -->
             <meta-data
                 android:name="flutter_deeplinking_enabled"

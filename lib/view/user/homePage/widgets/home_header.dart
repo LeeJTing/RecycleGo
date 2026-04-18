@@ -72,6 +72,9 @@ class _HomeHeaderState extends State<HomeHeader> {
       resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.userDefaultProfilePath);
     }
 
+    // Add a timestamp to the URL to bypass image caching after an update
+    final timestampedUrl = '$resolvedUrl${resolvedUrl.contains('?') ? '&' : '?'}t=${DateTime.now().millisecondsSinceEpoch}';
+
     return Row(
       children: [
         GestureDetector(
@@ -81,7 +84,7 @@ class _HomeHeaderState extends State<HomeHeader> {
             backgroundColor: theme.surfaceVariant,
             child: ClipOval(
               child: Image.network(
-                resolvedUrl,
+                timestampedUrl,
                 width: size.width * 0.12,
                 height: size.width * 0.12,
                 fit: BoxFit.cover,

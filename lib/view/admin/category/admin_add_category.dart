@@ -50,7 +50,7 @@ class _AdminAddCategoryState extends State<AdminAddCategory> {
     });
 
     try {
-      _categories = await CategoryController.getCategories();
+      //_categories = await CategoryController.getCategories();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -241,7 +241,7 @@ class _AdminAddCategoryState extends State<AdminAddCategory> {
     );
 
     try {
-      await CategoryController.addCategory(newCategory);
+      //await CategoryController.addCategory(newCategory);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
