@@ -1,3 +1,6 @@
+import 'package:recycle_go/models/Connector.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 enum SubmissionStatus {
   pending,
   approved,
@@ -51,9 +54,9 @@ class RecycleSubmission {
       reviewedBy: json['reviewed_by'],
       reviewedAt: json['reviewed_at'] != null ? DateTime.parse(json['reviewed_at']) : null,
       categoryId: json['category_id'],
-      rejectionReason: json['rejection_reason'],        // ✅ fixed
+      rejectionReason: json['rejection_reason'],
       weight: json['weight'] != null ? (json['weight'] as num).toDouble() : null,
-      pointAward: json['point_award'] != null ? (json['point_award'] as num).toDouble() : null, // ✅ fixed
+      pointAward: json['point_award'] != null ? (json['point_award'] as num).toDouble() : null,
     );
   }
 
@@ -75,13 +78,79 @@ class RecycleSubmission {
       'user_id': userId,
       'station_id': stationId,
       if (photoUrl != null) 'photo_url': photoUrl,
-      'status': status,                                 // ✅ fixed
+      'status': status,
       if (reviewedBy != null) 'reviewed_by': reviewedBy,
       if (reviewedAt != null) 'reviewed_at': reviewedAt!.toIso8601String().split('T').first, // store only date
       if (categoryId != null) 'category_id': categoryId,
-      if (rejectionReason != null) 'rejection_reason': rejectionReason, // ✅ fixed
+      if (rejectionReason != null) 'rejection_reason': rejectionReason,
       if (weight != null) 'weight': weight,
-      if (pointAward != null) 'point_award': pointAward, // ✅ fixed
+      if (pointAward != null) 'point_award': pointAward,
     };
+  }
+}
+
+class RecycleSubmissionModel extends Connector {
+  static final RecycleSubmissionModel _instance = RecycleSubmissionModel._internal();
+  RecycleSubmissionModel._internal();
+  factory RecycleSubmissionModel() => _instance;
+
+  Future<void> createSubmission(RecycleSubmission submission) async {
+    await client.from('recyclingsubmission').insert(submission.toJsonForInsert());
+  }
+
+  Future<int> getTotalItemsByUserId(String userId) async {
+    final response = await client
+        .from('recyclingsubmission')
+        .count(CountOption.exact)
+        .eq('user_id', userId)
+        .eq('status', 'approved');
+    return response;
+  }
+
+  Future<int> getStreakCount(String userId) async {
+    try {
+      final response = await client
+          .from('recyclingsubmission')
+          .select('submitted_at')
+          .eq('user_id', userId)
+          .eq('status', 'approved')
+          .order('submitted_at', ascending: false);
+
+      if (response == null || (response as List).isEmpty) return 0;
+
+      final submissions = response as List;
+      final uniqueDates = submissions.map((s) {
+        final date = DateTime.parse(s['submitted_at']);
+        return DateTime(date.year, date.month, date.day);
+      }).toSet().toList();
+
+      if (uniqueDates.isEmpty) return 0;
+
+      // Sort just in case, although DB should have handled it
+      uniqueDates.sort((a, b) => b.compareTo(a));
+
+      DateTime today = DateTime.now();
+      DateTime todayDate = DateTime(today.year, today.month, today.day);
+      DateTime yesterdayDate = todayDate.subtract(const Duration(days: 1));
+
+      // If the latest submission isn't today or yesterday, streak is broken
+      if (uniqueDates[0].isBefore(yesterdayDate)) {
+        return 0;
+      }
+
+      int streak = 1;
+      for (int i = 0; i < uniqueDates.length - 1; i++) {
+        if (uniqueDates[i].difference(uniqueDates[i + 1]).inDays == 1) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+
+      return streak;
+    } catch (e) {
+      print('Error calculating streak: $e');
+      return 0;
+    }
   }
 }

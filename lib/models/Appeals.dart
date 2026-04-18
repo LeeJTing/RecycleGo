@@ -10,7 +10,7 @@ class Appeals {
   final String? adminComment;
   final DateTime? createdAt;
   
-  // Join fields
+  // Join fields from recyclingsubmission and related tables
   final String? userName; 
   final String? userEmail;
   final String? photoUrl;
@@ -19,6 +19,7 @@ class Appeals {
   final String? category;
   final double? weight;
   final double? submissionPoints;
+  final int photoCount;
 
   Appeals({
     this.appealId,
@@ -36,43 +37,38 @@ class Appeals {
     this.category,
     this.weight,
     this.submissionPoints,
+    this.photoCount = 0,
   });
 
   factory Appeals.fromJson(Map<String, dynamic> json) {
     final sub = json['recyclingsubmission'];
     final user = sub?['users'];
     final station = sub?['recyclestation'];
-    final photos = sub?['submissionphotos'] as List?;
-    final items = sub?['detecteditems'] as List?;
+    final categoryData = sub?['recycle_category'];
 
-    double totalWeight = 0;
-    double totalPoints = 0;
-    String? category;
-    
-    if (items != null && items.isNotEmpty) {
-      category = items[0]['item_type'];
-      for (var item in items) {
-        totalWeight += (item['detected_weight_kg'] as num?)?.toDouble() ?? 0;
-        totalPoints += (item['reward_points'] as num?)?.toDouble() ?? 0;
-      }
-    }
+    // In the provided schema, recyclingsubmission has weight and point_award directly
+    final weight = (sub?['weight'] as num?)?.toDouble() ?? 0.0;
+    final points = (sub?['point_award'] as num?)?.toDouble() ?? 0.0;
+    final categoryName = categoryData?['category_name'] ?? 'General';
 
     return Appeals(
       appealId: json['appeal_id'],
       submissionId: json['submission_id'],
       appealReason: json['appeal_reason'] ?? '',
-      pointsGiven: json['points_given'],
+      pointsGiven: (json['points_given'] as num?)?.toInt(),
       appealStatus: json['appeal_status'],
       adminComment: json['admin_comment'],
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       userName: user?['user_name'],
       userEmail: user?['email'],
-      photoUrl: (photos != null && photos.isNotEmpty) ? photos[0]['photo_url'] : null,
+      // photoUrl now comes directly from recyclingsubmission as submissionphotos table was dropped
+      photoUrl: sub?['photo_url'],
       stationId: sub?['station_id'],
       stationName: station?['station_name'],
-      category: category,
-      weight: totalWeight,
-      submissionPoints: totalPoints,
+      category: categoryName,
+      weight: weight,
+      submissionPoints: points,
+      photoCount: sub?['photo_url'] != null ? 1 : 0, 
     );
   }
 
@@ -102,6 +98,7 @@ class Appeals {
     String? category,
     double? weight,
     double? submissionPoints,
+    int? photoCount,
   }) {
     return Appeals(
       appealId: appealId ?? this.appealId,
@@ -119,6 +116,7 @@ class Appeals {
       category: category ?? this.category,
       weight: weight ?? this.weight,
       submissionPoints: submissionPoints ?? this.submissionPoints,
+      photoCount: photoCount ?? this.photoCount,
     );
   }
 }
@@ -132,19 +130,14 @@ class AppealsModel extends Connector {
     try {
       final response = await client
           .from('appeals')
-          .select('*, recyclingsubmission!inner(user_id, station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url), detecteditems(detected_weight_kg, reward_points, item_type))')
+          .select('*, recyclingsubmission!inner(user_id, station_id, weight, point_award, photo_url, users!inner(user_name, email), recyclestation!inner(station_name), recycle_category(category_name))')
           .eq('recyclingsubmission.user_id', userId)
           .order('created_at', ascending: false);
 
       return (response as List).map((json) => Appeals.fromJson(json)).toList();
     } catch (e) {
       debugPrint("Error in getUserAppeals: $e");
-      final response = await client
-          .from('appeals')
-          .select('*, recyclingsubmission!inner(user_id, station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url))')
-          .eq('recyclingsubmission.user_id', userId)
-          .order('created_at', ascending: false);
-      return (response as List).map((json) => Appeals.fromJson(json)).toList();
+      return [];
     }
   }
 
@@ -152,17 +145,13 @@ class AppealsModel extends Connector {
     try {
       final response = await client
           .from('appeals')
-          .select('*, recyclingsubmission!inner(station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url), detecteditems(detected_weight_kg, reward_points, item_type))')
+          .select('*, recyclingsubmission!inner(station_id, weight, point_award, photo_url, users!inner(user_name, email), recyclestation!inner(station_name), recycle_category(category_name))')
           .order('created_at', ascending: false);
 
       return (response as List).map((json) => Appeals.fromJson(json)).toList();
     } catch (e) {
       debugPrint("Error in getAllAppeals: $e");
-      final response = await client
-          .from('appeals')
-          .select('*, recyclingsubmission!inner(station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url))')
-          .order('created_at', ascending: false);
-      return (response as List).map((json) => Appeals.fromJson(json)).toList();
+      return [];
     }
   }
 
@@ -173,6 +162,7 @@ class AppealsModel extends Connector {
           'appeal_status': appeal.appealStatus,
           'points_given': appeal.pointsGiven,
           'admin_comment': appeal.adminComment,
+          'reviewed_at': DateTime.now().toIso8601String().split('T')[0], // date only
         })
         .eq('appeal_id', appeal.appealId!);
   }

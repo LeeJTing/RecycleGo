@@ -6,6 +6,7 @@ import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/view/admin/request_admin.dart';
@@ -30,7 +31,7 @@ class _AdminHomeState extends State<AdminHome> {
 
   final List<Widget> _pages = const [
     AdminDashboard(),
-    RequestAdmin(),
+    AppealReviewScreen(),
     AdminInventory(),
     AdminVoucherManagement(),
     AdminProfileScreen(),
@@ -105,7 +106,7 @@ class _AdminHomeState extends State<AdminHome> {
               title: const Text("Home"),
             ),
 
-            // VERIFY
+            // Appeals
             SalomonBottomBarItem(
               icon: Badge(
                 isLabelVisible: _unreadCount > 0,
@@ -119,7 +120,7 @@ class _AdminHomeState extends State<AdminHome> {
                 backgroundColor: theme.error,
                 child: const Icon(Icons.check_circle),
               ),
-              title: const Text("Verify"),
+              title: const Text("Appeals"),
             ),
 
             // PURCHASE
@@ -149,7 +150,7 @@ class _AdminHomeState extends State<AdminHome> {
   String get _currentTitle {
     switch (_currentIndex) {
       case 0: return "Admin Dashboard";
-      case 1: return "Review Requests";
+      case 1: return "Appeal Review";
       case 2: return "Admin Inventory";
       case 3: return "Admin Vouchers";
       case 4: return "Admin Profile";
