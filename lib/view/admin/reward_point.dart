@@ -1,9 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/app/routes.dart';
+import 'package:recycle_go/models/Notifications.dart';
+import 'package:recycle_go/provider/UserProvider.dart';
 
-class RewardPointScreen extends StatelessWidget {
+class RewardPointScreen extends StatefulWidget {
   const RewardPointScreen({super.key});
+
+  @override
+  State<RewardPointScreen> createState() => _RewardPointScreenState();
+}
+
+class _RewardPointScreenState extends State<RewardPointScreen> {
+  int _unreadCount = 0;
+  String? _currentUserId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final user = Provider.of<UserProvider>(context).user;
+    if (user?.userId != _currentUserId) {
+      _currentUserId = user?.userId;
+      _loadUnreadCount();
+    }
+  }
+
+  Future<void> _loadUnreadCount() async {
+    if (_currentUserId == null) return;
+    try {
+      final count = await NotificationsModel().getUnreadCount(_currentUserId!);
+      if (mounted) {
+        setState(() => _unreadCount = count);
+      }
+    } catch (e) {
+      debugPrint('Error loading unread count: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,8 +138,48 @@ class RewardPointScreen extends StatelessWidget {
         ),
         Row(
           children: [
-            Icon(Icons.notifications_none_outlined, color: theme.hint),
-            const SizedBox(width: 16),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.notifications_none_outlined, color: theme.hint),
+                  onPressed: () async {
+                    final result = await Navigator.pushNamed(context, Routes.userNotification);
+                    if (result == true) {
+                      _loadUnreadCount();
+                    }
+                  },
+                ),
+                if (_unreadCount > 0)
+                  Positioned(
+                    right: 4,
+                    top: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: theme.error,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$_unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 8),
             const CircleAvatar(
               radius: 18,
               backgroundImage: AssetImage('assets/images/user_avatar.png'),

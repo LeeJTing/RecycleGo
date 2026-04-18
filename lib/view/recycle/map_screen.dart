@@ -87,7 +87,13 @@ class _MapScreenState extends State<MapScreen> {
     final res = await http.get(Uri.parse(url));
     final data = json.decode(res.body);
 
-    if (data['routes'].isEmpty) return;
+    if (data['routes'].isEmpty) {
+      setState(() {
+        _durations[s.stationId!] = "No route";
+        _distances[s.stationId!] = "-";
+      });
+      return;
+    }
 
     final points = data['routes'][0]['overview_polyline']['points'];
     final decoded = _decodePolyline(points);
@@ -100,8 +106,8 @@ class _MapScreenState extends State<MapScreen> {
     final distanceText = leg['distance']['text'];   // e.g. "5.2 km"
 
     setState(() {
-      _durations[s.stationId] = durationText;
-      _distances[s.stationId] = distanceText;
+      _durations[s.stationId!] = durationText;
+      _distances[s.stationId!] = distanceText;
 
       _polylines.clear();
       _polylines.add(
@@ -170,14 +176,16 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _getRouteInfo(RecycleStation s) async {
-    final stationId = s.stationId;
+    if (s.stationId == null) return; // ✅ 防 crash
+
+    final stationId = s.stationId!; // ✅ 就放这里
     final mode = _travelMode;
 
     // ✅ 如果 cache 已存在 → 直接用
     if (_durationCache[stationId]?[mode] != null) {
       setState(() {
-        _durations[stationId] = _durationCache[stationId]![mode]!;
-        _distances[stationId] = _distanceCache[stationId]![mode]!;
+        _durations[s.stationId!] = _durationCache[stationId]![mode]!;
+        _distances[s.stationId!] = _distanceCache[stationId]![mode]!;
       });
       return;
     }
@@ -239,7 +247,6 @@ class _MapScreenState extends State<MapScreen> {
         setState(() {
           _travelMode = mode;
           _polylines.clear(); // 清路线
-          _getRouteInfo(_selectedStation!);
         });
 
         if (_selectedStation != null) {
@@ -390,7 +397,7 @@ class _MapScreenState extends State<MapScreen> {
 
     final markers = sorted.map((s) {
       return Marker(
-        markerId: MarkerId(s.stationId),
+        markerId: MarkerId(s.stationId!),
         position: LatLng(s.latitude, s.longitude),
         icon: BitmapDescriptor.defaultMarkerWithHue(
           s.isActive
@@ -870,8 +877,8 @@ class _MapScreenState extends State<MapScreen> {
                                         station: s,
                                         distanceKm: _formatDistanceValue(s),
 
-                                        duration: _durations[s.stationId],
-                                        routeDistance: _distances[s.stationId],
+                                        duration: s.stationId != null ? _durations[s.stationId!] : null,
+                                        routeDistance: s.stationId != null ? _distances[s.stationId!] : null,
                                       ),
                                     ),
                                   );
@@ -905,8 +912,8 @@ class _MapScreenState extends State<MapScreen> {
                                 child: _StationCard(
                                   station: s,
                                   distance: _formatDistance(s),
-                                  duration: _selectedStation?.stationId == s.stationId
-                                      ? _durations[s.stationId]
+                                  duration: _selectedStation?.stationId == s.stationId && s.stationId != null
+                                      ? _durations[s.stationId!]
                                       : null,
                                   routeDistance: _selectedStation?.stationId == s.stationId
                                       ? _distances[s.stationId]

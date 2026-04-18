@@ -2,48 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
 import 'package:recycle_go/view/admin/admin_station_edit.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
 const _bgGrey    = Color(0xFFF4F7F4);
-
-// ── Mock data (swap with Firestore/API) ──────────────────────────────
-final _mockStations = <RecycleStation>[
-  RecycleStation(
-    stationId: 'ST-9902', stationName: 'Greenway Plaza North',
-    address: 'Main Entrance, Sector 4', latitude: 3.1390, longitude: 101.6869,
-    stationStatus: StationStatus.active,
-    plasticStorage: 500, paperStorage: 300, glassStorage: 200,
-    cardboardStorage: 0, metalStorage: 0,
-    qrCodeValue: 'ECO-ST-9902', createdAt: DateTime(2024, 1, 10),
-  ),
-  RecycleStation(
-    stationId: 'ST-8841', stationName: 'Harbor Terminal C',
-    address: 'Docking Bay 12', latitude: 3.1420, longitude: 101.6830,
-    stationStatus: StationStatus.active,
-    plasticStorage: 0, paperStorage: 800, glassStorage: 0,
-    cardboardStorage: 200, metalStorage: 0,
-    qrCodeValue: 'ECO-ST-8841', createdAt: DateTime(2024, 2, 5),
-  ),
-  RecycleStation(
-    stationId: 'ST-1102', stationName: 'Tech District Hub',
-    address: 'Main Atrium', latitude: 3.1450, longitude: 101.6900,
-    stationStatus: StationStatus.maintenance,
-    plasticStorage: 600, paperStorage: 0, glassStorage: 0,
-    cardboardStorage: 0, metalStorage: 400,
-    qrCodeValue: 'ECO-ST-1102', createdAt: DateTime(2024, 3, 1),
-  ),
-  RecycleStation(
-    stationId: 'ST-0034', stationName: 'Central Park Depot',
-    address: 'East Gate, Park Ave', latitude: 3.1300, longitude: 101.6750,
-    stationStatus: StationStatus.offline,
-    plasticStorage: 400, paperStorage: 400, glassStorage: 400,
-    cardboardStorage: 400, metalStorage: 400,
-    qrCodeValue: 'ECO-ST-0034', createdAt: DateTime(2024, 3, 15),
-  ),
-];
-
-// ─────────────────────────────────────────────────────────────────────
 
 enum _SortMode { capacity, name, status }
 
@@ -55,8 +18,9 @@ class StationRegistryScreen extends StatefulWidget {
 }
 
 class _StationRegistryScreenState extends State<StationRegistryScreen> {
-  final List<RecycleStation> _stations = List.from(_mockStations);
+  List<RecycleStation> _stations = [];
   final _searchCtrl = TextEditingController();
+  final _model = RecycleStationModel();
 
   String _query = '';
   RecycleMaterialType? _filterMat;
@@ -69,8 +33,8 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
     var list = _stations.where((s) {
       final q = _query.toLowerCase();
       final matchQ = q.isEmpty ||
-          s.stationName.toLowerCase().contains(q) ||
-          s.stationId.toLowerCase().contains(q);
+          (s.stationName ?? '').toLowerCase().contains(q) ||
+          (s.stationId ?? '').toLowerCase().contains(q);
       final matchM = _filterMat == null ||
           s.supportedMaterials.contains(_filterMat);
       return matchQ && matchM;
@@ -78,7 +42,7 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
 
     switch (_sort) {
       case _SortMode.capacity:
-        list.sort((a, b) => b.totalCapacity.compareTo(a.totalCapacity));
+        list.sort((a, b) => b.stationCapacity.compareTo(a.stationCapacity));
       case _SortMode.name:
         list.sort((a, b) => a.stationName.compareTo(b.stationName));
       case _SortMode.status:
@@ -103,7 +67,8 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
       MaterialPageRoute(builder: (_) => const StationEditScreen()),
     );
     if (result != null) {
-      setState(() => _stations.add(result));
+      await _model.insertStation(result);   // ✅ 存进 DB
+      await _loadStations();
       _snack('Station ${result.stationId} added');
     }
   }
@@ -113,11 +78,10 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
       context,
       MaterialPageRoute(builder: (_) => StationEditScreen(station: s)),
     );
+
     if (result != null) {
-      setState(() {
-        final i = _stations.indexWhere((x) => x.stationId == result.stationId);
-        if (i != -1) _stations[i] = result;
-      });
+      await _model.updateStation(result);  // ✅ update DB
+      await _loadStations();               // ✅ refresh
       _snack('Station ${result.stationId} updated');
     }
   }
@@ -125,10 +89,15 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
   Future<void> _onDelete(RecycleStation s) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => _DeleteDialog(name: s.stationName, id: s.stationId),
+      builder: (_) => _DeleteDialog(
+        name: s.stationName ?? 'Unknown',
+        id: s.stationId ?? 'N/A',
+      ),
     );
+
     if (ok == true) {
-      setState(() => _stations.removeWhere((x) => x.stationId == s.stationId));
+      await _model.deleteStation(s.stationId ?? ''); // ✅ DB delete
+      await _loadStations();                   // ✅ refresh
       _snack('Station ${s.stationId} deleted');
     }
   }
@@ -142,6 +111,14 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
     ));
   }
 
+  Future<void> _loadStations() async {
+    final data = await _model.getAllStations();
+
+    setState(() {
+      _stations = data;
+    });
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -149,9 +126,15 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadStations();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final active = _stations.where((s) => s.stationStatus == StationStatus.active).length;
-    final full   = _stations.where((s) => s.stationStatus == StationStatus.maintenance).length;
+    final full = _stations.where((s) => s.stationStatus == StationStatus.maintenance).length;
     final offline= _stations.where((s) => s.stationStatus == StationStatus.offline).length;
 
     return Scaffold(
@@ -404,6 +387,7 @@ class _FilterRow extends StatelessWidget {
   final _SortMode sort;
   final ValueChanged<RecycleMaterialType?> onFilter;
   final ValueChanged<_SortMode> onSort;
+
   const _FilterRow({
     required this.selected, required this.sort,
     required this.onFilter, required this.onSort,
@@ -416,12 +400,18 @@ class _FilterRow extends StatelessWidget {
       'PLASTICS': RecycleMaterialType.plastic,
       'PAPER': RecycleMaterialType.paper,
       'GLASS': RecycleMaterialType.glass,
+      'CARDBOARD': RecycleMaterialType.cardboard,
+      'METAL': RecycleMaterialType.metal,
     };
+
     return Column(
+      // 关键点 1：强制让 Column 的子组件全部靠左对齐，消除中间的大空位感
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          // 移除 ScrollView 可能自带的 padding 干扰
+          clipBehavior: Clip.none,
           child: Row(
             children: chips.entries.map((e) {
               final sel = selected == e.value;
@@ -430,17 +420,15 @@ class _FilterRow extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () => onFilter(e.value),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 9),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                     decoration: BoxDecoration(
-                      color: sel ? _darkGreen : Colors.white,
+                      color: sel ? _darkGreen : const Color(0xFFF0F0F0),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: sel ? _darkGreen : const Color(0xFFDDDDDD)),
+                      border: Border.all(color: sel ? _darkGreen : const Color(0xFFDDDDDD)),
                     ),
                     child: Text(e.key,
                         style: TextStyle(
-                            color: sel ? Colors.white : const Color(0xFF555),
+                            color: sel ? Colors.white : Colors.black87,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5)),
@@ -450,28 +438,56 @@ class _FilterRow extends StatelessWidget {
             }).toList(),
           ),
         ),
-        const SizedBox(height: 8),
+
+        // 关键点 2：控制两行之间的间距
+        const SizedBox(height: 12),
+
         GestureDetector(
           onTap: () {
-            final next = _SortMode.values[
-            (sort.index + 1) % _SortMode.values.length];
+            final next = _SortMode.values[(sort.index + 1) % _SortMode.values.length];
             onSort(next);
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            // 关键点 3：这里可以稍微增加一点内边距，让它看起来更像一个功能按钮
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFDDDDDD)),
+              borderRadius: BorderRadius.circular(8), // 改成小圆角，区别于上方的筛选圆角
+              border: Border.all(color: const Color(0xFFEEEEEE)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.sort, size: 14, color: Color(0xFF555)),
-              const SizedBox(width: 6),
-              Text('SORT: ${sort.name.toUpperCase()}',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.swap_vert_rounded, size: 14, color: _green), // 换一个更有指向性的图标
+                const SizedBox(width: 4),
+                const Text(
+                  'SORT BY:',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF999999),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  sort.name.toUpperCase(),
                   style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5, color: Color(0xFF555))),
-            ]),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800, // 加粗排序后的文字
+                    color: _darkGreen,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, size: 16, color: _darkGreen),
+              ],
+            ),
           ),
         ),
       ],
@@ -484,31 +500,39 @@ class _TableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4),
-      child: Row(children: [
-        SizedBox(
-          width: 72,
-          child: Text('STATION\nID',
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: const [
+          // 名称列标题 (占满剩余空间)
+          Expanded(
+            child: Text(
+              'LOCATION NAME',
               style: TextStyle(
-                  color: Color(0xFF888), fontSize: 10,
-                  fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-        ),
-        Expanded(
-          child: Text('LOCATION\nNAME',
+                color: Color(0xFF888),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          // 材质列标题 (对应内容的 85px)
+          SizedBox(
+            width: 85,
+            child: Text(
+              'MATERIAL',
               style: TextStyle(
-                  color: Color(0xFF888), fontSize: 10,
-                  fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-        ),
-        SizedBox(
-          width: 95,
-          child: Text('MATERIAL\nTYPE',
-              style: TextStyle(
-                  color: Color(0xFF888), fontSize: 10,
-                  fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-        ),
-        SizedBox(width: 56),
-      ]),
+                color: Color(0xFF888),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          // 按钮预留空间 (对应内容的 62px)
+          SizedBox(width: 62),
+        ],
+      ),
     );
   }
 }
@@ -522,99 +546,78 @@ class _StationRow extends StatelessWidget {
     required this.onEdit, required this.onDelete,
   });
 
-  Color get _dot {
-    switch (station.stationStatus) {
-      case StationStatus.active:      return _green;
-      case StationStatus.maintenance: return const Color(0xFFF5A623);
-      case StationStatus.offline:     return const Color(0xFFE53935);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final mats = station.supportedMaterials;
     final mixed = mats.length > 1;
+
     return Column(children: [
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ID badge
-            SizedBox(
-              width: 72,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _green.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text('#${station.stationId}',
-                    style: const TextStyle(
-                        color: _darkGreen, fontSize: 11,
-                        fontWeight: FontWeight.w700)),
-              ),
-            ),
-            // Name + address
+            // 1. 状态圆点 + 地点名称 (占用绝大部分空间)
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(children: [
-                    Container(
-                        width: 8, height: 8,
-                        decoration: BoxDecoration(
-                            color: _dot, shape: BoxShape.circle)),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(station.stationName,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 14,
-                              color: _darkGreen)),
-                    ),
-                  ]),
-                  const SizedBox(height: 2),
-                  Text(station.address,
+                  Container(
+                    width: 8, height: 8,
+                    decoration: BoxDecoration(color: _dot, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      station.stationName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          color: Color(0xFF888), fontSize: 11)),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: _darkGreen,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            // Material dots + label
+
+            const SizedBox(width: 12),
+
+            // 2. 材质标签 (固定宽度，确保对齐)
             SizedBox(
-              width: 95,
-              child: Row(children: [
-                if (mixed) ...[
-                  _DotCircle(color: const Color(0xFF90CAF9)),
-                  const SizedBox(width: 3),
-                  _DotCircle(color: const Color(0xFFA5D6A7)),
-                  const SizedBox(width: 6),
-                  const Text('MIXED',
-                      style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600,
-                          color: Color(0xFF555))),
-                ] else if (mats.isNotEmpty) ...[
-                  _DotCircle(color: _matColor(mats.first)),
-                  const SizedBox(width: 6),
-                  Text(mats.first.label,
+              width: 85,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  _DotCircle(color: mixed ? const Color(0xFF90CAF9) : _matColor(mats.isNotEmpty ? mats.first : RecycleMaterialType.plastic)),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      mixed ? 'MIXED' : (mats.isNotEmpty ? mats.first.label.toUpperCase() : 'N/A'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600,
-                          color: Color(0xFF555))),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF666666),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                 ],
-              ]),
+              ),
             ),
-            // Action buttons
+
+            // 3. 操作按钮 (固定宽度)
             SizedBox(
-              width: 56,
+              width: 62,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   _Btn(icon: Icons.edit_outlined, color: _green, onTap: onEdit),
                   const SizedBox(width: 6),
-                  _Btn(
-                      icon: Icons.delete_outline,
-                      color: const Color(0xFFE53935),
-                      onTap: onDelete),
+                  _Btn(icon: Icons.delete_outline, color: const Color(0xFFE53935), onTap: onDelete),
                 ],
               ),
             ),
@@ -622,9 +625,16 @@ class _StationRow extends StatelessWidget {
         ),
       ),
       if (!isLast)
-        const Divider(height: 1, indent: 12, endIndent: 12,
-            color: Color(0xFFF0F0F0)),
+        const Divider(height: 1, indent: 14, endIndent: 14, color: Color(0xFFF0F0F0)),
     ]);
+  }
+
+  Color get _dot {
+    switch (station.stationStatus) {
+      case StationStatus.active:      return _green;
+      case StationStatus.maintenance: return const Color(0xFFF5A623);
+      case StationStatus.offline:     return const Color(0xFFE53935);
+    }
   }
 
   Color _matColor(RecycleMaterialType m) {
@@ -678,36 +688,65 @@ class _Pagination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final start = ((page - 1) * pageSize + 1).clamp(1, count);
-    final end = (page * pageSize).clamp(1, count);
-    final pages = List.generate(
-        total.clamp(1, 5), (i) => (page - 2 + i + 1).clamp(1, total));
+    // 基础范围计算
+    final startItem = ((page - 1) * pageSize + 1).clamp(0, count);
+    final endItem = (page * pageSize).clamp(0, count);
 
-    return Row(children: [
-      Text('SHOWING $start-$end OF $count STATIONS',
+    // 动态生成页码列表 (例如展示当前页前后的页码)
+    // 这里使用 Set 自动去重，并确保页码在 1 到 total 之间
+    final pageSet = <int>{};
+
+    // 始终显示第一页
+    pageSet.add(1);
+
+    // 显示当前页及其前后各一页
+    for (var i = page - 1; i <= page + 1; i++) {
+      if (i >= 1 && i <= total) pageSet.add(i);
+    }
+
+    // 始终显示最后一页
+    pageSet.add(total);
+
+    final sortedPages = pageSet.toList()..sort();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(children: [
+        Text(
+          'SHOWING $startItem-$endItem OF $count',
           style: const TextStyle(
-              color: Color(0xFF888), fontSize: 10,
-              fontWeight: FontWeight.w500, letterSpacing: 0.3)),
-      const Spacer(),
-      // prev
-      _PageBtn(
+              color: Color(0xFF888),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3
+          ),
+        ),
+        const Spacer(),
+        // 上一页
+        _PageBtn(
           label: '‹',
           active: false,
           enabled: page > 1,
-          onTap: () => onTap(page - 1)),
-      ...pages.map((p) => _PageBtn(
-        label: '$p',
-        active: p == page,
-        enabled: true,
-        onTap: () => onTap(p),
-      )),
-      // next
-      _PageBtn(
+          onTap: () => onTap(page - 1),
+        ),
+
+        // 循环渲染不重复的页码
+        ...sortedPages.map((p) => _PageBtn(
+          label: '$p',
+          active: p == page,
+          enabled: true,
+          onTap: () => onTap(p),
+        )),
+
+        // 下一页
+        _PageBtn(
           label: '›',
           active: false,
           enabled: page < total,
-          onTap: () => onTap(page + 1)),
-    ]);
+          onTap: () => onTap(page + 1),
+        ),
+      ]),
+    );
   }
 }
 
@@ -725,23 +764,24 @@ class _PageBtn extends StatelessWidget {
     onTap: enabled ? onTap : null,
     child: Container(
       width: 32, height: 32,
-      margin: const EdgeInsets.only(left: 4),
+      margin: const EdgeInsets.only(left: 6), // 稍微增加间距
       decoration: BoxDecoration(
         color: active ? _green : Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: active ? _green : const Color(0xFFDDDDDD)),
+          // 如果不可用，边框调淡一点点，但依然可见
+            color: active ? _green : (enabled ? const Color(0xFFDDDDDD) : const Color(0xFFEEEEEE))),
       ),
       child: Center(
-        child: Text(label,
-            style: TextStyle(
-                color: active
-                    ? Colors.white
-                    : enabled
-                    ? const Color(0xFF333)
-                    : const Color(0xFFCCC),
-                fontWeight: FontWeight.w600,
-                fontSize: 13)),
+        child: Text(
+          label,
+          style: TextStyle(
+              color: active
+                  ? Colors.white
+                  : (enabled ? const Color(0xFF222222) : const Color(0xFFBBBBBB)), // 调深了颜色
+              fontWeight: FontWeight.w800, // 强制加粗，让 ‹ › 更明显
+              fontSize: label == '‹' || label == '›' ? 18 : 13), // 让箭头符号大一点
+        ),
       ),
     ),
   );
