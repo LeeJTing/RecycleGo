@@ -25,6 +25,7 @@ class StationEditScreen extends StatefulWidget {
 class _StationEditScreenState extends State<StationEditScreen> {
   final _formKey = GlobalKey<FormState>();
   bool get _isEdit => widget.station != null;
+  late final TextEditingController _capacityCtrl;
 
   // QR
   late final _qrCtrl = TextEditingController(
@@ -84,7 +85,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
   void initState() {
     super.initState();
     _latCtrl.addListener(() => setState(() {}));
-    _lngCtrl.addListener(() => setState(() {}));
+
+    _capacityCtrl = TextEditingController(
+      text: _capacitySlider.toStringAsFixed(0),
+    );
 
     if (widget.station != null) {
       _status = widget.station!.stationStatus;
@@ -97,11 +101,23 @@ class _StationEditScreenState extends State<StationEditScreen> {
   @override
   void dispose() {
     for (final c in [
-      _nameCtrl, _addressCtrl, _latCtrl, _lngCtrl, _descCtrl,
-      _plasticCtrl, _paperCtrl, _glassCtrl, _cardboardCtrl, _metalCtrl,
-    ]) { c.dispose(); }
+      _nameCtrl,
+      _addressCtrl,
+      _latCtrl,
+      _lngCtrl,
+      _descCtrl,
+      _plasticCtrl,
+      _paperCtrl,
+      _glassCtrl,
+      _cardboardCtrl,
+      _metalCtrl,
+      _capacityCtrl,
+      _qrCtrl,
+    ]) {
+      c.dispose();
+    }
+
     super.dispose();
-    _qrCtrl.dispose();
   }
 
   // ── Save ───────────────────────────────────────────────────────────
@@ -426,7 +442,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                           child: Text(
                             'STATION IMAGE',
                             style: TextStyle(
-                              color: Color(0xFF888),
+                              color: Color(0xFF888888),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -511,21 +527,36 @@ class _StationEditScreenState extends State<StationEditScreen> {
                             alignment: Alignment.centerLeft,
                             child: Text('STORAGE CAPACITY (KG)',
                                 style: TextStyle(
-                                    color: Color(0xFF888), fontSize: 10,
+                                    color: Color(0xFF888888), fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.5)),
                           ),
                           const SizedBox(height: 10),
                           ..._selectedMats.map((m) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _FormField(
-                              label: m.label,
-                              ctrl: _ctrlFor(m),
-                              hint: '0',
-                              keyboardType: TextInputType.number,
-                              suffix: 'kg',
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  m.label,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF444444),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+
+                                _FormField(
+                                  label: '', // ❗ 不用内部 label
+                                  ctrl: _ctrlFor(m),
+                                  hint: '0',
+                                  keyboardType: TextInputType.number,
+                                  suffix: 'kg',
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))
+                                  ],
+                                ),
                               ],
                             ),
                           )),
@@ -544,7 +575,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         children: [
                           const Text('INITIAL CAPACITY',
                               style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 10,
+                                  color: Color(0xFF888888), fontSize: 10,
                                   fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                           const SizedBox(height: 6),
                           RichText(
@@ -559,9 +590,39 @@ class _StationEditScreenState extends State<StationEditScreen> {
                                 text: 'KG',
                                 style: TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w600,
-                                    color: Color(0xFF888)),
+                                    color: Color(0xFF888888)),
                               ),
                             ]),
+                          ),
+                          const SizedBox(height: 10),
+
+                          TextField(
+                            controller: _capacityCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              hintText: 'Enter capacity (kg)',
+                              suffixText: 'KG',
+                              filled: true,
+                              fillColor: _inputFill,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            onChanged: (value) {
+                              final v = double.tryParse(value);
+                              if (v == null) return;
+
+                              // 👉 限制范围（很重要）
+                              if (v < 1000 || v > 50000) return;
+
+                              setState(() {
+                                _capacitySlider = v;
+                              });
+                            },
                           ),
                           SliderTheme(
                             data: SliderThemeData(
@@ -578,17 +639,21 @@ class _StationEditScreenState extends State<StationEditScreen> {
                               max: 50000,
                               divisions: 98,
                               value: _capacitySlider,
-                              onChanged: (v) =>
-                                  setState(() => _capacitySlider = v),
+                              onChanged: (v) {
+                                setState(() {
+                                  _capacitySlider = v;
+                                  _capacityCtrl.text = v.toStringAsFixed(0);
+                                });
+                              },
                             ),
                           ),
                           const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('1K', style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 11)),
+                                  color: Color(0xFF888888), fontSize: 11)),
                               Text('50K', style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 11)),
+                                  color: Color(0xFF888888), fontSize: 11)),
                             ],
                           ),
                         ],
@@ -606,7 +671,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         children: [
                           const Text('OPERATIONAL STATUS',
                               style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 10,
+                                  color: Color(0xFF888888), fontSize: 10,
                                   fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                           const SizedBox(height: 10),
                           ...StationStatus.values.map((s) => _StatusOption(
@@ -812,7 +877,7 @@ class _FormField extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: const TextStyle(
-              color: Color(0xFF888), fontSize: 10,
+              color: Color(0xFF888888), fontSize: 10,
               fontWeight: FontWeight.w600, letterSpacing: 0.5)),
       const SizedBox(height: 6),
       TextFormField(
@@ -845,7 +910,7 @@ class _FormField extends StatelessWidget {
               : null,
           suffixText: suffix,
           suffixStyle: const TextStyle(
-              color: Color(0xFF888), fontSize: 13),
+              color: Color(0xFF888888), fontSize: 13),
           contentPadding: const EdgeInsets.symmetric(
               horizontal: 14, vertical: 13),
         ),
@@ -898,11 +963,11 @@ class _MaterialGrid extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(item.icon,
-                    color: on ? _green : const Color(0xFFAAAAAA), size: 22),
+                    color: on ? _green : const Color(0xFF888888), size: 22),
                 const SizedBox(height: 6),
                 Text(item.label,
                     style: TextStyle(
-                        color: on ? _darkGreen : const Color(0xFFAAAAAA),
+                        color: on ? _darkGreen : const Color(0xFF666666),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5)),

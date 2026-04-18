@@ -12,6 +12,7 @@ import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/view/admin/admin_view_purchase.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
+import 'package:recycle_go/view/admin/admin_station_registry.dart';
 
 import 'admin_recycle_category.dart';
 
@@ -201,6 +202,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
 
+              theme: theme,
+            ),
+
+            const SizedBox(height: 32),
+            Text("Recycle Station Management", style: TextDesign.headingThree()),
+            const SizedBox(height: 16),
+
+            _buildManagementTile(
+              context,
+              icon: Icons.location_on_outlined,
+              title: "Recycle Station Management",
+              subtitle: "Manage recycle stations and locations",
+              route: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StationRegistryScreen()),
+                );
+              },
               theme: theme,
             ),
 
