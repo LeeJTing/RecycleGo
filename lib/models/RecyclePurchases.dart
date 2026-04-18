@@ -7,7 +7,6 @@ class RecyclePurchases {
   final double totalPrice; // Purchase amount
   final String paymentStatus; // e.g., 'success', 'pending', 'failed'
   final DateTime? createdAt; // Auto-generated timestamp
-  final String? bankAccount; // Bank account for payment
   final String? itemName; // Item purchased
   final double? quantity; // Quantity in kg
   final String? pickupLocationId; // UUID - FK to recycle_station
@@ -20,7 +19,6 @@ class RecyclePurchases {
     required this.totalPrice,
     required this.paymentStatus,
     this.createdAt,
-    this.bankAccount,
     this.itemName,
     this.quantity,
     this.pickupLocationId,
@@ -38,7 +36,6 @@ class RecyclePurchases {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
-      bankAccount: json['bank_account']?.toString(),
       itemName: json['item_name']?.toString(),
       quantity: double.tryParse(json['quantity']?.toString() ?? '0'),
       pickupLocationId: json['pickup_location_id']?.toString(),
@@ -60,10 +57,6 @@ class RecyclePurchases {
 
     if (createdAt != null) {
       map['created_at'] = createdAt!.toIso8601String();
-    }
-
-    if (bankAccount != null && bankAccount!.isNotEmpty) {
-      map['bank_account'] = bankAccount;
     }
 
     if (itemName != null && itemName!.isNotEmpty) {
@@ -108,7 +101,6 @@ class RecyclePurchases {
       totalPrice: totalPrice ?? this.totalPrice,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       createdAt: createdAt ?? this.createdAt,
-      bankAccount: bankAccount ?? this.bankAccount,
       itemName: itemName ?? this.itemName,
       quantity: quantity ?? this.quantity,
       pickupLocationId: pickupLocationId ?? this.pickupLocationId,

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 
+import '../../models/RecyclePurchases.dart';
+
 class AdminPurchaseUpdate extends StatefulWidget {
-  final Map<String, dynamic> purchase;
-  final List<Map<String, dynamic>> items; // List from purchaseinventory
+  final RecyclePurchases purchase; // <--- Fixed!
+  final List<dynamic> items;
 
   const AdminPurchaseUpdate({super.key, required this.purchase, required this.items});
 
@@ -22,8 +24,8 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
   @override
   void initState() {
     super.initState();
-    orderStatus = widget.purchase['order_status'] ?? "processing";
-    paymentStatus = widget.purchase['payment_status'] ?? "pending";
+    // orderStatus = widget.purchase['order_status'] ?? "processing";
+    // paymentStatus = widget.purchase['payment_status'] ?? "pending";
 
     // Initialize a controller for every item in the purchase
     for (var item in widget.items) {
