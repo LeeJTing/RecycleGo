@@ -5,6 +5,7 @@ import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/widgets/voucher_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_add_voucher.dart';
 import 'admin_edit_voucher.dart';
 import 'voucher_details/admin_voucher_details.dart';
@@ -20,12 +21,25 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
   final VoucherCtrl voucherCtrl = VoucherCtrl();
   String filterStatus = 'all';
   TextEditingController searchController = TextEditingController();
+  FocusNode searchFocusNode = FocusNode();
   bool _isLoading = true;
+  List<String> _searchHistory = [];
+  bool _showHistory = false;
 
   @override
   void initState() {
     super.initState();
     _initializeAndLoadVouchers();
+    _loadSearchHistory();
+    searchController.addListener(_onSearchChanged);
+    searchFocusNode.addListener(() {
+      setState(() {
+        _showHistory =
+            searchFocusNode.hasFocus &&
+            searchController.text.isEmpty &&
+            _searchHistory.isNotEmpty;
+      });
+    });
   }
 
   Future<void> _initializeAndLoadVouchers() async {
@@ -56,6 +70,7 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
   @override
   void dispose() {
     searchController.dispose();
+    searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -77,6 +92,78 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
     }
 
     return result;
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _showHistory =
+          searchFocusNode.hasFocus &&
+          searchController.text.isEmpty &&
+          _searchHistory.isNotEmpty;
+    });
+  }
+
+  Future<void> _loadSearchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _searchHistory = prefs.getStringList('voucher_search_history') ?? [];
+    });
+  }
+
+  Future<void> _addToHistory(String query) async {
+    if (query.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+
+    List<String> history = List.from(_searchHistory);
+    history.remove(query);
+    history.insert(0, query);
+
+    if (history.length > 5) {
+      history = history.sublist(0, 5);
+    }
+
+    await prefs.setStringList('voucher_search_history', history);
+    setState(() {
+      _searchHistory = history;
+    });
+  }
+
+  Future<void> _removeFromHistory(String query) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> history = List.from(_searchHistory);
+    history.remove(query);
+    await prefs.setStringList('voucher_search_history', history);
+    setState(() {
+      _searchHistory = history;
+    });
+  }
+
+  Widget _buildHistoryList(AppColors theme) {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 200),
+      width: double.infinity,
+      color: theme.onPrimary,
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: _searchHistory.length,
+        itemBuilder: (context, index) {
+          final query = _searchHistory[index];
+          return ListTile(
+            leading: Icon(Icons.history, color: theme.hint, size: 20),
+            title: Text(query),
+            trailing: IconButton(
+              icon: Icon(Icons.close, size: 16, color: theme.hint),
+              onPressed: () => _removeFromHistory(query),
+            ),
+            onTap: () {
+              searchController.text = query;
+              searchFocusNode.unfocus();
+              _onSearchChanged();
+            },
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -118,16 +205,28 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: searchController,
+              focusNode: searchFocusNode,
               onChanged: (value) => setState(() {}),
+              onSubmitted: (value) => _addToHistory(value),
               decoration: InputDecoration(
                 hintText: 'Search by voucher name',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          searchController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
             ),
           ),
+          if (_showHistory) _buildHistoryList(theme),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(

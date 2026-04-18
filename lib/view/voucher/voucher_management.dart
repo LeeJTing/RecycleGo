@@ -91,7 +91,6 @@ class _VoucherManagementState extends State<VoucherManagement> {
   final RedeemVoucherCtrl _redeemCtrl = RedeemVoucherCtrl();
   final UsersModel _usersModel = UsersModel();
   String _filterStatus = 'active'; // Always active for users
-  TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   List<Vouchers> _filteredVouchers = [];
   List<RedeemedVouchers> _userRedeemedVouchers = [];
@@ -101,12 +100,10 @@ class _VoucherManagementState extends State<VoucherManagement> {
     super.initState();
     _loadVouchers();
     _loadRedeemedVouchers();
-    _searchController.addListener(_filterVouchers);
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -115,7 +112,21 @@ class _VoucherManagementState extends State<VoucherManagement> {
     try {
       await _refreshCurrentUserPoints();
       await _voucherCtrl.fetchVouchers();
-      _filterVouchers();
+
+      // Load all active vouchers for featured display
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final currentPoints =
+          userProvider.user?.totalPoints ?? widget.currentPoints;
+
+      _filteredVouchers = _voucherCtrl.vouchers
+          .where(
+            (v) =>
+                (v.voucherStatus == 'active') && // Only show active vouchers
+                (currentPoints >=
+                    v.pointsRequired), // User must have enough points
+          )
+          .toList();
+
       setState(() => _isLoading = false);
     } catch (e) {
       if (mounted) {
@@ -151,28 +162,6 @@ class _VoucherManagementState extends State<VoucherManagement> {
     } catch (_) {
       // Keep existing local value if refresh fails.
     }
-  }
-
-  void _filterVouchers() {
-    final query = _searchController.text.toLowerCase();
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final currentPoints =
-        userProvider.user?.totalPoints ?? widget.currentPoints;
-
-    final vouchers = _voucherCtrl.vouchers
-        .where(
-          (v) =>
-              (v.voucherStatus == 'active') && // Only show active vouchers
-              (currentPoints >=
-                  v.pointsRequired) && // User must have enough points
-              (v.voucherName.toLowerCase().contains(query) ||
-                  (v.description.toLowerCase().contains(query))),
-        )
-        .toList();
-
-    setState(() {
-      _filteredVouchers = vouchers;
-    });
   }
 
   void _redeemVoucher(Vouchers voucher) {
@@ -504,33 +493,6 @@ class _VoucherManagementState extends State<VoucherManagement> {
                       ),
                     ),
 
-                    // Search & Filter Section
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: size.width * 0.06,
-                        vertical: size.height * 0.02,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Search Bar
-                          TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: 'Search vouchers...',
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: theme.onPrimary,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
                     // Featured Rewards Section
                     Padding(
                       padding: EdgeInsets.symmetric(
@@ -578,7 +540,10 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                               rankProgress.nextRank ?? 'MAX',
                                         ),
                                       ),
-                                    );
+                                    ).then((_) {
+                                      // Reload redeemed vouchers when returning from view all
+                                      _loadRedeemedVouchers();
+                                    });
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.primary,
@@ -622,8 +587,7 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                       : _filteredVouchers.length,
                                   itemBuilder: (context, index) {
                                     final voucher = _filteredVouchers[index];
-                                    final category =
-                                        voucher.description ?? 'Exchange';
+                                    final category = voucher.description;
 
                                     return VoucherCard(
                                       voucher: voucher,
@@ -680,7 +644,10 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                         builder: (_) =>
                                             const RedeemedVoucherViewAllScreen(),
                                       ),
-                                    );
+                                    ).then((_) {
+                                      // Reload redeemed vouchers when returning from view all
+                                      _loadRedeemedVouchers();
+                                    });
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: theme.primary,
