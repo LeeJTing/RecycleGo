@@ -21,6 +21,7 @@ class AdminDetailScreen extends StatefulWidget {
 }
 
 class _AdminDetailScreenState extends State<AdminDetailScreen> {
+  late Admins _currentAdmin;
   late TextEditingController _usernameController;
   late String _selectedRole;
   late String _selectedStatus;
@@ -31,9 +32,10 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _usernameController = TextEditingController(text: widget.admin.username);
-    _selectedRole = widget.admin.role;
-    _selectedStatus = widget.admin.adminStatus;
+    _currentAdmin = widget.admin;
+    _usernameController = TextEditingController(text: _currentAdmin.username);
+    _selectedRole = _currentAdmin.role;
+    _selectedStatus = _currentAdmin.adminStatus;
   }
 
   @override
@@ -56,18 +58,26 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
     try {
       final ctrl = AdminManagementCtrl();
 
-      await ctrl.updateName(
-        widget.admin.adminId!,
-        _usernameController.text.trim(),
+      final updatedAdmin = _currentAdmin.copyWith(
+        username: _usernameController.text.trim(),
+        role: _selectedRole,
+        adminStatus: _selectedStatus,
       );
-      await ctrl.updateAdminRole(widget.admin.adminId!, _selectedRole);
-      await ctrl.updateAdminStatus(widget.admin.adminId!, _selectedStatus);
+
+      await ctrl.updateAdminDetails(updatedAdmin);
 
       if (mounted) {
+        final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+        if (adminProvider.admin?.adminId == updatedAdmin.adminId) {
+          adminProvider.setAdmin(updatedAdmin);
+        }
+
         setState(() {
+          _currentAdmin = updatedAdmin;
           _isEditing = false;
           _isLoading = false;
         });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Admin details updated successfully!')),
         );
@@ -87,9 +97,9 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
     try {
       final emailService = EmailService();
       bool sent = await emailService.sendAdminResetLink(
-        widget.admin.email,
-        widget.admin.adminId!,
-        widget.admin.username,
+        _currentAdmin.email,
+        _currentAdmin.adminId!,
+        _currentAdmin.username,
         isInvite: false,
       );
 
@@ -131,13 +141,13 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: theme.onSurface),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, _currentAdmin),
         ),
         actions: [
           Consumer<AdminProvider>(
             builder: (context, adminProvider, _) {
               final isSelf =
-                  adminProvider.admin?.adminId == widget.admin.adminId;
+                  adminProvider.admin?.adminId == _currentAdmin.adminId;
               if (isSelf) return const SizedBox.shrink();
 
               return IconButton(
@@ -158,16 +168,24 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: theme.primary.withOpacity(0.1),
-                  child: Icon(Icons.person, size: 50, color: theme.primary),
+                ClipOval(
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundColor: theme.primary.withOpacity(0.1),
+                    child: Image.network(
+                      _currentAdmin.getProfilePhotoURL(),
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Icon(Icons.person, size: 50, color: theme.primary),
+                    )
+                  ),
                 ),
                 const SizedBox(height: 16),
                 if (!_isEditing) ...[
-                  Text(widget.admin.username, style: TextDesign.headingTwo()),
+                  Text(_currentAdmin.username, style: TextDesign.headingTwo()),
                   Text(
-                    widget.admin.email,
+                    _currentAdmin.email,
                     style: TextDesign.normalText(color: theme.hint),
                   ),
                 ] else ...[
@@ -185,13 +203,16 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
                         _usernameController.text.isNotEmpty && !_isUsernameValid
                         ? theme.error.withOpacity(0.3)
                         : null,
+                    errorText: _usernameController.text.isNotEmpty && !_isUsernameValid
+                        ? 'Only letters and spaces allowed'
+                        : null,
                   ),
                 ],
                 const SizedBox(height: 32),
                 _buildDetailTile(
                   icon: Icons.badge_outlined,
                   label: "Admin ID",
-                  value: widget.admin.adminId ?? "N/A",
+                  value: _currentAdmin.adminId ?? "N/A",
                   theme: theme,
                 ),
                 if (!_isEditing) ...[
@@ -231,8 +252,8 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
                 _buildDetailTile(
                   icon: Icons.calendar_today_outlined,
                   label: "Created At",
-                  value: widget.admin.createdAt != null
-                      ? formatter.format(widget.admin.createdAt!)
+                  value: _currentAdmin.createdAt != null
+                      ? formatter.format(_currentAdmin.createdAt!)
                       : "N/A",
                   theme: theme,
                 ),
@@ -245,7 +266,7 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
                       builder: (context, adminProvider, _) {
                         final isSelf =
                             adminProvider.admin?.adminId ==
-                            widget.admin.adminId;
+                            _currentAdmin.adminId;
                         if (isSelf) return const SizedBox.shrink();
                         return OutlinedButton.icon(
                           onPressed: _isLoading

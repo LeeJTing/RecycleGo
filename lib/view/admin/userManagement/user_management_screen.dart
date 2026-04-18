@@ -148,7 +148,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
-        title: Text("User Management", style: TextDesign.appBarTitle()),
+        title: Text("User Management", style: TextDesign.appBarTitle(),),
         backgroundColor: theme.onPrimary,
         elevation: 0,
         centerTitle: true,

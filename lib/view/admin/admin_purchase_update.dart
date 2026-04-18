@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/models/Connector.dart';
+
+import '../../models/RecyclePurchases.dart';
 
 class AdminPurchaseUpdate extends StatefulWidget {
-  final Map<String, dynamic> purchase;
-  final List<Map<String, dynamic>> items; // List from purchaseinventory
+  final RecyclePurchases purchase;
+  final List<dynamic> items;
 
   const AdminPurchaseUpdate({super.key, required this.purchase, required this.items});
 
@@ -13,21 +17,50 @@ class AdminPurchaseUpdate extends StatefulWidget {
 }
 
 class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
-  late String orderStatus;
   late String paymentStatus;
 
-  // We store controllers in a list to track weight changes for each item
+  bool _isSaving = false;
+  bool _isLoadingItems = true;
+
+  List<Map<String, dynamic>> _fetchedItems = [];
   List<TextEditingController> weightControllers = [];
 
   @override
   void initState() {
     super.initState();
-    orderStatus = widget.purchase['order_status'] ?? "processing";
-    paymentStatus = widget.purchase['payment_status'] ?? "pending";
+    // 1. Set initial real payment status
+    paymentStatus = widget.purchase.paymentStatus;
 
-    // Initialize a controller for every item in the purchase
-    for (var item in widget.items) {
-      weightControllers.add(TextEditingController(text: item['quantity_kg'].toString()));
+    // 2. Fetch real items from the database!
+    _fetchItems();
+  }
+
+  // --- DYNAMIC DATABASE FETCH ---
+  Future<void> _fetchItems() async {
+    try {
+      if (widget.purchase.purchaseId == null) return;
+
+      final supabase = Supabase.instance.client;
+
+      // Fetch items from purchaseinventory and join the name from recycleinventory
+      final response = await supabase
+          .from('purchaseinventory')
+          .select('*, recycleinventory(inventory_name)')
+          .eq('purchase_id', widget.purchase.purchaseId!);
+
+      final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(response);
+
+      setState(() {
+        _fetchedItems = data;
+        // Create a controller for each fetched item so it can be edited
+        for (var item in _fetchedItems) {
+          weightControllers.add(TextEditingController(text: item['quantity_kg'].toString()));
+        }
+        _isLoadingItems = false;
+      });
+    } catch (e) {
+      print("Error fetching items: $e");
+      setState(() => _isLoadingItems = false);
     }
   }
 
@@ -57,31 +90,33 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- 1. GLOBAL STATUS UPDATES ---
-                  _buildSectionLabel("Request Status", Icons.sync_problem),
-                  const SizedBox(height: 12),
-                  _buildStatusSelector(["processing", "completed", "cancelled"], orderStatus, (val) => setState(() => orderStatus = val), theme),
 
-                  const SizedBox(height: 32),
-
-                  // --- 2. ITEM UPDATES (THE NEW SECTION) ---
-                  _buildSectionLabel("Adjust Item Weights", Icons.scale_outlined),
-                  const SizedBox(height: 12),
-                  ListView.builder(
-                    shrinkWrap: true, // Important inside SingleChildScrollView
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: widget.items.length,
-                    itemBuilder: (context, index) {
-                      return _buildEditableItemTile(index, theme);
-                    },
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // --- 3. PAYMENT STATUS ---
+                  // --- 1. PAYMENT STATUS ---
                   _buildSectionLabel("Payment Status", Icons.account_balance_wallet_outlined),
                   const SizedBox(height: 12),
+                  // Matched to your DB ENUM array: 'success', 'pending', 'failed'
                   _buildStatusSelector(["pending", "success", "failed"], paymentStatus, (val) => setState(() => paymentStatus = val), theme),
+
+                  const SizedBox(height: 32),
+
+                  // --- 2. ITEM UPDATES ---
+                  _buildSectionLabel("Adjust Item Weights", Icons.scale_outlined),
+                  const SizedBox(height: 12),
+
+                  // Handle loading and empty states!
+                  if (_isLoadingItems)
+                    Center(child: CircularProgressIndicator(color: theme.primary))
+                  else if (_fetchedItems.isEmpty)
+                    Text("No items found for this purchase.", style: TextDesign.smallText(color: theme.hint))
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _fetchedItems.length,
+                      itemBuilder: (context, index) {
+                        return _buildEditableItemTile(index, theme);
+                      },
+                    ),
                 ],
               ),
             ),
@@ -93,7 +128,10 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
   }
 
   Widget _buildEditableItemTile(int index, AppColors theme) {
-    final item = widget.items[index];
+    final item = _fetchedItems[index];
+    // Extract name from the joined table
+    final itemName = item['recycleinventory']?['inventory_name'] ?? "Item ${item['inventory_id'].toString().substring(0, 5)}";
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -110,8 +148,8 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Item ID: ${item['inventory_id'].toString().substring(0, 5)}", style: TextDesign.label()),
-                Text("Current: ${item['quantity_kg']} kg", style: TextDesign.smallText()),
+                Text(itemName, style: TextDesign.label()),
+                Text("RM ${item['price_per_kg']} / kg", style: TextDesign.smallText()),
               ],
             ),
           ),
@@ -135,8 +173,6 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
       ),
     );
   }
-
-  // ... (Keep _buildSectionLabel, _buildStatusSelector, and _buildBottomAction from the previous response)
 
   Widget _buildSectionLabel(String label, IconData icon) {
     return Row(
@@ -207,23 +243,73 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: () {
-                // Logic to save both Status and the New Weights
-                for(int i=0; i<weightControllers.length; i++) {
-                  print("Item ${widget.items[i]['inventory_id']} new weight: ${weightControllers[i].text}");
-                }
-                Navigator.pop(context);
-              },
+              onPressed: _isSaving ? null : _saveUpdates, // Disable button if loading
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: Text("Update Request", style: TextDesign.buttonText()),
+              child: _isSaving
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text("Update Request", style: TextDesign.buttonText()),
             ),
           ),
         ],
       ),
     );
+  }
+
+  // --- DYNAMIC DATABASE SAVE ---
+  Future<void> _saveUpdates() async {
+    setState(() => _isSaving = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      // 1. Save the Payment Status to `recyclepurchases`
+      if (widget.purchase.purchaseId != null) {
+        await RecyclePurchasesModel().updatePaymentStatus(
+            widget.purchase.purchaseId!,
+            paymentStatus
+        );
+      }
+
+      // 2. Save the updated weights and subtotal for each item to `purchaseinventory`
+      double newGrandTotal = 0.0;
+
+      for (int i = 0; i < _fetchedItems.length; i++) {
+        final item = _fetchedItems[i];
+        final newWeight = double.tryParse(weightControllers[i].text) ?? 0.0;
+        final pricePerKg = double.tryParse(item['price_per_kg'].toString()) ?? 0.0;
+
+        // Auto-calculate the new subtotal based on the new weight
+        final newSubtotal = newWeight * pricePerKg;
+        newGrandTotal += newSubtotal;
+
+        await supabase.from('purchaseinventory').update({
+          'quantity_kg': newWeight,
+          'subtotal_price': newSubtotal,
+        }).eq('purchase_id', widget.purchase.purchaseId!)
+            .eq('inventory_id', item['inventory_id']);
+      }
+
+      // 3. Update the overall grand total price in `recyclepurchases`
+      if (widget.purchase.purchaseId != null) {
+        await supabase.from('recyclepurchases').update({
+          'total_price': newGrandTotal,
+        }).eq('purchase_id', widget.purchase.purchaseId!);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Purchase Updated successfully!")));
+        Navigator.pop(context, true); // Go back and tell the previous screen to refresh
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 }

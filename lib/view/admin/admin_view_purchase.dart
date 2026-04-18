@@ -3,6 +3,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
 import 'package:recycle_go/view/admin/admin_purchase_update.dart';
+import '../../models/RecyclePurchases.dart';
 
 class AdminViewPurchase extends StatefulWidget {
   const AdminViewPurchase({super.key});
@@ -13,50 +14,70 @@ class AdminViewPurchase extends StatefulWidget {
 
 class _AdminViewPurchaseState extends State<AdminViewPurchase> {
   String _selectedStatus = "All Requests";
+  String _searchQuery = "";
 
-  // Using your SQL-based mock data
-  final List<Map<String, dynamic>> _mockData = [
-    {
-      'purchase_id': '88888888-0001',
-      'user_id': 'Michael Chen',
-      'total_price': 650.00,
-      'order_status': 'processing',
-      'fulfillment_type': 'delivery',
-      'total_weight': 500.0,
-    },
-    {
-      'purchase_id': '88888888-0002',
-      'user_id': 'GreenTrade Inc',
-      'total_price': 20.00,
-      'order_status': 'completed',
-      'fulfillment_type': 'pickup',
-      'pickup_address': 'City Hub Recycling Center',
-      'total_weight': 1200.0,
-    },
-    {
-      'purchase_id': '88888888-0003',
-      'user_id': 'EcoPoly Solutions',
-      'total_price': 0.00,
-      'order_status': 'cancelled',
-      'fulfillment_type': 'delivery',
-      'total_weight': 0.0,
-    },
-  ];
+  // State variables for real database data
+  List<RecyclePurchases> _allPurchases = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Helper: Filter Logic
-  List<Map<String, dynamic>> get _filteredData {
-    if (_selectedStatus == "All Requests") return _mockData;
-    return _mockData.where((item) =>
-    item['order_status'].toString().toLowerCase() == _selectedStatus.toLowerCase()
-    ).toList();
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
   }
 
-  // Helper: Get Button Label based on Recommendation
+  // --- DATABASE FETCH ---
+  Future<void> _fetchData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final data = await RecyclePurchasesModel().fetchAllPurchases();
+      if (mounted) {
+        setState(() {
+          _allPurchases = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // --- DYNAMIC FILTERING ---
+  List<RecyclePurchases> get _filteredData {
+    return _allPurchases.where((item) {
+      // 1. Filter by Status Tab
+      bool matchesStatus = true;
+      if (_selectedStatus != "All Requests") {
+        matchesStatus = item.paymentStatus.toLowerCase() == _selectedStatus.toLowerCase();
+      }
+
+      // 2. Filter by Search Bar (checking User ID or Purchase ID)
+      bool matchesSearch = true;
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        matchesSearch = (item.purchaseId?.toLowerCase().contains(query) ?? false) ||
+            (item.userId.toLowerCase().contains(query));
+      }
+
+      return matchesStatus && matchesSearch;
+    }).toList();
+  }
+
   String _getButtonLabel(String status) {
     switch (status.toLowerCase()) {
-      case 'completed': return "View Details";
-      case 'processing': return "Update Status";
-      case 'cancelled': return "View Reason";
+      case 'success': return "View Details";
+      case 'pending': return "Update Status";
+      case 'failed': return "View Reason";
       default: return "Review";
     }
   }
@@ -73,13 +94,24 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
         const SizedBox(height: 10),
         _buildFilterRow(theme),
         const SizedBox(height: 16),
+
+        // --- DATA DISPLAY WITH LOADING & ERROR STATES ---
         Expanded(
-          child: displayData.isEmpty
+          child: _isLoading
+              ? Center(child: CircularProgressIndicator(color: theme.primary))
+              : _errorMessage != null
+              ? Center(child: Text("Error: $_errorMessage", style: TextStyle(color: theme.error)))
+              : displayData.isEmpty
               ? Center(child: Text("No records found", style: TextDesign.normalText()))
-              : ListView.builder(
-            padding: const EdgeInsets.only(bottom: 24),
-            itemCount: displayData.length,
-            itemBuilder: (context, index) => _buildHistoryCard(displayData[index], theme),
+              : RefreshIndicator(
+            onRefresh: _fetchData,
+            color: theme.primary,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: displayData.length,
+              itemBuilder: (context, index) => _buildHistoryCard(displayData[index], theme),
+            ),
           ),
         ),
       ],
@@ -98,6 +130,7 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
         ),
         child: TextField(
           textAlignVertical: TextAlignVertical.center,
+          onChanged: (val) => setState(() => _searchQuery = val), // Trigger search
           decoration: InputDecoration(
             hintText: "Search by Buyer or Request ID...",
             hintStyle: TextDesign.hintText(),
@@ -113,7 +146,8 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
   }
 
   Widget _buildFilterRow(AppColors theme) {
-    final options = ["All Requests", "Processing", "Completed", "Cancelled"];
+    // Uses the actual payment_status values from your Supabase DB
+    final options = ["All Requests", "Pending", "Success", "Failed"];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -139,33 +173,20 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
     );
   }
 
-  Widget _buildHistoryCard(Map<String, dynamic> purchase, AppColors theme) {
-    final status = purchase['order_status'].toString().toLowerCase();
-    final isCancelled = status == 'cancelled';
-    final isCompleted = status == 'completed';
-    final Map<String, dynamic> samplePurchase = {
-      'purchase_id': '88888888-0009',
-      'user_id': '11111111-0009',
-      'station_id': '33333333-0009',
-      'total_price': '55.00',
-      'order_status': 'processing',
-      'fulfillment_type': 'pickup',
-      'logistics_status': 'arrived',
-      'payment_status': 'success',
-      'pickup_address': 'Sri Rampai, Setapak',
-    };
+  Widget _buildHistoryCard(RecyclePurchases purchase, AppColors theme) {
+    final status = purchase.paymentStatus.toLowerCase();
+    final isFailed = status == 'failed';
+    final isSuccess = status == 'success';
 
-    final List<Map<String, dynamic>> sampleItems = [
-      {
-        'inventory_id': '29405d44-a4df-46b9-940b-fe69c50fcd7f',
-        'quantity_kg': '12.222',
-        'subtotal_price': '55.00',
-        'material_name': 'Metal' // Useful for the Admin to see
-      }
-    ];
     // Status Colors
-    Color mainColor = isCompleted ? theme.success : (isCancelled ? theme.error : theme.warning);
-    Color bgColor = isCompleted ? theme.successContainer : (isCancelled ? theme.error.withOpacity(0.1) : theme.warningContainer);
+    Color mainColor = isSuccess ? theme.success : (isFailed ? theme.error : theme.warning);
+    Color bgColor = isSuccess ? theme.successContainer : (isFailed ? theme.error.withOpacity(0.1) : theme.warningContainer);
+
+    // Secure Date formatting
+    String dateStr = "Unknown Date";
+    if (purchase.createdAt != null) {
+      dateStr = "${purchase.createdAt!.year}-${purchase.createdAt!.month.toString().padLeft(2, '0')}-${purchase.createdAt!.day.toString().padLeft(2, '0')}";
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -197,13 +218,13 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("ID: ${purchase['purchase_id'].substring(0, 8)}", style: TextDesign.label()),
+                      Text("ID: ${purchase.purchaseId?.substring(0, 8) ?? 'N/A'}", style: TextDesign.label()),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(purchase['fulfillment_type'] == 'delivery' ? Icons.local_shipping : Icons.location_on, color: theme.hint, size: 14),
+                          Icon(Icons.calendar_today, color: theme.hint, size: 12),
                           const SizedBox(width: 4),
-                          Text(purchase['fulfillment_type'].toUpperCase(), style: TextDesign.smallText(fontSize: 11)),
+                          Text(dateStr, style: TextDesign.smallText(fontSize: 11)),
                         ],
                       ),
                     ],
@@ -219,7 +240,9 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
           ),
 
           const SizedBox(height: 16),
-          Text(purchase['user_id'], style: TextDesign.headingThree()),
+          Text(purchase.itemName ?? "Unspecified Item", style: TextDesign.headingThree()),
+          const SizedBox(height: 4),
+          Text(purchase.pickupLocationName ?? "No location specified", style: TextDesign.smallText(color: theme.hint)),
 
           const SizedBox(height: 16),
 
@@ -235,7 +258,8 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                     children: [
                       Text("QUANTITY", style: TextDesign.label()),
                       const SizedBox(height: 4),
-                      Text("${purchase['total_weight']} kg", style: TextDesign.mediumText(fontSize: 18)),
+                      // Display the quantity from the new model
+                      Text("${purchase.quantity ?? 0.0} kg", style: TextDesign.mediumText(fontSize: 18)),
                     ],
                   ),
                 ),
@@ -246,10 +270,10 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("OFFER PRICE", style: TextDesign.label()),
+                        Text("TOTAL PRICE", style: TextDesign.label()),
                         const SizedBox(height: 4),
-                        Text("RM ${purchase['total_price']}",
-                            style: TextDesign.priceText(color: isCancelled ? theme.hint : theme.success)),
+                        Text("RM ${purchase.totalPrice.toStringAsFixed(2)}",
+                            style: TextDesign.priceText(color: isFailed ? theme.hint : theme.success)),
                       ],
                     ),
                   ),
@@ -263,17 +287,17 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
           // --- SMART ACTION ROW ---
           Row(
             children: [
-              // Show "Details" button only if NOT completed
-              if (!isCompleted)
+              // Details Button
+              if (!isSuccess)
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
                       Navigator.push(
-                        context,
+                          context,
                           MaterialPageRoute(
                             builder: (context) => AdminPurchaseDetail(
-                              purchase: samplePurchase,
-                              items: sampleItems,
+                              purchase: purchase,
+                              items: const [], // Assuming items are now directly inside the purchase object
                             ),
                           )
                       );
@@ -287,9 +311,9 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                   ),
                 ),
 
-              if (!isCompleted) const SizedBox(width: 12),
+              if (!isSuccess) const SizedBox(width: 12),
 
-              // Primary Action (Changes based on Status)
+              // Primary Action Button
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
@@ -298,21 +322,24 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => AdminPurchaseUpdate(
-                            purchase: samplePurchase,
-                            items: sampleItems,
+                          purchase: purchase,
+                          items: const [],
                         ),
                       ),
-                    );
+                    ).then((value) {
+                      // Refresh list when returning from update screen!
+                      if (value == true) _fetchData();
+                    });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isCancelled ? theme.error.withOpacity(0.1) : theme.primary,
+                    backgroundColor: isFailed ? theme.error.withOpacity(0.1) : theme.primary,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child: Text(
                       _getButtonLabel(status),
-                      style: isCancelled
+                      style: isFailed
                           ? TextDesign.badgeText(color: theme.error)
                           : TextDesign.buttonText()
                   ),

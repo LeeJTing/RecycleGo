@@ -16,7 +16,7 @@ import 'package:recycle_go/controller/autho/login_ctrl.dart';
 class ProfileCtrl {
   final AchievementModel _achievementModel = AchievementModel();
   final UsersModel _usersModel = UsersModel();
-  final RecycleSubmissionModel _submissionModel = RecycleSubmissionModel();
+  //final RecycleSubmissionModel _submissionModel = RecycleSubmissionModel();
   final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
 
@@ -24,9 +24,9 @@ class ProfileCtrl {
     return await _achievementModel.getUserAchievements(userId);
   }
 
-  Future<int> getTotalRecycledItems(String userId) async {
-    return await _submissionModel.getTotalItemsByUserId(userId);
-  }
+  // Future<int> getTotalRecycledItems(String userId) async {
+  //   return await _submissionModel.getTotalItemsByUserId(userId);
+  // }
 
   void signOut(BuildContext context) {
     LoginCtrl().signOut(context);
