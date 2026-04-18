@@ -3,10 +3,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
 import 'package:recycle_go/view/admin/admin_purchase_update.dart';
-
-// IMPORTANT: Import your real model and connector!
-import 'package:recycle_go/models/Connector.dart'; // Adjust path if needed
-import '../../models/RecyclePurchases.dart'; // Adjust path if needed
+import '../../models/RecyclePurchases.dart';
 
 class AdminViewPurchase extends StatefulWidget {
   const AdminViewPurchase({super.key});
@@ -243,7 +240,6 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
           ),
 
           const SizedBox(height: 16),
-          // Display the item name from the new model!
           Text(purchase.itemName ?? "Unspecified Item", style: TextDesign.headingThree()),
           const SizedBox(height: 4),
           Text(purchase.pickupLocationName ?? "No location specified", style: TextDesign.smallText(color: theme.hint)),
