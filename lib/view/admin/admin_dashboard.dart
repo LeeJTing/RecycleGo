@@ -149,15 +149,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
               },
             ),
 
-            _buildManagementTile(
-              context,
-              icon: Icons.gavel_outlined,
-              title: "Appeal Review",
-              subtitle: "Review user appeal submissions",
-              route: Routes.adminAppealReview,
-              theme: theme,
-            ),
-
             const SizedBox(height: 32),
             Text("Voucher Management", style: TextDesign.headingThree()),
             const SizedBox(height: 16),
