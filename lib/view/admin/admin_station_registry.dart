@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
 import 'package:recycle_go/view/admin/admin_station_edit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -21,6 +22,7 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
   List<RecycleStation> _stations = [];
   final _searchCtrl = TextEditingController();
   final _model = RecycleStationModel();
+  Timer? _debounce;
 
   String _query = '';
   RecycleMaterialType? _filterMat;
@@ -32,9 +34,13 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
   List<RecycleStation> get _filtered {
     var list = _stations.where((s) {
       final q = _query.toLowerCase();
+      final name = (s.stationName ?? '').toLowerCase();
+      final id   = (s.stationId ?? '').toLowerCase();
+
       final matchQ = q.isEmpty ||
-          (s.stationName ?? '').toLowerCase().contains(q) ||
-          (s.stationId ?? '').toLowerCase().contains(q);
+          name.contains(q) ||
+          id.contains(q) ||
+          name.replaceAll(' ', '').contains(q.replaceAll(' ', ''));
       final matchM = _filterMat == null ||
           s.supportedMaterials.contains(_filterMat);
       return matchQ && matchM;
@@ -43,10 +49,13 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
     switch (_sort) {
       case _SortMode.capacity:
         list.sort((a, b) => b.stationCapacity.compareTo(a.stationCapacity));
+        break;
       case _SortMode.name:
         list.sort((a, b) => a.stationName.compareTo(b.stationName));
+        break;
       case _SortMode.status:
         list.sort((a, b) => a.stationStatus.index.compareTo(b.stationStatus.index));
+        break;
     }
     return list;
   }
@@ -121,6 +130,7 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -129,6 +139,10 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
   void initState() {
     super.initState();
     _loadStations();
+
+    _searchCtrl.addListener(() {
+      setState(() {}); // 🔥 让 suffixIcon 动态出现
+    });
   }
 
   @override
@@ -185,7 +199,16 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
                   // ── Search ─────────────────────────────────────
                   _SearchBar(
                     ctrl: _searchCtrl,
-                    onChanged: (v) => setState(() { _query = v; _page = 1; }),
+                    onChanged: (v) {
+                      if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+                      _debounce = Timer(const Duration(milliseconds: 300), () {
+                        setState(() {
+                          _query = v;
+                          _page = 1;
+                        });
+                      });
+                    },
                   ),
                   const SizedBox(height: 10),
 
@@ -355,6 +378,7 @@ class _AlertCard extends StatelessWidget {
 class _SearchBar extends StatelessWidget {
   final TextEditingController ctrl;
   final ValueChanged<String> onChanged;
+
   const _SearchBar({required this.ctrl, required this.onChanged});
 
   @override
@@ -369,13 +393,29 @@ class _SearchBar extends StatelessWidget {
         controller: ctrl,
         onChanged: onChanged,
         style: const TextStyle(fontSize: 13),
-        decoration: const InputDecoration(
+
+        decoration: InputDecoration( // ❌ remove const
           hintText: 'SEARCH BY STATION ID OR NAME...',
-          hintStyle: TextStyle(
+          hintStyle: const TextStyle(
               color: Color(0xFFBBBBBB), fontSize: 11, letterSpacing: 0.5),
-          prefixIcon: Icon(Icons.search, color: Color(0xFFBBBBBB), size: 18),
+
+          prefixIcon: const Icon(Icons.search,
+              color: Color(0xFFBBBBBB), size: 18),
+
+          // ✅ 加这个（关键）
+          suffixIcon: ctrl.text.isNotEmpty
+              ? GestureDetector(
+            onTap: () {
+              ctrl.clear();
+              onChanged('');
+            },
+            child: const Icon(Icons.close, size: 16),
+          )
+              : null,
+
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 13),
+          contentPadding:
+          const EdgeInsets.symmetric(vertical: 13),
         ),
       ),
     );
