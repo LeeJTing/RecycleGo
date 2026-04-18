@@ -34,10 +34,17 @@ class AdminCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: theme.primary.withOpacity(0.1),
-                  child: Icon(Icons.person, color: theme.primary),
+                ClipOval(
+                  child: CircleAvatar(
+                    radius: 25,
+                    backgroundColor: theme.primary.withOpacity(0.1),
+                    child: Image.network(
+                      width: 50,
+                      height: 50,
+                      admin.getProfilePhotoURL(),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

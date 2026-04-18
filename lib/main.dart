@@ -266,10 +266,7 @@ class _MainAppState extends State<MainApp> {
         Routes.userPurchaseHistory: (context) => const PurchaseHistoryScreen(),
 
         // Management Routes
-        Routes.adminUserManagement: (context) => Scaffold(
-          appBar: AppBar(title: const Text("User management")),
-          body: const Center(child: Text("User Management Screen")),
-        ),
+        Routes.adminUserManagement: (context) => const UserManagementScreen(),
         Routes.adminManagement: (context) => const AdminManagementScreen(),
         Routes.adminAppealReview: (context) => Scaffold(
           appBar: AppBar(title: const Text("Appeal Review")),
