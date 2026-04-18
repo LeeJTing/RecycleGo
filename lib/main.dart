@@ -161,7 +161,7 @@ class _MainAppState extends State<MainApp> {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
 
-      initialRoute: Routes.adminHome,
+      initialRoute: Routes.login,
       onGenerateRoute: (settings) {
         // Handle payment deep links from Stripe
         if (settings.name?.startsWith('recyclego://payment/') == true) {
