@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:recycle_go/models/RedeemedVouchers.dart';
 import 'package:recycle_go/app/app_theme.dart';
+import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
 
 class AdminVoucherHistoryTab extends StatelessWidget {
   final List<RedeemedVouchers> redeemedVouchers;
@@ -258,6 +259,40 @@ class AdminVoucherHistoryTab extends StatelessWidget {
                   canCopy: true,
                 ),
                 const SizedBox(height: 28),
+                // Go to Pending Vouchers Button (if status is pending)
+                if (redeemedVoucher.voucherStatus ==
+                    RedeemedVoucherStatus.pending) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context); // Close modal first
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminPendingVouchers(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.open_in_new, color: Colors.white),
+                      label: const Text(
+                        'Go to Pending Vouchers',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 // Close Button
                 SizedBox(
                   width: double.infinity,

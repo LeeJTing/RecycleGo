@@ -176,7 +176,10 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
                           )
                         : const Text(
                             'Mark Transfer Done',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
                           ),
                   ),
                 ),
@@ -200,7 +203,11 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.payment, size: 14, color: widget.theme.primary),
+                        Icon(
+                          Icons.payment,
+                          size: 14,
+                          color: widget.theme.primary,
+                        ),
                         const SizedBox(width: 2),
                         Text(
                           'Stripe',
@@ -236,6 +243,7 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
       return;
     }
 
+    if (!mounted) return;
     setState(() => _isProcessing = true);
 
     try {
@@ -254,13 +262,15 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
         updatedVoucher,
       );
 
-      if (widget.onProcessed != null) {
+      if (widget.onProcessed != null && mounted) {
         await widget.onProcessed!.call();
       }
 
       _showSuccessSnackBar('Voucher marked as paid via bank transfer.');
     } catch (e) {
-      _showErrorSnackBar('Error: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error: $e');
+      }
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
@@ -327,10 +337,7 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
                   const SizedBox(height: 4),
                   Text(
                     'Recipient: $bankName\nAccount: $accountNumber',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.blue.shade700,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
                   ),
                 ],
               ),
@@ -362,25 +369,7 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
     setState(() => _isProcessing = true);
 
     try {
-      print('═══════════════════════════════════');
-      print('🔷 STRIPE PAYOUT API CALL (TEST)');
-      print('═══════════════════════════════════');
-      print('Voucher Code: ${widget.pendingVoucher.voucherCode}');
-      print('User ID: ${widget.pendingVoucher.userId}');
-      print('Amount: RM ${amount.toStringAsFixed(2)}');
-      print('Currency: MYR');
-      print('Bank: $bankName');
-      print('Account: $accountNumber');
-      print('Timestamp: ${DateTime.now()}');
-      print('───────────────────────────────────');
-
       final supabase = SupabaseService().client;
-      
-      // Log Supabase client info for debugging
-      print('📱 SUPABASE CLIENT INFO:');
-      print('Function Name: stripe-test-payout');
-      print('Auth Token Available: ${supabase.auth.currentSession?.accessToken != null}');
-      print('───────────────────────────────────');
 
       // Build request body
       final requestBody = {
@@ -392,26 +381,16 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
         'userId': widget.pendingVoucher.userId,
       };
 
-      print('📤 REQUEST BODY:');
-      print(requestBody.toString());
-      print('───────────────────────────────────');
-
-      final response = await supabase.functions.invoke(
-        'stripe-test-payout',
-        body: requestBody,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Function call timeout - function may not be deployed'),
-      );
+      final response = await supabase.functions
+          .invoke('stripe-process-payout-dev', body: requestBody)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception(
+              'Function call timeout - function may not be deployed',
+            ),
+          );
 
       final responseData = response.data as Map<String, dynamic>?;
-
-      print('🟢 STRIPE API RESPONSE:');
-      print('Success: ${responseData?['success']}');
-      print('Payout ID: ${responseData?['payoutId']}');
-      print('Status: ${responseData?['status']}');
-      print('Message: ${responseData?['message']}');
-      print('═══════════════════════════════════');
 
       if (responseData != null && responseData['success'] == true) {
         try {
@@ -431,30 +410,46 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
             updatedVoucher,
           );
 
-          if (widget.onProcessed != null) {
-            await widget.onProcessed!.call();
-          }
-
           _showSuccessSnackBar(
             'Payout processed via Stripe! (Test Mode)\nPayout ID: ${responseData['payoutId']}',
           );
+
+          if (widget.onProcessed != null && mounted) {
+            await widget.onProcessed!.call();
+          }
         } catch (updateError) {
-          print('🔴 VOUCHER UPDATE ERROR: $updateError');
-          _showErrorSnackBar('Payout succeeded but failed to update voucher: $updateError');
+          if (mounted) {
+            _showErrorSnackBar(
+              'Payout succeeded but failed to update voucher: $updateError',
+            );
+          }
         }
       } else {
-        final errorMsg = responseData?['error'] ?? 
-                        responseData?['details'] ?? 
-                        'Unknown error';
-        print('🔴 STRIPE PAYOUT FAILED: $errorMsg');
-        _showErrorSnackBar('Stripe payout failed: $errorMsg');
+        final errorMsg =
+            responseData?['error'] ??
+            responseData?['details'] ??
+            'Unknown error';
+        if (mounted) {
+          _showErrorSnackBar('Stripe payout failed: $errorMsg');
+        }
       }
     } catch (e) {
-      print('🔴 STRIPE ERROR: $e');
-      print('Error Type: ${e.runtimeType}');
-      print('Error Details: ${e.toString()}');
-      print('═══════════════════════════════════');
-      _showErrorSnackBar('Error processing Stripe payout: $e');
+      // Provide helpful error message
+      String errorMessage = 'Error processing Stripe payout: $e';
+      if (e.toString().contains('404') || e.toString().contains('NOT_FOUND')) {
+        errorMessage =
+            'Stripe payout function "stripe-process-payout-dev" not found. Please check your Supabase Edge Functions are deployed.';
+      } else if (e.toString().contains('401') ||
+          e.toString().contains('Unauthorized')) {
+        errorMessage =
+            'Authentication error. Please ensure you are logged in with proper permissions.';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+      }
+
+      if (mounted) {
+        _showErrorSnackBar(errorMessage);
+      }
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
@@ -487,15 +482,30 @@ class _PendingVoucherCardState extends State<PendingVoucherCard> {
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: widget.theme.error),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: widget.theme.error),
+      );
+    }
   }
 
   void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
-    );
+    // Show dialog instead of snackbar since widget may be unmounted
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Payment Successful'),
+          content: Text(message),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   String _fullAccountNumber(String? accountNumber) {

@@ -14,6 +14,7 @@ class Routes {
 
   static const String adminNotification = '/admin/notification';
   static const String userNotification = '/user/notification';
+  static const String adminPurchaseView = '/admin/purchase-view';
   static const String adminPurchaseDetail = '/admin/purchase-detail';
   static const String adminPurchaseUpdate = '/admin/purchase-update';
 
@@ -48,5 +49,8 @@ class Routes {
   static const String adminUserManagement = '/admin/user-management';
   static const String adminManagement = '/admin/admin-management';
   static const String adminAppealReview = '/admin/appeal-review';
+
+  static const String adminFullRequestReview = '/admin/full-request-review';
+  static const String scanRecycleItem = '/user/AI-verify-recycle/scan-recycle-item';
 }
 

@@ -131,7 +131,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                         children: [
                           // Radio button
                           Radio<String>(
-                            value: station.stationId,
+                            value: station.stationId!,
                             groupValue: _selectedStation?.stationId,
                             onChanged: (value) {
                               setState(() {

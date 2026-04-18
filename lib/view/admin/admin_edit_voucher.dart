@@ -37,9 +37,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
     super.initState();
     // Initialize controllers with existing data
     nameController = TextEditingController(text: widget.voucher.voucherName);
-    descController = TextEditingController(
-      text: widget.voucher.description,
-    );
+    descController = TextEditingController(text: widget.voucher.description);
     pointsController = TextEditingController(
       text: widget.voucher.pointsRequired.toString(),
     );
@@ -51,6 +49,92 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
     );
     selectedCategory = widget.voucher.voucherCategory;
     isInfinite = widget.voucher.isInfinite;
+
+    // Add listeners to trigger form validation on change
+    nameController.addListener(_updateFormState);
+    descController.addListener(_updateFormState);
+    pointsController.addListener(_updateFormState);
+    qtyController.addListener(_updateFormState);
+    durationController.addListener(_updateFormState);
+  }
+
+  void _updateFormState() {
+    setState(() {});
+  }
+
+  bool _isFormValid() {
+    // Voucher Name: max 15 characters, not empty
+    if (nameController.text.isEmpty || nameController.text.length > 15) {
+      return false;
+    }
+
+    // Description: max 20 characters, not empty
+    if (descController.text.isEmpty || descController.text.length > 20) {
+      return false;
+    }
+
+    // Points: must not be negative, cannot exceed 10000
+    final points = int.tryParse(pointsController.text);
+    if (points == null || points < 0 || points > 10000) {
+      return false;
+    }
+
+    // Quantity: cannot be negative or > 10000
+    final qty = int.tryParse(qtyController.text);
+    if (qty == null || qty < 0 || qty > 10000) {
+      return false;
+    }
+
+    // Duration: only validate if not infinite
+    if (!isInfinite) {
+      final duration = int.tryParse(durationController.text);
+      if (duration == null || duration < 1) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  String? _getNameError() {
+    if (nameController.text.isEmpty) return "Name cannot be empty";
+    if (nameController.text.length > 15)
+      return "Name cannot exceed 15 characters";
+    return null;
+  }
+
+  String? _getDescError() {
+    if (descController.text.isEmpty) return "Description cannot be empty";
+    if (descController.text.length > 20)
+      return "Description cannot exceed 20 characters";
+    return null;
+  }
+
+  String? _getPointsError() {
+    if (pointsController.text.isEmpty) return "Points required";
+    final points = int.tryParse(pointsController.text);
+    if (points == null) return "Must be a valid number";
+    if (points < 0) return "Points cannot be negative";
+    if (points > 10000) return "Points cannot exceed 10000";
+    return null;
+  }
+
+  String? _getQtyError() {
+    if (qtyController.text.isEmpty) return "Quantity required";
+    final qty = int.tryParse(qtyController.text);
+    if (qty == null) return "Must be a valid number";
+    if (qty < 0) return "Quantity cannot be negative";
+    if (qty > 10000) return "Quantity cannot exceed 10000";
+    return null;
+  }
+
+  String? _getDurationError() {
+    if (isInfinite) return null;
+    if (durationController.text.isEmpty) return "Duration required";
+    final duration = int.tryParse(durationController.text);
+    if (duration == null) return "Must be a valid number";
+    if (duration < 1) return "Duration must be at least 1 day";
+    return null;
   }
 
   @override
@@ -90,8 +174,15 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
               TextFormField(
                 controller: nameController,
                 style: TextDesign.normalText(),
-                decoration: _inputStyle("Voucher Name", theme),
-                validator: (v) => v!.isEmpty ? "Name cannot be empty" : null,
+                decoration: _inputStyle(
+                  "Voucher Name",
+                  theme,
+                ).copyWith(errorText: _getNameError()),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "Name cannot be empty";
+                  if (v.length > 15) return "Name cannot exceed 15 characters";
+                  return null;
+                },
               ),
               const SizedBox(height: 24),
 
@@ -100,9 +191,17 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
                 controller: descController,
                 maxLines: 3,
                 style: TextDesign.smallText(),
-                decoration: _inputStyle("Description...", theme),
-                validator: (v) =>
-                    v!.isEmpty ? "Description cannot be empty" : null,
+                decoration: _inputStyle(
+                  "Description...",
+                  theme,
+                ).copyWith(errorText: _getDescError()),
+                validator: (v) {
+                  if (v == null || v.isEmpty)
+                    return "Description cannot be empty";
+                  if (v.length > 20)
+                    return "Description cannot exceed 20 characters";
+                  return null;
+                },
               ),
               const SizedBox(height: 24),
 
@@ -119,8 +218,16 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
                 decoration: _inputStyle("800", theme).copyWith(
                   suffixText: "pts",
                   suffixStyle: TextDesign.smallText(color: theme.primary),
+                  errorText: _getPointsError(),
                 ),
-                validator: (v) => v!.isEmpty ? "Points required" : null,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "Points required";
+                  final points = int.tryParse(v);
+                  if (points == null) return "Must be a valid number";
+                  if (points < 0) return "Points cannot be negative";
+                  if (points > 10000) return "Points cannot exceed 10000";
+                  return null;
+                },
               ),
               const SizedBox(height: 24),
 
@@ -160,8 +267,16 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
                 decoration: _inputStyle("50", theme).copyWith(
                   suffixText: "vouchers",
                   suffixStyle: TextDesign.smallText(color: theme.primary),
+                  errorText: _getQtyError(),
                 ),
-                validator: (v) => v!.isEmpty ? "Quantity required" : null,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return "Quantity required";
+                  final qty = int.tryParse(v);
+                  if (qty == null) return "Must be a valid number";
+                  if (qty < 0) return "Quantity cannot be negative";
+                  if (qty > 10000) return "Quantity cannot exceed 10000";
+                  return null;
+                },
               ),
               const SizedBox(height: 24),
 
@@ -196,6 +311,7 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
                   decoration: _inputStyle("7", theme).copyWith(
                     suffixText: "days",
                     suffixStyle: TextDesign.smallText(color: theme.primary),
+                    errorText: _getDurationError(),
                   ),
                   validator: (v) =>
                       v == null || v.isEmpty ? "Duration required" : null,
@@ -205,17 +321,18 @@ class _AdminEditVoucherState extends State<AdminEditVoucher> {
 
               const SizedBox(height: 24),
 
-              // --- 8. UPDATE BUTTON ---
+              // --- UPDATE BUTTON ---
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
-                  onPressed: _handleUpdate,
+                  onPressed: _isFormValid() ? _handleUpdate : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
+                    disabledBackgroundColor: theme.onSurface.withOpacity(0.3),
                   ),
                   child: Text("Update Voucher", style: TextDesign.buttonText()),
                 ),
