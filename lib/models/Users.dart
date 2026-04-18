@@ -1,3 +1,4 @@
+import 'package:recycle_go/app/default_url.dart';
 import 'package:recycle_go/models/Connector.dart';
 import 'package:recycle_go/utils/hashing.dart';
 import 'UserSettings.dart';
@@ -162,7 +163,7 @@ class UsersModel extends Connector {
   }
 
   String getUserProfileURL(String? profilePhoto) {
-    return storage.getPublicUrl('profiles', profilePhoto ?? '');
+    return storage.getPublicUrl(DefaultUrl.profilesBucket, profilePhoto != null ? (DefaultUrl.userProfileHeader + profilePhoto) : DefaultUrl.userDefaultProfilePath);
   }
 
   Future<Users> updateUser(Users user) async {
