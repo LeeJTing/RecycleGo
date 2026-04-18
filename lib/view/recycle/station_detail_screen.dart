@@ -25,6 +25,7 @@ class StationDetailScreen extends StatefulWidget {
 }
 
 class _StationDetailScreenState extends State<StationDetailScreen> {
+  double maxCap = 500.0;
 
   double co2Kg = 0.0;
 
@@ -51,7 +52,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       final data = await Supabase.instance.client
           .from('recyclestation')
           .select()
-          .eq('station_id', widget.station.stationId)
+          .eq('station_id', widget.station.stationId!)
           .maybeSingle();
 
       if (data == null) {
@@ -59,14 +60,23 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
         return;
       }
 
-      final plastic   = (data['plastic_storage']   as num? ?? 0).toDouble();
-      final glass     = (data['glasses_storage']   as num? ?? 0).toDouble();
-      final cardboard = (data['cardboard_storage'] as num? ?? 0).toDouble();
-      final metal     = (data['metal_storage']     as num? ?? 0).toDouble();
+      final plasticRaw   = data['plastic_storage'];
+      final glassRaw     = data['glasses_storage'];
+      final cardboardRaw = data['cardboard_storage'];
+      final metalRaw     = data['metal_storage'];
 
-      final total = plastic + glass + cardboard + metal;
+      final plastic   = (plasticRaw as num?)?.toDouble();
+      final glass     = (glassRaw as num?)?.toDouble();
+      final cardboard = (cardboardRaw as num?)?.toDouble();
+      final metal     = (metalRaw as num?)?.toDouble();
 
-      const double maxCap = 500.0;
+      final total =
+          (plastic ?? 0) +
+              (glass ?? 0) +
+              (cardboard ?? 0) +
+              (metal ?? 0);
+
+      maxCap = (data['station_capacity'] as num?)?.toDouble() ?? 500.0;
 
       final full = total >= maxCap;
 
@@ -78,10 +88,10 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
       // ✅ 计算 CO2
       final co2 =
-          (plastic * plasticFactor) +
-              (glass * glassFactor) +
-              (cardboard * cardboardFactor) +
-              (metal * metalFactor);
+          ((plastic ?? 0) * plasticFactor) +
+              ((glass ?? 0) * glassFactor) +
+              ((cardboard ?? 0) * cardboardFactor) +
+              ((metal ?? 0) * metalFactor);
 
       // ✅ 一次 setState
       setState(() {
@@ -89,26 +99,26 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
           {
             'label': 'Plastic',
             'icon': Icons.recycling,
-            'level': plastic,
-            'percent': maxCap > 0 ? plastic / maxCap : 0
+            'level': plastic ?? 0,
+            'hasMaterial': plasticRaw != null,
           },
           {
             'label': 'Glass',
             'icon': Icons.wine_bar_outlined,
-            'level': glass,
-            'percent': maxCap > 0 ? glass / maxCap : 0
+            'level': glass ?? 0,
+            'hasMaterial': glassRaw != null,
           },
           {
             'label': 'Cardboard',
             'icon': Icons.description_outlined,
-            'level': cardboard,
-            'percent': maxCap > 0 ? cardboard / maxCap : 0
+            'level': cardboard ?? 0,
+            'hasMaterial': cardboardRaw != null,
           },
           {
             'label': 'Metal',
             'icon': Icons.settings,
-            'level': metal,
-            'percent': maxCap > 0 ? metal / maxCap : 0
+            'level': metal ?? 0,
+            'hasMaterial': metalRaw != null,
           },
         ];
 
@@ -160,9 +170,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                     capacity: capacity,
                     remainingKg: remainingKg,
                     usedKg: totalKg,
-                    maxCapKg: widget.station.totalCapacity > 0
-                        ? widget.station.totalCapacity
-                        : 500,
+                    maxCapKg: maxCap,
                   ),
 
                   const SizedBox(height: 16),
@@ -173,7 +181,11 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                   // ✅ 用 DB
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
-                      : _MaterialsGrid(materials: materials),
+                      : _MaterialsGrid(
+                    materials: materials,
+                    totalKg: totalKg, // ✅ 加这个
+                    maxCap: maxCap,
+                  ),
 
                 ],
               ),
@@ -274,6 +286,14 @@ class _StationHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String displayDistance;
+
+    if (routeDistance != null && routeDistance!.isNotEmpty) {
+      displayDistance = routeDistance!;
+    } else {
+      displayDistance = '${distanceKm.toStringAsFixed(1)} km';
+    }
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
@@ -333,7 +353,7 @@ class _StationHeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          if (duration != null && routeDistance != null)
+          if (duration != null && displayDistance.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Row(
@@ -341,7 +361,7 @@ class _StationHeaderCard extends StatelessWidget {
                   const Icon(Icons.access_time, size: 14, color: Colors.grey),
                   const SizedBox(width: 6),
                   Text(
-                    '$duration • $routeDistance',
+                    '$duration • $displayDistance',
                     style: const TextStyle(fontSize: 13, color: Colors.grey),
                   ),
                 ],
@@ -391,11 +411,12 @@ class _StationHeaderCard extends StatelessWidget {
           Row(
             children: [
               _StatTile(
-                value: '${distanceKm.toStringAsFixed(1)} km',
+                value: displayDistance,
                 label: 'Distance',
                 icon: Icons.location_on,
-                iconColor: const Color(0xFF1DB954),
-                bgColor: const Color(0xFF1DB954),
+                iconColor: Colors.black,
+                bgColor: const Color(0xFFF5F5F5),
+                isBordered: true,
               ),
               const SizedBox(width: 12),
               _StatTile(
@@ -405,7 +426,7 @@ class _StationHeaderCard extends StatelessWidget {
                 label: 'CO₂ Saved',
                 icon: Icons.bolt,
                 iconColor: Colors.black,
-                bgColor: Colors.white,
+                bgColor: const Color(0xFFF5F5F5),
                 isBordered: true,
               ),
             ],
@@ -465,7 +486,7 @@ class _StatTile extends StatelessWidget {
                     fontSize: 11,
                     color: isDarkBg
                         ? Colors.white   // ✅ 绿色背景 → 白字
-                        : const Color(0xFF666), // 白背景 → 灰字
+                        : Colors.black87, // 白背景 → 灰字
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -482,7 +503,7 @@ class _StatTile extends StatelessWidget {
                 fontWeight: FontWeight.w800,
                 color: isDarkBg
                     ? Colors.white   // ✅ 绿色背景 → 白字
-                    : const Color(0xFF0D1F0D),
+                    : Colors.black,
               ),
             ),
           ],
@@ -663,7 +684,14 @@ class _SectionLabel extends StatelessWidget {
 
 class _MaterialsGrid extends StatelessWidget {
   final List<Map<String, dynamic>> materials;
-  const _MaterialsGrid({required this.materials});
+  final double totalKg; // ✅ 加这个
+  final double maxCap;
+
+  const _MaterialsGrid({
+    required this.materials,
+    required this.totalKg,
+    required this.maxCap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -680,17 +708,30 @@ class _MaterialsGrid extends StatelessWidget {
         ),
         itemCount: materials.length,
         itemBuilder: (_, i) {
-          final m        = materials[i];
-          final double percent = (m['percent'] as double? ?? 0).clamp(0.0, 1.0);
-          final double level   = (m['level']   as double? ?? 0);
-          const double maxCap  = 500.0;
-          final bool   isFull  = percent >= 1.0;
-          final int    pctInt  = (percent * 100).round();
+          final m = materials[i];
+
+          final bool hasMaterial = m['hasMaterial'] == true;
+          final dynamic rawLevel = m['level'];
+          final double level = (rawLevel as num? ?? 0).toDouble();
+
+          // ✅ 重点：算 percent
+          final percent = (level / maxCap).clamp(0.0, 1.0);
+          final bool isFull = level >= maxCap;
+          final int pctInt = (percent * 100).round();
 
           Color color;
-          if (isFull)          color = Colors.red;
-          else if (percent > 0.8) color = Colors.orange;
-          else                 color = const Color(0xFF1DB954);
+
+          if (!hasMaterial) {
+            color = Colors.grey;
+          } else if (isFull) {
+            color = Colors.red;
+          } else if (percent >= 0.9) {
+            color = Colors.orange;
+          } else if (percent >= 0.6) {
+            color = Colors.yellow.shade700;
+          } else {
+            color = const Color(0xFF1DB954);
+          }
 
           return Container(
             padding: const EdgeInsets.all(12),
@@ -732,7 +773,7 @@ class _MaterialsGrid extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        '$pctInt%',
+                        hasMaterial ? '$pctInt%' : '--',
                         style: TextStyle(
                           color: color,
                           fontSize: 11,
@@ -747,9 +788,13 @@ class _MaterialsGrid extends StatelessWidget {
 
                 // ── kg text ──────────────────────────────────────
                 Text(
-                  isFull
+                  !hasMaterial
+                      ? 'Not Available'
+                      : isFull
                       ? 'FULL'
-                      : '${level.toStringAsFixed(0)} / ${maxCap.toStringAsFixed(0)} kg',
+                      : level == 0
+                      ? 'Empty'
+                      : '${level.toStringAsFixed(0)} kg (${pctInt}%)',
                   style: TextStyle(
                     fontSize: 11,
                     color: isFull ? Colors.red : const Color(0xFF888),

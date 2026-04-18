@@ -54,13 +54,19 @@ class StationService {
 
   // ── UPDATE ────────────────────────────────────────────────────────
   static Future<RecycleStation?> update(RecycleStation station) async {
+
+    if (station.stationId == null) {
+      throw Exception("stationId is null, cannot update");
+    }
+
     final map = station.toMap()
       ..remove('station_id')
       ..remove('created_at');
+
     final response = await _db
         .from(_table)
         .update(map)
-        .eq('station_id', station.stationId)
+        .eq('station_id', station.stationId!)
         .select()
         .single();
 

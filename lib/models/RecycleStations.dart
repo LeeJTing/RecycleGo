@@ -1,5 +1,6 @@
 import 'package:recycle_go/models/Connector.dart';
 import 'dart:math';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // lib/models/recycle_station_model.dart
 
@@ -30,51 +31,70 @@ extension MaterialTypeExt on RecycleMaterialType {
 }
 
 class RecycleStation {
-  final String stationId;
+  final String? stationId;
   final String stationName;
   final String address;
   final double latitude;
   final double longitude;
   final String? description;
   final StationStatus stationStatus;
-  final double plasticStorage;
-  final double paperStorage;
-  final double glassStorage;
-  final double cardboardStorage;
-  final double metalStorage;
+  final double? plasticStorage;
+  final double? paperStorage;
+  final double? glassStorage;
+  final double? cardboardStorage;
+  final double? metalStorage;
   final String qrCodeValue;
   final DateTime createdAt;
   final String? imageUrl;
+  final double stationCapacity;
 
   const RecycleStation({
-    required this.stationId,
+    this.stationId,
     required this.stationName,
     required this.address,
     required this.latitude,
     required this.longitude,
     this.description,
     required this.stationStatus,
-    this.plasticStorage = 0,
-    this.paperStorage = 0,
-    this.glassStorage = 0,
-    this.cardboardStorage = 0,
-    this.metalStorage = 0,
+    this.plasticStorage,
+    this.paperStorage,
+    this.glassStorage,
+    this.cardboardStorage,
+    this.metalStorage,
     required this.qrCodeValue,
     required this.createdAt,
     this.imageUrl,
+    required this.stationCapacity,
   });
 
   double get totalCapacity =>
-      plasticStorage + paperStorage + glassStorage +
-          cardboardStorage + metalStorage;
+      (plasticStorage ?? 0) +
+          (paperStorage ?? 0) +
+          (glassStorage ?? 0) +
+          (cardboardStorage ?? 0) +
+          (metalStorage ?? 0);
 
-  List<RecycleMaterialType> get supportedMaterials => [
-    RecycleMaterialType.plastic,
-    RecycleMaterialType.paper,
-    RecycleMaterialType.glass,
-    RecycleMaterialType.cardboard,
-    RecycleMaterialType.metal,
-  ];
+  List<RecycleMaterialType> get supportedMaterials {
+    final list = <RecycleMaterialType>[];
+
+    if (plasticStorage != null) {
+      list.add(RecycleMaterialType.plastic);
+    }
+    if (paperStorage != null) {
+      list.add(RecycleMaterialType.paper);
+    }
+    if (glassStorage != null) {
+      list.add(RecycleMaterialType.glass);
+    }
+    if (cardboardStorage != null) {
+      list.add(RecycleMaterialType.cardboard);
+    }
+    if (metalStorage != null) {
+      list.add(RecycleMaterialType.metal);
+    }
+
+    return list;
+  }
 
   RecycleStation copyWith({
     String? stationId,
@@ -92,24 +112,48 @@ class RecycleStation {
     String? qrCodeValue,
     DateTime? createdAt,
     String? imageUrl,
-  }) =>
-      RecycleStation(
-        stationId: stationId ?? this.stationId,
-        stationName: stationName ?? this.stationName,
-        address: address ?? this.address,
-        latitude: latitude ?? this.latitude,
-        longitude: longitude ?? this.longitude,
-        description: description ?? this.description,
-        stationStatus: stationStatus ?? this.stationStatus,
-        plasticStorage: plasticStorage ?? this.plasticStorage,
-        paperStorage: paperStorage ?? this.paperStorage,
-        glassStorage: glassStorage ?? this.glassStorage,
-        cardboardStorage: cardboardStorage ?? this.cardboardStorage,
-        metalStorage: metalStorage ?? this.metalStorage,
-        qrCodeValue: qrCodeValue ?? this.qrCodeValue,
-        createdAt: createdAt ?? this.createdAt,
-        imageUrl: imageUrl ?? this.imageUrl,
-      );
+    double? stationCapacity,
+    bool setPlasticNull = false,
+    bool setPaperNull = false,
+    bool setGlassNull = false,
+    bool setCardboardNull = false,
+    bool setMetalNull = false,
+  }) {
+    return RecycleStation(
+      stationId: stationId ?? this.stationId,
+      stationName: stationName ?? this.stationName,
+      address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      description: description ?? this.description,
+      stationStatus: stationStatus ?? this.stationStatus,
+
+      plasticStorage: setPlasticNull
+          ? null
+          : (plasticStorage ?? this.plasticStorage),
+
+      paperStorage: setPaperNull
+          ? null
+          : (paperStorage ?? this.paperStorage),
+
+      glassStorage: setGlassNull
+          ? null
+          : (glassStorage ?? this.glassStorage),
+
+      cardboardStorage: setCardboardNull
+          ? null
+          : (cardboardStorage ?? this.cardboardStorage),
+
+      metalStorage: setMetalNull
+          ? null
+          : (metalStorage ?? this.metalStorage),
+
+      qrCodeValue: qrCodeValue ?? this.qrCodeValue,
+      createdAt: createdAt ?? this.createdAt,
+      imageUrl: imageUrl ?? this.imageUrl,
+      stationCapacity: stationCapacity ?? this.stationCapacity,
+    );
+  }
 
   bool get isActive => stationStatus == StationStatus.active;
 
@@ -131,26 +175,35 @@ class RecycleStation {
 
   static double _toRad(double deg) => deg * pi / 180;
 
-  Map<String, dynamic> toMap() => {
-    'station_id': stationId,
-    'station_name': stationName,
-    'address': address,
-    'latitude': latitude,
-    'longitude': longitude, // DB column typo preserved
-    'description': description,
-    'station_status': stationStatus.name,
-    'plastic_storage': plasticStorage,
-    'paper_storage': paperStorage,
-    'glasses_storage': glassStorage,
-    'cardboard_storage': cardboardStorage,
-    'metal_storage': metalStorage,
-    'qr_code_value': qrCodeValue,
-    'created_at': createdAt.toIso8601String(),
-    'image_url': imageUrl,
-  };
+  Map<String, dynamic> toMap() {
+    final data = {
+      'station_name': stationName,
+      'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+      'description': description,
+      'station_status': stationStatus.name,
+      'plastic_storage': plasticStorage,
+      'paper_storage': paperStorage,
+      'glasses_storage': glassStorage,
+      'cardboard_storage': cardboardStorage,
+      'metal_storage': metalStorage,
+      'qr_code_value': qrCodeValue,
+      'created_at': createdAt.toIso8601String(),
+      'image_url': imageUrl,
+      'station_capacity': stationCapacity,
+    };
+
+    // ✅ 只有 update 才传 id
+    if (stationId != null) {
+      data['station_id'] = stationId;
+    }
+
+    return data;
+  }
 
   factory RecycleStation.fromMap(Map<String, dynamic> map) => RecycleStation(
-    stationId: map['station_id'] ?? '',
+    stationId: map['station_id'],
     stationName: map['station_name'] ?? '',
     address: map['address'] ?? '',
     latitude: (map['latitude'] ?? 0).toDouble(),
@@ -162,14 +215,28 @@ class RecycleStation {
           (map['station_status'] ?? '').toString().toLowerCase(),
       orElse: () => StationStatus.active,
     ),
-    plasticStorage: (map['plastic_storage'] ?? 0).toDouble(),
-    paperStorage: (map['paper_storage'] ?? 0).toDouble(),
-    glassStorage: (map['glasses_storage'] ?? 0).toDouble(),
-    cardboardStorage: (map['cardboard_storage'] ?? 0).toDouble(),
-    metalStorage: (map['metal_storage'] ?? 0).toDouble(),
+    plasticStorage: map['plastic_storage'] != null
+        ? (map['plastic_storage'] as num).toDouble()
+        : null,
+    paperStorage: map['paper_storage'] != null
+        ? (map['paper_storage'] as num).toDouble()
+        : null,
+
+    glassStorage: map['glasses_storage'] != null
+        ? (map['glasses_storage'] as num).toDouble()
+        : null,
+
+    cardboardStorage: map['cardboard_storage'] != null
+        ? (map['cardboard_storage'] as num).toDouble()
+        : null,
+
+    metalStorage: map['metal_storage'] != null
+        ? (map['metal_storage'] as num).toDouble()
+        : null,
     qrCodeValue: map['qr_code_value'] ?? '',
     createdAt: DateTime.tryParse(map['created_at'] ?? '') ?? DateTime.now(),
     imageUrl: map['image_url']?.toString(),
+    stationCapacity: (map['station_capacity'] ?? 0).toDouble(),
   );
 
   factory RecycleStation.fromJson(Map<String, dynamic> json) {
@@ -198,5 +265,111 @@ class RecycleStationModel extends Connector {
       print('DEBUG: Error fetching nearest station: $e');
     }
     return null;
+  }
+
+  // ✅ CREATE
+  Future<RecycleStation?> insertStation(RecycleStation s) async {
+    try {
+      print('📦 DATA => ${s.toMap()}'); // 👈 一定要加
+
+      final res = await client
+          .from('recyclestation')
+          .insert(s.toMap())
+          .select()
+          .single();
+
+      return RecycleStation.fromJson(res);
+
+    } catch (e) {
+      print('❌ ERROR TYPE: ${e.runtimeType}');
+      print('❌ ERROR: $e');
+
+      if (e is PostgrestException) {
+        print('❌ MESSAGE: ${e.message}');
+        print('❌ DETAILS: ${e.details}');
+        print('❌ HINT: ${e.hint}');
+        print('❌ CODE: ${e.code}');
+      }
+
+      return null;
+    }
+  }
+
+  // ✅ UPDATE
+  Future<RecycleStation?> updateStation(RecycleStation s) async {
+    try {
+      if (s.stationId == null) {
+        throw Exception('stationId is null, cannot update');
+      }
+
+      print('UPDATE DATA => ${s.toMap()}');
+
+      final res = await client
+          .from('recyclestation')
+          .update(s.toMap())
+          .eq('station_id', s.stationId!) // 👈 加 !
+          .select()
+          .single();
+
+      return RecycleStation.fromJson(res);
+    } catch (e) {
+      print('DEBUG: Update error: $e');
+      return null;
+    }
+  }
+
+  // ✅ DELETE
+  Future<bool> deleteStation(String id) async {
+    print('DELETE ID: $id');
+
+    try {
+      final submissions = await client
+          .from('recyclingsubmission')
+          .select('submission_id')
+          .eq('station_id', id);
+
+      final submissionIds = (submissions as List)
+          .map((e) => e['submission_id'])
+          .toList();
+
+      if (submissionIds.isNotEmpty) {
+        await client
+            .from('appeals')
+            .delete()
+            .inFilter('submission_id', submissionIds);
+      }
+
+      await client
+          .from('recyclingsubmission')
+          .delete()
+          .eq('station_id', id);
+
+      final res = await client
+          .from('recyclestation')
+          .delete()
+          .eq('station_id', id)
+          .select();
+
+      return res.isNotEmpty;
+
+    } catch (e) {
+      print('DELETE ERROR: $e');
+      return false;
+    }
+  }
+
+  Future<List<RecycleStation>> getAllStations() async {
+    try {
+      final response = await client
+          .from('recyclestation')
+          .select();
+
+      return (response as List)
+          .map((e) => RecycleStation.fromJson(e))
+          .toList();
+    } catch (e) {
+      print('DEBUG: Error fetching stations: $e');
+      return [];
+    }
   }
 }
