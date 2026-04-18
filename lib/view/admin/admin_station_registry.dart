@@ -325,7 +325,7 @@ class _NetworkCard extends StatelessWidget {
             style: TextStyle(
                 color: Colors.white70, fontSize: 11, letterSpacing: 1)),
         const SizedBox(height: 8),
-        Text('${activeCount.toString().padLeft(3, '0')} ACTIVE',
+        Text('${activeCount.toString()} ACTIVE',
             style: const TextStyle(
                 color: Colors.white, fontSize: 36,
                 fontWeight: FontWeight.w900, letterSpacing: -1)),

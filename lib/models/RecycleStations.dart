@@ -55,6 +55,7 @@ class RecycleStation {
   final DateTime createdAt;
   final String? imageUrl;
   final double stationCapacity;
+  final String? qrImageUrl;
 
   const RecycleStation({
     this.stationId,
@@ -72,6 +73,7 @@ class RecycleStation {
     required this.qrCodeValue,
     required this.createdAt,
     this.imageUrl,
+    this.qrImageUrl,
     required this.stationCapacity,
   });
 
@@ -197,9 +199,9 @@ class RecycleStation {
       'created_at': createdAt.toIso8601String(),
       'image_url': imageUrl,
       'station_capacity': stationCapacity,
+      'qr_image_url': qrImageUrl,
     };
 
-    // ✅ 只有 update 才传 id
     if (stationId != null) {
       data['station_id'] = stationId;
     }
@@ -214,6 +216,7 @@ class RecycleStation {
     latitude: (map['latitude'] ?? 0).toDouble(),
     longitude: (map['longitude'] ?? 0).toDouble(),
     description: map['description'],
+    qrImageUrl: map['qr_image_url'],
     stationStatus: StationStatus.values.firstWhere(
       (s) =>
           s.name.toLowerCase() ==
@@ -292,7 +295,7 @@ class RecycleStationModel extends Connector {
   // ✅ CREATE
   Future<RecycleStation?> insertStation(RecycleStation s) async {
     try {
-      print('📦 DATA => ${s.toMap()}'); // 👈 一定要加
+      print('📦 DATA => ${s.toMap()}');
 
       final res = await client
           .from('recyclestation')
