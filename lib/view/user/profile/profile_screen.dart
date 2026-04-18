@@ -6,10 +6,14 @@ import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/controller/profile/profile_ctrl.dart';
 import 'package:recycle_go/models/Achievements.dart';
 import 'package:recycle_go/models/Users.dart';
+import 'package:recycle_go/models/UserSettings.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/view/user/profile/widgets/profile_info.dart';
 import 'package:recycle_go/view/user/profile/widgets/profile_summary.dart';
 import 'package:recycle_go/view/user/profile/widgets/achievements_section.dart';
+import 'package:recycle_go/view/user/profile/change_password_screen.dart';
+import 'package:recycle_go/view/user/profile/settings_screen.dart';
+import 'package:recycle_go/utils/async_task_runner.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,6 +31,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Routes.editProfile,
       arguments: {'user': user},
     );
+  }
+
+  void _navigateToSettings(String userId) async {
+    final settings = await TaskRunner.run(
+      context: context,
+      task: () => UserSettingsModel().getSettings(userId),
+      loadingMessage: "Loading settings...",
+      showSuccessDialog: false,
+    );
+
+    if (settings != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SettingsScreen(
+            settings: settings,
+            onSettingsChanged: (newSettings) {
+              // Settings are updated in DB by SettingsScreen
+              setState(() {});
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -65,10 +93,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onEditProfile: () => _navigateToEditProfile(user),
                 ),
                 const SizedBox(height: 32),
-                
+
                 FutureBuilder<Map<String, dynamic>>(
                   future: Future.wait([
-                    ctrl.getTotalRecycledItems(user.userId!),
+                    //ctrl.getTotalRecycledItems(user.userId!),
                     ctrl.getAchievements(user.userId!),
                   ]).then((results) => {
                     'totalItems': results[0] as int,
@@ -90,8 +118,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                   },
                 ),
-                
+
                 const SizedBox(height: 32),
+
+                _buildMenuButton(
+                  icon: Icons.settings_outlined,
+                  label: 'Settings',
+                  onTap: () => _navigateToSettings(user.userId!),
+                  theme: theme,
+                  size: size,
+                ),
+
+                const SizedBox(height: 16),
+
+                _buildMenuButton(
+                  icon: Icons.lock_outline,
+                  label: 'Change Password',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChangePasswordScreen(
+                          currentHashedPassword: user.hashedPassword ?? "",
+                          onPasswordChanged: (hashedPassword) async {
+                            await ctrl.updateProfile(
+                              context,
+                              user.copyWith(hashedPassword: hashedPassword)
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                  theme: theme,
+                  size: size,
+                ),
+
+                const SizedBox(height: 16),
+
                 _buildMenuButton(
                   icon: Icons.logout_rounded,
                   label: 'Sign Out',

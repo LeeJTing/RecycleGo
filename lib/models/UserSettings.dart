@@ -38,9 +38,30 @@ class UserSettings {
       'notify_appeal_request': notifyAppealRequest,
     };
   }
+
+  UserSettings copyWith({
+    String? language,
+    String? themeMode,
+    bool? notification,
+    bool? notifyStation,
+    bool? notifyAppealRequest,
+  }) {
+    return UserSettings(
+      userId: userId,
+      language: language ?? this.language,
+      themeMode: themeMode ?? this.themeMode,
+      notification: notification ?? this.notification,
+      notifyStation: notifyStation ?? this.notifyStation,
+      notifyAppealRequest: notifyAppealRequest ?? this.notifyAppealRequest,
+    );
+  }
 }
 
 class UserSettingsModel extends Connector {
+  static final UserSettingsModel _instance = UserSettingsModel._internal();
+  UserSettingsModel._internal();
+  factory UserSettingsModel() => _instance;
+
   Future<void> createUserSetting(String userId) async {
     await client.from('usersetting').insert({
       'user_id': userId,
@@ -50,5 +71,25 @@ class UserSettingsModel extends Connector {
       'notify_station': true,
       'notify_appeal_request': true,
     });
+  }
+
+  Future<UserSettings?> getSettings(String userId) async {
+    final response = await client
+        .from('usersetting')
+        .select()
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (response != null) {
+      return UserSettings.fromJson(response);
+    }
+    return null;
+  }
+
+  Future<void> updateSettings(UserSettings settings) async {
+    await client
+        .from('usersetting')
+        .update(settings.toJson())
+        .eq('user_id', settings.userId);
   }
 }

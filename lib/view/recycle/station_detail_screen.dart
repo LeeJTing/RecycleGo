@@ -1,42 +1,139 @@
 import 'package:flutter/material.dart';
 import 'qr_scan_screen.dart';
+import 'package:recycle_go/models/RecycleStations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 
-class StationDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> station;
+class StationDetailScreen extends StatefulWidget {
+  final RecycleStation station;
+  final double distanceKm;
+  final String? duration;
+  final String? routeDistance;
 
-  const StationDetailScreen({super.key, required this.station});
+  const StationDetailScreen({
+    super.key,
+    required this.station,
+    required this.distanceKm,
 
-  // Mock data — replace with real station model
-  static const List<Map<String, dynamic>> _materials = [
-    {'label': 'Plastic', 'icon': Icons.recycling, 'active': true},
-    {'label': 'Glass', 'icon': Icons.wine_bar_outlined, 'active': false},
-    {'label': 'Paper', 'icon': Icons.description_outlined, 'active': true},
-    {'label': 'E-Waste', 'icon': Icons.electrical_services_outlined, 'active': false},
-  ];
+    // ✅ constructor 也要加
+    this.duration,
+    this.routeDistance,
+  });
 
-  static const List<Map<String, dynamic>> _history = [
-    {
-      'name': 'Alex Rivera',
-      'detail': '12.5kg Plastic • 2 mins ago',
-      'points': '+450 pts',
-      'initials': 'AR',
-      'color': Color(0xFF4CAF50),
-    },
-    {
-      'name': 'Sarah Chen',
-      'detail': '8.2kg Paper • 1 hour ago',
-      'points': '+210 pts',
-      'initials': 'SC',
-      'color': Color(0xFF2196F3),
-    },
-    {
-      'name': 'Anonymous Hero',
-      'detail': '4.0kg Glass • 3 hours ago',
-      'points': '+120 pts',
-      'initials': '?',
-      'color': Color(0xFF9E9E9E),
-    },
-  ];
+  @override
+  State<StationDetailScreen> createState() => _StationDetailScreenState();
+}
+
+class _StationDetailScreenState extends State<StationDetailScreen> {
+  double maxCap = 500.0;
+
+  double co2Kg = 0.0;
+
+  double totalKg = 0;
+
+  bool isLoading = true;
+
+  bool isFull = false;
+
+  List<Map<String, dynamic>> materials = [];
+  int capacity = 0;
+  int remainingKg = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchStationData();
+  }
+
+  Future<void> fetchStationData() async {
+    setState(() => isLoading = true);
+
+    try {
+      final data = await Supabase.instance.client
+          .from('recyclestation')
+          .select()
+          .eq('station_id', widget.station.stationId!)
+          .maybeSingle();
+
+      if (data == null) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final plasticRaw   = data['plastic_storage'];
+      final glassRaw     = data['glasses_storage'];
+      final cardboardRaw = data['cardboard_storage'];
+      final metalRaw     = data['metal_storage'];
+
+      final plastic   = (plasticRaw as num?)?.toDouble();
+      final glass     = (glassRaw as num?)?.toDouble();
+      final cardboard = (cardboardRaw as num?)?.toDouble();
+      final metal     = (metalRaw as num?)?.toDouble();
+
+      final total =
+          (plastic ?? 0) +
+              (glass ?? 0) +
+              (cardboard ?? 0) +
+              (metal ?? 0);
+
+      maxCap = (data['station_capacity'] as num?)?.toDouble() ?? 500.0;
+
+      final full = total >= maxCap;
+
+      // ♻️ 每种材料的 CO2 减排系数（kg CO2 / kg）
+      const plasticFactor = 6.0;
+      const glassFactor = 0.5;
+      const cardboardFactor = 3.0;
+      const metalFactor = 9.0;
+
+      // ✅ 计算 CO2
+      final co2 =
+          ((plastic ?? 0) * plasticFactor) +
+              ((glass ?? 0) * glassFactor) +
+              ((cardboard ?? 0) * cardboardFactor) +
+              ((metal ?? 0) * metalFactor);
+
+      // ✅ 一次 setState
+      setState(() {
+        materials = [
+          {
+            'label': 'Plastic',
+            'icon': Icons.recycling,
+            'level': plastic ?? 0,
+            'hasMaterial': plasticRaw != null,
+          },
+          {
+            'label': 'Glass',
+            'icon': Icons.wine_bar_outlined,
+            'level': glass ?? 0,
+            'hasMaterial': glassRaw != null,
+          },
+          {
+            'label': 'Cardboard',
+            'icon': Icons.description_outlined,
+            'level': cardboard ?? 0,
+            'hasMaterial': cardboardRaw != null,
+          },
+          {
+            'label': 'Metal',
+            'icon': Icons.settings,
+            'level': metal ?? 0,
+            'hasMaterial': metalRaw != null,
+          },
+        ];
+
+        capacity = ((total / maxCap) * 100).clamp(0, 100).toInt();
+        remainingKg = (maxCap - total).clamp(0, maxCap).toInt();
+        isFull = full;
+        co2Kg = co2;
+        isLoading = false;
+        totalKg = total;
+      });
+
+    } catch (e) {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,43 +141,52 @@ class StationDetailScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF4F7F4),
       body: Column(
         children: [
-          // ── Top bar ──────────────────────────────────────────────────
-          _TopBar(stationName: station['name'] ?? 'Station'),
+          _TopBar(stationName: widget.station.stationName ?? 'Station'),
 
-          // ── Scrollable content ───────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 100),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Station header card
-                  _StationHeaderCard(station: station),
 
-                  // Map thumbnail
+                  _StationHeaderCard(
+                    station: widget.station,
+                    distanceKm: widget.distanceKm,
+                    co2Kg: co2Kg,
+                    duration: widget.duration,
+                    routeDistance: widget.routeDistance,
+                  ),
+
                   _MapThumbnail(
-                    lat: station['lat'] ?? 3.1390,
-                    lng: station['lng'] ?? 101.6869,
+                    lat: widget.station.latitude ?? 3.1390,
+                    lng: widget.station.longitude ?? 101.6869,
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Real-time capacity
-                  _CapacityCard(capacity: 80, remainingKg: 240),
+                  // ✅ 用 DB
+                  _CapacityCard(
+                    capacity: capacity,
+                    remainingKg: remainingKg,
+                    usedKg: totalKg,
+                    maxCapKg: maxCap,
+                  ),
 
                   const SizedBox(height: 16),
 
-                  // Supported materials
                   const _SectionLabel(label: 'SUPPORTED MATERIALS'),
                   const SizedBox(height: 8),
-                  _MaterialsGrid(materials: _materials),
 
-                  const SizedBox(height: 16),
+                  // ✅ 用 DB
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _MaterialsGrid(
+                    materials: materials,
+                    totalKg: totalKg, // ✅ 加这个
+                    maxCap: maxCap,
+                  ),
 
-                  // Historical activity
-                  const _SectionLabel(label: 'HISTORICAL ACTIVITY'),
-                  const SizedBox(height: 8),
-                  _ActivityList(history: _history),
                 ],
               ),
             ),
@@ -88,9 +194,11 @@ class StationDetailScreen extends StatelessWidget {
         ],
       ),
 
-      // ── Floating scan CTA ──────────────────────────────────────────
       bottomNavigationBar: _ScanCTA(
-        onTap: () => Navigator.push(
+        disabled: isFull,
+        onTap: isFull
+            ? null
+            : () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const QrScanScreen()),
         ),
@@ -161,11 +269,31 @@ class _TopBar extends StatelessWidget {
 }
 
 class _StationHeaderCard extends StatelessWidget {
-  final Map<String, dynamic> station;
-  const _StationHeaderCard({required this.station});
+  final RecycleStation station;
+  final double distanceKm;
+  final double co2Kg;
+
+  final String? duration;
+  final String? routeDistance;
+
+  const _StationHeaderCard({
+    required this.station,
+    required this.distanceKm,
+    required this.co2Kg,
+    this.duration,
+    this.routeDistance,
+  });
 
   @override
   Widget build(BuildContext context) {
+    String displayDistance;
+
+    if (routeDistance != null && routeDistance!.isNotEmpty) {
+      displayDistance = routeDistance!;
+    } else {
+      displayDistance = '${distanceKm.toStringAsFixed(1)} km';
+    }
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
@@ -175,13 +303,6 @@ class _StationHeaderCard extends StatelessWidget {
           // Station ID + Active badge
           Row(
             children: [
-              Text(
-                'STATION ID: #0824-LX',
-                style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 12,
-                    letterSpacing: 0.5),
-              ),
               const Spacer(),
               Container(
                 padding:
@@ -206,7 +327,7 @@ class _StationHeaderCard extends StatelessWidget {
 
           // Station name
           Text(
-            station['name'] ?? 'Station',
+            station.stationName ?? 'Station',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -222,9 +343,9 @@ class _StationHeaderCard extends StatelessWidget {
               const Icon(Icons.location_on_outlined,
                   color: Color(0xFF666), size: 14),
               const SizedBox(width: 4),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '124 High Street, Ecosystem District, Metropolis',
+                  station.address ?? 'No address',
                   style: TextStyle(color: Color(0xFF666666), fontSize: 13),
                 ),
               ),
@@ -232,11 +353,28 @@ class _StationHeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
+          if (duration != null && displayDistance.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$duration • $displayDistance',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+
           // Navigate + Share buttons
           Row(
             children: [
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pop(context, station); // 👈 把站点传回去
+                },
                 icon: const Icon(Icons.navigation,
                     size: 16, color: Colors.white),
                 label: const Text('Navigate',
@@ -273,19 +411,22 @@ class _StationHeaderCard extends StatelessWidget {
           Row(
             children: [
               _StatTile(
-                value: '0.8km',
-                label: 'DISTANCE FROM YOU',
+                value: displayDistance,
+                label: 'Distance',
                 icon: Icons.location_on,
-                iconColor: const Color(0xFF1DB954),
-                bgColor: const Color(0xFF1DB954),
+                iconColor: Colors.black,
+                bgColor: const Color(0xFFF5F5F5),
+                isBordered: true,
               ),
               const SizedBox(width: 12),
               _StatTile(
-                value: '1.2k',
-                label: 'CO2 OFFSET (KG)',
+                value: co2Kg >= 1000
+                    ? '${(co2Kg / 1000).toStringAsFixed(1)}k'
+                    : co2Kg.toStringAsFixed(0),
+                label: 'CO₂ Saved',
                 icon: Icons.bolt,
-                iconColor: const Color(0xFF1DB954),
-                bgColor: Colors.white,
+                iconColor: Colors.black,
+                bgColor: const Color(0xFFF5F5F5),
                 isBordered: true,
               ),
             ],
@@ -315,11 +456,13 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDarkBg = !isBordered;
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isBordered ? Colors.white : const Color(0xFFEAF7EE),
+          color: bgColor, // ✅ 用你传进来的颜色！
           borderRadius: BorderRadius.circular(14),
           border: isBordered
               ? Border.all(color: const Color(0xFFDDEEDD), width: 1)
@@ -328,23 +471,40 @@ class _StatTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: iconColor, size: 20),
+            // 🔹 icon + label
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color: isDarkBg ? Colors.white : iconColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDarkBg
+                        ? Colors.white   // ✅ 绿色背景 → 白字
+                        : Colors.black87, // 白背景 → 灰字
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+
             const SizedBox(height: 8),
+
+            // 🔹 value
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF0D1F0D),
+                color: isDarkBg
+                    ? Colors.white   // ✅ 绿色背景 → 白字
+                    : Colors.black,
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF888),
-                  letterSpacing: 0.3),
             ),
           ],
         ),
@@ -392,10 +552,26 @@ class _MapThumbnail extends StatelessWidget {
 class _CapacityCard extends StatelessWidget {
   final int capacity; // 0–100
   final int remainingKg;
-  const _CapacityCard({required this.capacity, required this.remainingKg});
+  final double maxCapKg;
+  final double usedKg;
+
+  const _CapacityCard({
+    required this.capacity,
+    required this.remainingKg,
+    required this.usedKg,
+    this.maxCapKg = 500,
+  });
+
+  Color _color(int pct) {
+    if (pct >= 100) return Colors.red;
+    if (pct >= 80)  return Colors.orange;
+    return const Color(0xFF1DB954);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final color   = _color(capacity);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -407,42 +583,76 @@ class _CapacityCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── row 1: label + percent ────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'REAL-TIME CAPACITY',
                   style: TextStyle(
-                      color: Color(0xFF888),
-                      fontSize: 11,
-                      letterSpacing: 0.5),
+                    color: Color(0xFF888),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
                 ),
                 Text(
                   '$capacity%',
-                  style: const TextStyle(
-                    color: Color(0xFF1DB954),
+                  style: TextStyle(
+                    color: color,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
+
+            // ── row 2: total capacity tag ─────────────────────────
+            const SizedBox(height: 4),
+            Text(
+              'Total capacity: ${maxCapKg.toStringAsFixed(0)} kg',
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+
             const SizedBox(height: 10),
+
+            // ── progress bar ──────────────────────────────────────
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
                 value: capacity / 100,
                 minHeight: 10,
                 backgroundColor: const Color(0xFFEEEEEE),
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF1DB954)),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Estimated ${remainingKg}kg space remaining',
-              style: const TextStyle(
-                  color: Color(0xFF999), fontSize: 12),
+
+            const SizedBox(height: 8),
+
+            // ── row 3: used / remaining ───────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Used: ${usedKg.toStringAsFixed(0)} kg',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  'Remaining: ${remainingKg} kg',
+                  style: const TextStyle(
+                    color: Color(0xFF888),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -474,7 +684,14 @@ class _SectionLabel extends StatelessWidget {
 
 class _MaterialsGrid extends StatelessWidget {
   final List<Map<String, dynamic>> materials;
-  const _MaterialsGrid({required this.materials});
+  final double totalKg; // ✅ 加这个
+  final double maxCap;
+
+  const _MaterialsGrid({
+    required this.materials,
+    required this.totalKg,
+    required this.maxCap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -487,42 +704,144 @@ class _MaterialsGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 2.2,
+          childAspectRatio: 1.65,
         ),
         itemCount: materials.length,
         itemBuilder: (_, i) {
           final m = materials[i];
-          final bool active = m['active'] as bool;
+
+          final bool hasMaterial = m['hasMaterial'] == true;
+          final dynamic rawLevel = m['level'];
+          final double level = (rawLevel as num? ?? 0).toDouble();
+
+          // ✅ 重点：算 percent
+          final percent = (level / maxCap).clamp(0.0, 1.0);
+          final bool isFull = level >= maxCap;
+          final int pctInt = (percent * 100).round();
+
+          Color color;
+
+          if (!hasMaterial) {
+            color = Colors.grey;
+          } else if (isFull) {
+            color = Colors.red;
+          } else if (percent >= 0.9) {
+            color = Colors.orange;
+          } else if (percent >= 0.6) {
+            color = Colors.yellow.shade700;
+          } else {
+            color = const Color(0xFF1DB954);
+          }
+
           return Container(
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: active
-                  ? Border.all(
-                  color: const Color(0xFF1DB954), width: 1.5)
-                  : null,
+              border: Border.all(color: color.withOpacity(0.35), width: 1.2),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  m['icon'] as IconData,
-                  color: active
-                      ? const Color(0xFF1DB954)
-                      : const Color(0xFFAAAAAA),
-                  size: 20,
+
+                // ── Row: icon + label  |  percent badge ──────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(m['icon'] as IconData, color: color, size: 16),
+                        const SizedBox(width: 5),
+                        Text(
+                          m['label'] as String,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // ── percent badge (右上角) ──────────────────
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        hasMaterial ? '$pctInt%' : '--',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
+
+                const SizedBox(height: 6),
+
+                // ── kg text ──────────────────────────────────────
                 Text(
-                  m['label'] as String,
+                  !hasMaterial
+                      ? 'Not Available'
+                      : isFull
+                      ? 'FULL'
+                      : level == 0
+                      ? 'Empty'
+                      : '${level.toStringAsFixed(0)} kg (${pctInt}%)',
                   style: TextStyle(
-                    color: active
-                        ? const Color(0xFF0D1F0D)
-                        : const Color(0xFFAAAAAA),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                    color: isFull ? Colors.red : const Color(0xFF888),
+                    fontWeight:
+                    isFull ? FontWeight.w700 : FontWeight.normal,
                   ),
                 ),
+
+                const SizedBox(height: 6),
+
+                // ── animated progress bar ─────────────────────────
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: TweenAnimationBuilder<double>(
+                    key: ValueKey(percent),
+                    tween: Tween(begin: 0, end: percent),
+                    duration: const Duration(milliseconds: 800),
+                    builder: (_, value, __) => LinearProgressIndicator(
+                      value: value,
+                      minHeight: 5,
+                      backgroundColor: const Color(0xFFEEEEEE),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  ),
+                ),
+
+                // ── FULL badge (only when full) ───────────────────
+                if (isFull) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'FULL',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           );
@@ -616,9 +935,13 @@ class _ActivityList extends StatelessWidget {
 }
 
 class _ScanCTA extends StatelessWidget {
-  final VoidCallback onTap;
-  const _ScanCTA({required this.onTap});
+  final VoidCallback? onTap;
+  final bool disabled;
 
+  const _ScanCTA({
+    this.onTap,
+    this.disabled = false,
+  });
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -626,32 +949,37 @@ class _ScanCTA extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(
           16, 10, 16, MediaQuery.of(context).padding.bottom + 10),
       child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D1F0D),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.qr_code_scanner,
-                  color: Color(0xFF1DB954), size: 20),
-              SizedBox(width: 10),
-              Text(
-                'SCAN QR TO START',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                  fontSize: 14,
+        onTap: disabled ? null : onTap,
+        child: Opacity(
+          opacity: disabled ? 0.5 : 1,
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: disabled
+                  ? Colors.grey   // 👈 灰掉
+                  : const Color(0xFF0D1F0D),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.qr_code_scanner,
+                    color: Color(0xFF1DB954), size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  disabled ? 'STATION FULL' : 'SCAN QR TO START', // 👈 关键
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+      )
     );
   }
 }
