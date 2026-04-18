@@ -65,9 +65,9 @@ class NotificationService {
     double? points,
   }) async {
     final title = "Appeal ${status[0].toUpperCase()}${status.substring(1)}";
-    final message = status.toLowerCase() == 'approved' 
-      ? "Your appeal has been approved! You've been awarded ${points?.toInt() ?? 0} points."
-      : "Your appeal has been rejected. Please check the appeal details for more info.";
+    final message = status.toLowerCase() == 'approved'
+        ? "Your appeal has been approved! You've been awarded ${points?.toInt() ?? 0} points."
+        : "Your appeal has been rejected. Please check the appeal details for more info.";
 
     await sendToUser(
       userId: userId,

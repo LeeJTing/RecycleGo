@@ -362,26 +362,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   
-                  const SizedBox(height: 30),
-                  // OR CONTINUE WITH
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: theme.border, thickness: 1)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('OR CONTINUE WITH', style: TextDesign.label(fontSize: 10, color: theme.onHint)),
-                      ),
-                      Expanded(child: Divider(color: theme.border, thickness: 1)),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  SocialAuthButton(
-                    text: 'Google',
-                    assetIcon: '${imagePath}google_logo.png',
-                    onPressed: () {},
-                  ),
-                  
                   const SizedBox(height: 24),
                   // Login Link
                   Row(
