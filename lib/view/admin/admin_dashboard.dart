@@ -9,8 +9,11 @@ import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/models/RedeemedVouchers.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
+import 'package:recycle_go/view/admin/admin_view_purchase.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
+
+import 'admin_recycle_category.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -182,9 +185,43 @@ class _AdminDashboardState extends State<AdminDashboard> {
               theme: theme,
             ),
 
+            const SizedBox(height: 32),
+            Text("Category Management", style: TextDesign.headingThree()),
+            const SizedBox(height: 16),
+
+            _buildManagementTile(
+              context,
+              icon: Icons.category_outlined,
+              title: "Category Management",
+              subtitle: "Define materials, labels, and AI points",
+              route: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminRecycleCategory()),
+                );
+              },
+
+              theme: theme,
+            ),
+
+            const SizedBox(height: 32),
+            Text("Purchase Management", style: TextDesign.headingThree()),
+            const SizedBox(height: 16),
+
+            _buildManagementTile(
+              context,
+              icon: Icons.category_outlined,
+              title: "Purchase Management",
+              subtitle: "Review and update user sales requests",
+              route: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminViewPurchase()),
+                );
+              },
+              theme: theme,
+            ),
             const SizedBox(height: 40), // Bottom padding
-
-
           ],
         ),
       ),
