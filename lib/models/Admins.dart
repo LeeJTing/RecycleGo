@@ -1,3 +1,4 @@
+import 'package:recycle_go/app/default_url.dart';
 import 'package:recycle_go/models/Connector.dart';
 import 'package:recycle_go/utils/hashing.dart';
 
@@ -47,6 +48,10 @@ class Admins {
     if (createdAt != null) data['created_at'] = createdAt!.toIso8601String();
     if (hashedPassword != null) data['hashed_password'] = hashedPassword;
     return data;
+  }
+
+  String getProfilePhotoURL() {
+    return AdminsModel().getAdminProfileURL(profilePhoto);
   }
 
   Admins copyWith({
@@ -108,13 +113,10 @@ class AdminsModel extends Connector {
 
   Future<Admins> updateAdmin(Admins admin) async {
     final Map<String, dynamic> updateData = admin.toJson();
-    
-    // Ensure hashedPassword is not overwritten with null if not provided
-    if (admin.hashedPassword == null) {
-      updateData.remove('hashed_password');
-    } else {
-      updateData['hashed_password'] = Hashing.hashString(admin.hashedPassword!);
-    }
+
+    // We remove hashedPassword from the update payload entirely in updateAdmin.
+    // Password updates should only happen via updateAdminPassword which explicitly handles hashing.
+    updateData.remove('hashed_password');
 
     final response = await client
         .from('admins')
@@ -125,7 +127,8 @@ class AdminsModel extends Connector {
     return Admins.fromJson(response);
   }
 
-  Future<void> updateAdminPassword(String adminId, String hashedPassword) async {
+  Future<void> updateAdminPassword(String adminId, String plainPassword) async {
+    final String hashedPassword = Hashing.hashString(plainPassword);
     await client
         .from('admins')
         .update({'hashed_password': hashedPassword})
@@ -161,6 +164,10 @@ class AdminsModel extends Connector {
         .order('created_at', ascending: false);
     
     return (response as List).map((json) => Admins.fromJson(json)).toList();
+  }
+
+  String getAdminProfileURL(String? profilePhoto) {
+    return storage.getPublicUrl(DefaultUrl.profilesBucket, profilePhoto != null ? (DefaultUrl.adminProfileHeader + profilePhoto) : DefaultUrl.userDefaultProfilePath);
   }
 
   Future<Admins> insertAdmin(Admins admin) async {
