@@ -11,6 +11,8 @@ import 'dart:ui' as ui;
 import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -105,6 +107,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
   @override
   void initState() {
+    _qrCtrl.addListener(() {
+      setState(() {});
+    });
+
     super.initState();
     _latCtrl.addListener(() => setState(() {}));
 
@@ -148,14 +154,24 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
     String? finalImageUrl = _imageUrl;
 
-    String? qrImageUrl;
+    // ✅ 先决定最终 QR value
+    final finalQrValue = _qrCtrl.text.trim().isEmpty
+        ? 'ECO-${DateTime.now().millisecondsSinceEpoch}'
+        : _qrCtrl.text.trim();
 
-    final qrText = _qrCtrl.text.trim();
+    final hash = md5.convert(utf8.encode(finalQrValue)).toString();
 
-    if (qrText.isNotEmpty) {
-      final qrFile = await generateQrImage(qrText);
+    String? qrImageUrl = widget.station?.qrImageUrl;
 
-      final path = 'qr/qr_${DateTime.now().millisecondsSinceEpoch}.png';
+    final isQrChanged = widget.station == null ||
+        finalQrValue != widget.station!.qrCodeValue ||
+        widget.station?.qrImageUrl == null;
+
+    if (isQrChanged) {
+      final qrFile = await generateQrImage(finalQrValue);
+
+      // ✅ 固定路径（关键）
+      final path = 'qr/$hash.png';
 
       await storage.uploadImage(
         bucketName: 'station-images',
@@ -163,9 +179,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
         file: qrFile,
       );
 
-      qrImageUrl = storage.getPublicUrl('station-images', path);
-
-      print("QR URL => $qrImageUrl");
+      // ✅ CDN cache bust
+      qrImageUrl = storage
+          .getPublicUrl('station-images', path) +
+          '?v=${DateTime.now().millisecondsSinceEpoch}';
     }
 
     if (_selectedImage != null) {
@@ -203,8 +220,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
           final uri = Uri.parse(oldImageUrl);
           final segments = uri.pathSegments;
 
-          final index = segments.indexOf('station-images');
-          final oldPath = segments.sublist(index + 1).join('/');
+          final oldPath = uri.pathSegments
+              .skipWhile((e) => e != 'station-images')
+              .skip(1)
+              .join('/');
 
           await client.storage
               .from('station-images')
@@ -297,9 +316,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
           ? (double.tryParse(_metalCtrl.text) ?? 0)
           : null,
 
-      qrCodeValue: _qrCtrl.text.trim().isEmpty
-          ? 'ECO-${DateTime.now().millisecondsSinceEpoch}'
-          : _qrCtrl.text.trim(),
+      qrCodeValue: finalQrValue,
 
       createdAt: _isEdit
           ? widget.station!.createdAt
