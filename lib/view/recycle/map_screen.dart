@@ -8,7 +8,6 @@ import 'package:recycle_go/view/recycle/station_detail_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -18,187 +17,6 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  Set<String> _favorites = {};
-
-  void _onMapIdle() {
-    if (_isManualMove) return;
-    if (_filteredStations.isEmpty) return;
-
-    if (_mapController == null) return;
-
-    if (_lastCameraPosition == null) return;
-
-    final centerLatLng = _lastCameraPosition!.target;
-
-    // 找最近的 station
-    RecycleStation? nearest;
-    double minDistance = double.infinity;
-
-    for (var s in _filteredStations) {
-      final d = Geolocator.distanceBetween(
-        centerLatLng.latitude,
-        centerLatLng.longitude,
-        s.latitude,
-        s.longitude,
-      );
-
-      if (d < minDistance) {
-        minDistance = d;
-        nearest = s;
-      }
-    }
-
-    if (nearest == null) return;
-
-    final index = _filteredStations.indexWhere(
-          (e) => e.stationId == nearest!.stationId,
-    );
-
-    if (index != -1 && index != _currentIndex) {
-      setState(() {
-        _selectedStation = nearest;
-        _currentIndex = index;
-      });
-
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-
-      _getRouteInfo(nearest);
-    }
-  }
-
-  Future<void> _fetchRoute(RecycleStation s, {bool draw = false}) async {
-    if (s.stationId == null) return;
-
-    final stationId = s.stationId!;
-    final mode = _travelMode;
-
-    // ✅ 1. 先查 cache（只针对 duration / distance）
-    if (!draw && _durationCache[stationId]?[mode] != null) {
-      setState(() {
-        _durations[stationId] = _durationCache[stationId]![mode]!;
-        _distances[stationId] = _distanceCache[stationId]![mode]!;
-      });
-      return;
-    }
-
-    // ✅ 2. call API（只 call 一次）
-    final url =
-        'https://maps.googleapis.com/maps/api/directions/json'
-        '?origin=${_currentPosition.latitude},${_currentPosition.longitude}'
-        '&destination=${s.latitude},${s.longitude}'
-        '&mode=$mode'
-        '&departure_time=now'
-        '&key=YOUR_API_KEY'; // ❗记得换掉
-
-    final res = await http.get(Uri.parse(url));
-    final data = json.decode(res.body);
-
-    // ❗加这个（很关键）
-    if (data['status'] != 'OK' || data['routes'].isEmpty) {
-      setState(() {
-        _durations[stationId] = "No route";
-        _distances[stationId] = "-";
-      });
-      return;
-    }
-
-    final route = data['routes'][0];
-    final leg = route['legs'][0];
-
-    final duration = leg['duration']['text'];
-    final distance = leg['distance']['text'];
-
-    // ✅ 3. 存 cache
-    _durationCache.putIfAbsent(stationId, () => {});
-    _distanceCache.putIfAbsent(stationId, () => {});
-    _durationCache[stationId]![mode] = duration;
-    _distanceCache[stationId]![mode] = distance;
-
-    // ✅ 4. 更新 UI（基础数据）
-    setState(() {
-      _durations[stationId] = duration;
-      _distances[stationId] = distance;
-    });
-
-    // ✅ 5. 如果需要画路线
-    if (draw) {
-      final points = route['overview_polyline']['points'];
-      final decoded = _decodePolyline(points);
-
-      setState(() {
-        _polylines.clear();
-        _polylines.add(
-          Polyline(
-            polylineId: PolylineId("route"),
-            points: decoded,
-            color: Colors.blue,
-            width: 5,
-          ),
-        );
-      });
-
-      // ✅ 自动 zoom 到路线
-      if (decoded.isNotEmpty) {
-        double minLat = decoded.first.latitude;
-        double maxLat = decoded.first.latitude;
-        double minLng = decoded.first.longitude;
-        double maxLng = decoded.first.longitude;
-
-        for (var p in decoded) {
-          if (p.latitude < minLat) minLat = p.latitude;
-          if (p.latitude > maxLat) maxLat = p.latitude;
-          if (p.longitude < minLng) minLng = p.longitude;
-          if (p.longitude > maxLng) maxLng = p.longitude;
-        }
-
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLngBounds(
-            LatLngBounds(
-              southwest: LatLng(minLat, minLng),
-              northeast: LatLng(maxLat, maxLng),
-            ),
-            100,
-          ),
-        );
-      }
-    }
-  }
-
-  void _selectStation(RecycleStation s) {
-    setState(() {
-      _selectedStation = s;
-    });
-
-    // 👉 移动地图
-    _isManualMove = true;
-
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLng(
-        LatLng(s.latitude - 0.002, s.longitude),
-      ),
-    ).then((_) {
-      _isManualMove = false;
-    });
-
-    // 👉 拿 route info
-    _fetchRoute(s);
-  }
-
-  List<RecycleStation> _filterStations(String query) {
-    if (query.isEmpty) return _stations;
-
-    return _stations.where((s) =>
-    s.stationName.toLowerCase().contains(query.toLowerCase()) ||
-        s.address.toLowerCase().contains(query.toLowerCase())
-    ).toList();
-  }
-
-  List<String> _searchHistory = [];
-
   final DraggableScrollableController _sheetController = DraggableScrollableController();
 
   final PageController _pageController =
@@ -304,8 +122,6 @@ class _MapScreenState extends State<MapScreen> {
 
     // ✅ 就放这里（最重要）
     if (decoded.isNotEmpty) {
-      _isManualMove = true;
-
       _mapController?.animateCamera(
         CameraUpdate.newLatLngBounds(
           LatLngBounds(
@@ -319,9 +135,8 @@ class _MapScreenState extends State<MapScreen> {
             )),
           ),
           100,
-        ),).then((_) {
-        _isManualMove = false;
-      });
+        ),
+      );
     }
   }
 
@@ -473,7 +288,6 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── Map controller ────────────────────────────────────────────────
   GoogleMapController? _mapController;
-  CameraPosition? _lastCameraPosition;
 
   // ── Location state ────────────────────────────────────────────────
   LatLng _currentPosition = const LatLng(3.1390, 101.6869); // KL fallback
@@ -484,7 +298,6 @@ class _MapScreenState extends State<MapScreen> {
   RecycleStation? _selectedStation;
   Set<Marker> _markers = {};
   bool _isLoading = true;
-  bool _isManualMove = false;
   String? _error;
 
   // ── Search ────────────────────────────────────────────────────────
@@ -496,53 +309,6 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _initLocation();
     _loadStations();
-    _loadSearchHistory();
-    _loadFavorites();
-  }
-
-  Future<void> _loadFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = prefs.getStringList('favorites') ?? [];
-
-    setState(() {
-      _favorites = list.toSet();
-    });
-  }
-
-  Future<void> _toggleFavorite(String stationId) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    setState(() {
-      if (_favorites.contains(stationId)) {
-        _favorites.remove(stationId);
-      } else {
-        _favorites.add(stationId);
-      }
-    });
-
-    await prefs.setStringList('favorites', _favorites.toList());
-  }
-
-  Future<void> _loadSearchHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _searchHistory = prefs.getStringList('search_history') ?? [];
-    });
-  }
-
-  Future<void> _saveSearch(String query) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    _searchHistory.remove(query);
-    _searchHistory.insert(0, query);
-
-    if (_searchHistory.length > 5) {
-      _searchHistory = _searchHistory.sublist(0, 5);
-    }
-
-    await prefs.setStringList('search_history', _searchHistory);
-
-    setState(() {}); // 👈 记得刷新 UI
   }
 
   @override
@@ -581,15 +347,11 @@ class _MapScreenState extends State<MapScreen> {
       print("Lat: ${_currentPosition.latitude}, Lng: ${_currentPosition.longitude}");
 
       // Move camera to user location once map is ready
-      _isManualMove = true;
-
       _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(target: _currentPosition, zoom: 14.5),
         ),
-      ).then((_) {
-        _isManualMove = false;
-      });
+      );
 
       // Re-sort stations by distance now that we have real location
       if (_stations.isNotEmpty) _sortAndRebuildMarkers();
@@ -685,10 +447,6 @@ class _MapScreenState extends State<MapScreen> {
 
   // ── 4. Search filter ──────────────────────────────────────────────
   void _onSearch(String query) {
-    if (query.isNotEmpty) {
-      _saveSearch(query);
-    }
-
     final results = query.isEmpty
         ? _stations
         : _stations.where((s) =>
@@ -704,7 +462,9 @@ class _MapScreenState extends State<MapScreen> {
     if (results.isNotEmpty) {
       final s = results.first;
 
-      _selectStation(s);
+      setState(() {
+        _selectedStation = s;
+      });
 
       // 👉 移动地图
       _mapController?.animateCamera(
@@ -736,8 +496,6 @@ class _MapScreenState extends State<MapScreen> {
       _distances.clear();
     });
 
-    _isManualMove = true;
-
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
@@ -748,9 +506,7 @@ class _MapScreenState extends State<MapScreen> {
           zoom: 15,
         ),
       ),
-    ).then((_) {
-      _isManualMove = false;
-    });
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────
@@ -770,9 +526,6 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           // ── Google Map ──────────────────────────────────────────
           GoogleMap(
-            onCameraMove: (position) {
-              _lastCameraPosition = position;
-            },
             initialCameraPosition: CameraPosition(
               target: LatLng(
                 _currentPosition.latitude - 0.002,
@@ -782,7 +535,6 @@ class _MapScreenState extends State<MapScreen> {
             ),
             markers: _markers,
             polylines: _polylines,
-            onCameraIdle: _onMapIdle,
             onMapCreated: (controller) {
               _mapController = controller;
               // If we already have GPS by the time map loads, move there
@@ -797,10 +549,7 @@ class _MapScreenState extends State<MapScreen> {
             myLocationButtonEnabled: false, // we use our own FAB
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
-            onTap: (_) {
-              FocusScope.of(context).unfocus(); // 👈 再保险一次
-              setState(() => _selectedStation = null);
-            },
+            onTap: (_) => setState(() => _selectedStation = null),
           ),
 
           // ── Top bar ─────────────────────────────────────────────
@@ -862,7 +611,9 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ],
                   ),
-                ),Padding(
+                ),
+                // Search bar
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
                     decoration: BoxDecoration(
@@ -879,89 +630,28 @@ class _MapScreenState extends State<MapScreen> {
                     child: TextField(
                       controller: _searchCtrl,
                       onChanged: (value) {
-                        if (value.isEmpty) {
-                          setState(() {
-                            _filteredStations = _stations;
-                          });
-                        } else {
-                          setState(() {
-                            _filteredStations = _filterStations(value);
-                          });
-                        }
+                        setState(() {
+                          _filteredStations = _stations.where((s) =>
+                              s.stationName.toLowerCase().contains(value.toLowerCase())
+                          ).toList();
+                        });
                       },
-                      onSubmitted: (value) {
-                        FocusScope.of(context).unfocus(); // 👈 顺便收键盘
-                        _onSearch(value);
-                      },
+                      onSubmitted: _onSearch,
                       decoration: InputDecoration(
                         hintText: 'Search recycle stations..',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
-                        suffixIcon: const Icon(Icons.tune, color: Color(0xFF1DB954), size: 20),
+                        hintStyle: TextStyle(
+                            color: Colors.grey[400], fontSize: 14),
+                        prefixIcon: Icon(Icons.search,
+                            color: Colors.grey[400], size: 20),
+                        suffixIcon: const Icon(Icons.tune,
+                            color: Color(0xFF1DB954), size: 20),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        contentPadding:
+                        const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
                   ),
                 ),
-
-                // 3. 搜索历史 (放在搜索框下面，并增加装饰)
-                if (_searchCtrl.text.isEmpty && _searchHistory.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(24, 10, 24, 0), // 左右边距比搜索框稍大一点，更有层次感
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: _searchHistory.take(3).map((item) { // 只取最近3条，防止遮挡地图太多
-                        return ListTile(
-                          dense: true, // 使行高更紧凑
-                          leading: const Icon(Icons.history, size: 18, color: Colors.grey),
-                          title: Text(
-                            item,
-                            style: const TextStyle(fontSize: 14, color: Color(0xFF333333)),
-                          ),
-                          trailing: GestureDetector(
-                            onTap: () async {
-                              final prefs = await SharedPreferences.getInstance();
-
-                              _searchHistory.remove(item);
-                              await prefs.setStringList('search_history', _searchHistory);
-
-                              if (_searchCtrl.text == item) {
-                                _searchCtrl.clear();
-
-                                setState(() {
-                                  _filteredStations = _stations;
-                                });
-
-                                // 👉 optional：回到最近站点
-                                if (_stations.isNotEmpty) {
-                                  _selectStation(_stations.first);
-                                }
-                              }
-
-                              setState(() {});
-                            },
-                            child: const Icon(Icons.close, size: 16, color: Colors.red),
-                          ), // 提示点击可填入
-                          onTap: () {
-                            _searchCtrl.text = item;
-                            _onSearch(item);
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -1161,15 +851,11 @@ class _MapScreenState extends State<MapScreen> {
                             _getRouteInfo(s);
                           });
 
-                          _isManualMove = true;
-
                           _mapController?.animateCamera(
                             CameraUpdate.newLatLng(
                               LatLng(s.latitude - 0.002, s.longitude),
                             ),
-                          ).then((_) {
-                            _isManualMove = false;
-                          });
+                          );
 
                         },
 
@@ -1226,14 +912,12 @@ class _MapScreenState extends State<MapScreen> {
                                 child: _StationCard(
                                   station: s,
                                   distance: _formatDistance(s),
-                                  duration: s.stationId != null ? _durations[s.stationId!] : null,
-                                  routeDistance: s.stationId != null ? _distances[s.stationId!] : null,
-                                  isFav: s.stationId != null && _favorites.contains(s.stationId!),
-                                  onFavoriteToggle: () {
-                                    if (s.stationId != null) {
-                                      _toggleFavorite(s.stationId!);
-                                    }
-                                  },
+                                  duration: _selectedStation?.stationId == s.stationId && s.stationId != null
+                                      ? _durations[s.stationId!]
+                                      : null,
+                                  routeDistance: _selectedStation?.stationId == s.stationId
+                                      ? _distances[s.stationId]
+                                      : null,
                                   onDirections: () async {
                                     if (!context.mounted) return;
 
@@ -1326,15 +1010,11 @@ class _StationCard extends StatelessWidget {
   final VoidCallback onDirections;
   final String? duration;
   final String? routeDistance;
-  final bool isFav;
-  final VoidCallback onFavoriteToggle;
 
   const _StationCard({
     required this.station,
     required this.distance,
     required this.onDirections,
-    required this.isFav,
-    required this.onFavoriteToggle,
     this.duration,
     this.routeDistance,
   });
@@ -1410,9 +1090,7 @@ class _StationCard extends StatelessWidget {
                             ),
                             // Capacity badge
                             _CapacityBadge(
-                              totalKg: station.stationCapacity,
-                              usedKg: station.totalCapacity,
-                            ),
+                                totalKg: station.totalCapacity),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -1510,17 +1188,12 @@ class _StationCard extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
+                      color: const Color(0xFFF5F5F5),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: IconButton(
-                      icon: Icon(
-                        isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav ? Colors.red : const Color(0xFF1DB954),
-                      ),
-                      onPressed: onFavoriteToggle,
-                    ),
-                  )
+                    child: const Icon(Icons.favorite_border,
+                        color: Color(0xFF333), size: 20),
+                  ),
                 ],
               ),
             ),
@@ -1544,43 +1217,25 @@ class _StationIconPlaceholder extends StatelessWidget {
 
 class _CapacityBadge extends StatelessWidget {
   final double totalKg;
-  final double usedKg;
-
-  const _CapacityBadge({
-    required this.totalKg,
-    required this.usedKg,
-  });
+  const _CapacityBadge({required this.totalKg});
 
   @override
   Widget build(BuildContext context) {
-    final remaining = (totalKg - usedKg).clamp(0, totalKg);
-
-    final label = remaining >= 1000
-        ? '${(remaining / 1000).toStringAsFixed(1)}t left'
-        : '${remaining.toStringAsFixed(0)}kg left';
-
+    final label = totalKg >= 1000
+        ? '${(totalKg / 1000).toStringAsFixed(1)}t cap'
+        : '${totalKg.toStringAsFixed(0)}kg cap';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      padding:
+      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: remaining <= 0
-            ? Colors.red.shade100
-            : const Color(0xFFDDEEDD),
+        color: const Color(0xFFF0F4F0),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: remaining <= 0
-              ? Colors.red
-              : const Color(0xFFB8D8B8),
-        ),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: remaining <= 0
-              ? Colors.red
-              : const Color(0xFF155E2D),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
+        style: const TextStyle(
+            color: Color(0xFF666), fontSize: 10,
+            fontWeight: FontWeight.w500),
       ),
     );
   }

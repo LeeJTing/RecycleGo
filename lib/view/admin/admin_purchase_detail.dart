@@ -1,65 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-import 'package:recycle_go/models/Connector.dart';
 
-import '../../models/RecyclePurchases.dart';
-
-class AdminPurchaseDetail extends StatefulWidget {
-  final RecyclePurchases purchase;
-  final List<dynamic> items;
+class AdminPurchaseDetail extends StatelessWidget {
+  // Now accepting two distinct parameters
+  final Map<String, dynamic> purchase;
+  final List<Map<String, dynamic>> items;
 
   const AdminPurchaseDetail({
     super.key,
     required this.purchase,
-    required this.items,
+    required this.items, // Now required as a separate list
   });
-
-  @override
-  State<AdminPurchaseDetail> createState() => _AdminPurchaseDetailState();
-}
-
-class _AdminPurchaseDetailState extends State<AdminPurchaseDetail> {
-  bool _isLoadingItems = true;
-  List<Map<String, dynamic>> _fetchedItems = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchItems();
-  }
-
-  // --- DYNAMIC ITEM FETCHING ---
-  Future<void> _fetchItems() async {
-    try {
-      if (widget.purchase.purchaseId == null) {
-        setState(() => _isLoadingItems = false);
-        return;
-      }
-
-      final supabase = Supabase.instance.client;
-      final response = await supabase
-          .from('purchaseinventory')
-          .select('*, recycleinventory(inventory_name)')
-          .eq('purchase_id', widget.purchase.purchaseId!);
-
-      if (mounted) {
-        setState(() {
-          _fetchedItems = List<Map<String, dynamic>>.from(response);
-          _isLoadingItems = false;
-        });
-      }
-    } catch (e) {
-      print("Error fetching items: $e");
-      if (mounted) setState(() => _isLoadingItems = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
-    final purchase = widget.purchase;
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -79,31 +35,26 @@ class _AdminPurchaseDetailState extends State<AdminPurchaseDetail> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- 1. ORDER HEADER ---
+            // --- 1. ORDER & LOGISTICS ---
             _buildOrderHeader(purchase, theme),
             const SizedBox(height: 16),
 
-            // --- 2. CUSTOMER & LOCATION INFO ---
+            // --- 2. CUSTOMER INFO ---
             _buildCustomerStationCard(purchase, theme),
             const SizedBox(height: 24),
 
-            // --- 3. ITEMS PURCHASED ---
+            // --- 3. ITEMS PURCHASED (Using the 'items' parameter) ---
             Text("Items Purchased", style: TextDesign.headingThree()),
             const SizedBox(height: 12),
-            if (_isLoadingItems)
-              Center(child: CircularProgressIndicator(color: theme.primary))
-            else if (_fetchedItems.isEmpty)
-              Text("No items recorded.", style: TextDesign.smallText(color: theme.hint))
-            else
-              ..._fetchedItems.map((item) => _buildItemTile(item, theme)).toList(),
+            ...items.map((item) => _buildItemTile(item, theme)).toList(),
             const SizedBox(height: 24),
 
             // --- 4. SUMMARY ---
             _buildSummaryCard(purchase, theme),
             const SizedBox(height: 24),
 
-            // --- 5. PAYMENT INFO ---
-            Text("Payment Status", style: TextDesign.headingThree()),
+            // --- 5. PAYMENT METHOD ---
+            Text("Payment Method", style: TextDesign.headingThree()),
             const SizedBox(height: 12),
             _buildPaymentCard(purchase, theme),
 
@@ -121,7 +72,6 @@ class _AdminPurchaseDetailState extends State<AdminPurchaseDetail> {
   // --- REUSABLE UTILITIES ---
 
   Widget _buildItemTile(Map<String, dynamic> item, AppColors theme) {
-    final itemName = item['recycleinventory']?['inventory_name'] ?? "Recyclable Item";
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -134,12 +84,13 @@ class _AdminPurchaseDetailState extends State<AdminPurchaseDetail> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(itemName, style: TextDesign.mediumText()),
-                Text("${item['quantity_kg'] ?? '0.0'} kg  (@ RM ${item['price_per_kg']}/kg)", style: TextDesign.smallText()),
+                // Note: Using 'inventory_name' or similar from your items list
+                Text(item['inventory_name'] ?? "Recyclable Item", style: TextDesign.mediumText()),
+                Text("${item['quantity_kg'] ?? '0.0'} kg", style: TextDesign.smallText()),
               ],
             ),
           ),
-          Text("RM ${item['subtotal_price'] ?? '0.00'}", style: TextDesign.priceText(fontSize: 16)),
+          Text("RM ${item['subtotal_price']}", style: TextDesign.priceText(fontSize: 16)),
         ],
       ),
     );
@@ -168,92 +119,97 @@ class _AdminPurchaseDetailState extends State<AdminPurchaseDetail> {
     );
   }
 
-  // --- REWIRED UI CARDS ---
+  // ... (Keep _buildOrderHeader, _buildCustomerStationCard, _buildSummaryCard,
+  // _buildPaymentCard, _cardStyle, _iconLabelRow, _summaryRow, _statusBadge,
+  // _iconDetail, and _buildAdminBadge exactly as they were)
 
-  Widget _buildOrderHeader(RecyclePurchases p, AppColors theme) {
-    String dateStr = "Unknown Date";
-    if (p.createdAt != null) {
-      dateStr = "${p.createdAt!.year}-${p.createdAt!.month.toString().padLeft(2, '0')}-${p.createdAt!.day.toString().padLeft(2, '0')}";
-    }
-
+  Widget _buildOrderHeader(Map<String, dynamic> p, AppColors theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.successContainer.withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Order ID: ${p.purchaseId?.substring(0, 8).toUpperCase() ?? 'N/A'}",
-                  style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(dateStr, style: TextDesign.smallText()),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Order ID: ${p['purchase_id'].toString().substring(0, 8).toUpperCase()}",
+                      style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold)),
+                  Text(p['completed_at'] ?? "Pending Date", style: TextDesign.smallText()),
+                ],
+              ),
+              _statusBadge(p['order_status'], theme),
             ],
           ),
-          _statusBadge(p.paymentStatus, theme),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _iconDetail(Icons.local_shipping_outlined, "Type", p['fulfillment_type'] ?? "N/A", theme),
+              _iconDetail(Icons.fact_check_outlined, "Logistics", p['logistics_status'] ?? "N/A", theme),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomerStationCard(RecyclePurchases p, AppColors theme) {
+  Widget _buildCustomerStationCard(Map<String, dynamic> p, AppColors theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardStyle(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _iconLabelRow(Icons.person_outline, "User ID: ${p.userId}", theme, isBold: true),
-          if (p.pickupLocationName != null || p.pickupAddress != null) ...[
-            const Divider(height: 24),
-            _iconLabelRow(Icons.business_outlined, p.pickupLocationName ?? "Unknown Station", theme),
+          _iconLabelRow(Icons.person_outline, p['user_id'] ?? "Guest User", theme, isBold: true),
+          const Divider(height: 24),
+          _iconLabelRow(Icons.account_balance_outlined, "Station: ${p['station_id'] ?? 'N/A'}", theme),
+          if (p['pickup_address'] != null) ...[
             const SizedBox(height: 12),
-            _iconLabelRow(Icons.location_on_outlined, p.pickupAddress ?? "No address provided", theme),
-          ]
+            _iconLabelRow(Icons.location_on_outlined, p['pickup_address'], theme),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildSummaryCard(RecyclePurchases p, AppColors theme) {
+  Widget _buildSummaryCard(Map<String, dynamic> p, AppColors theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardStyle(theme),
       child: Column(
         children: [
-          _summaryRow("Subtotal", "RM ${p.totalPrice.toStringAsFixed(2)}", false, theme),
+          _summaryRow("Subtotal", "RM ${p['total_price']}", false, theme),
+          _summaryRow("Delivery Fee", "RM 0.00", false, theme),
           const Divider(height: 20),
-          _summaryRow("Total Price", "RM ${p.totalPrice.toStringAsFixed(2)}", true, theme),
+          _summaryRow("Total Price", "RM ${p['total_price']}", true, theme),
         ],
       ),
     );
   }
 
-  Widget _buildPaymentCard(RecyclePurchases p, AppColors theme) {
-    bool isSuccess = p.paymentStatus.toLowerCase() == 'success';
-    bool isFailed = p.paymentStatus.toLowerCase() == 'failed';
-
-    Color statusColor = isSuccess ? theme.success : (isFailed ? theme.error : theme.warning);
-    IconData statusIcon = isSuccess ? Icons.check_circle_outline : (isFailed ? Icons.error_outline : Icons.pending_actions);
-
+  Widget _buildPaymentCard(Map<String, dynamic> p, AppColors theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardStyle(theme),
       child: Column(
         children: [
-          _iconLabelRow(Icons.receipt_long_outlined, "TXN: ${p.purchaseId?.substring(0, 12).toUpperCase() ?? 'N/A'}", theme),
+          _iconLabelRow(Icons.credit_card_outlined, p['payment_method'] ?? "Credit Card •••• 4242", theme),
+          const SizedBox(height: 12),
+          _iconLabelRow(Icons.receipt_long_outlined, "TXN: ${p['purchase_id'].toString().substring(0, 12).toUpperCase()}", theme),
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(statusIcon, size: 18, color: statusColor),
+              Icon(Icons.check_circle_outline, size: 18, color: theme.success),
               const SizedBox(width: 10),
-              Text("Status: ", style: TextDesign.smallText()),
-              Text(p.paymentStatus.toUpperCase(),
-                  style: TextDesign.smallText(color: statusColor).copyWith(fontWeight: FontWeight.bold)),
+              Text("Payment Status: ", style: TextDesign.smallText()),
+              Text((p['payment_status'] ?? "Success").toUpperCase(),
+                  style: TextDesign.smallText(color: theme.success).copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
         ],
@@ -294,12 +250,22 @@ class _AdminPurchaseDetailState extends State<AdminPurchaseDetail> {
   }
 
   Widget _statusBadge(String status, AppColors theme) {
-    String lowerStatus = status.toLowerCase();
-    Color color = lowerStatus == 'success' ? theme.success : (lowerStatus == 'failed' ? theme.error : theme.warning);
+    Color color = status == 'completed' ? theme.success : (status == 'cancelled' ? theme.error : theme.warning);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
       child: Text(status.toUpperCase(), style: TextDesign.badgeText(color: Colors.white)),
+    );
+  }
+
+  Widget _iconDetail(IconData icon, String label, String value, AppColors theme) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: theme.hint),
+        const SizedBox(width: 6),
+        Text("$label: ", style: TextDesign.smallText()),
+        Text(value.toUpperCase(), style: TextDesign.smallText(color: theme.onSurface).copyWith(fontWeight: FontWeight.bold)),
+      ],
     );
   }
 

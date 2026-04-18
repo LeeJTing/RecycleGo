@@ -197,6 +197,17 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                   ],
                 ),
 
+                if (widget.purchase.bankAccount != null &&
+                    widget.purchase.bankAccount!.isNotEmpty) ...[
+                  pw.SizedBox(height: 16),
+                  pw.Text(
+                    'Payment Details:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text('Bank Account: ${widget.purchase.bankAccount}'),
+                ],
+
                 if (widget.purchase.pickupLocationId != null ||
                     widget.purchase.pickupAddress != null) ...[
                   pw.SizedBox(height: 16),

@@ -12,7 +12,7 @@ class ScanButton extends StatelessWidget {
     final size = MediaQuery.of(context).size;
 
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, Routes.scanRecycleItem),  //Routes.qrScan
+      onTap: () => Navigator.pushNamed(context, Routes.qrScan),
       borderRadius: BorderRadius.circular(30),
       child: Container(
         width: double.infinity,

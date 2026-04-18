@@ -18,5 +18,14 @@ class AdminProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String getProfileImageUrl() => _admin!.getProfilePhotoURL();
+  String getProfileImageUrl() {
+    if (_admin?.profilePhoto != null && _admin!.profilePhoto!.isNotEmpty) {
+      return StorageService().getPublicUrl(
+          DefaultUrl.profilesBucket,
+          DefaultUrl.adminProfileHeader + _admin!.profilePhoto!);
+    } else {
+      return StorageService().getPublicUrl(
+          DefaultUrl.profilesBucket, DefaultUrl.adminDefaultProfilePath);
+    }
+  }
 }

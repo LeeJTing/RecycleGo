@@ -3,7 +3,6 @@ import 'qr_scan_screen.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class StationDetailScreen extends StatefulWidget {
   final RecycleStation station;
@@ -26,7 +25,7 @@ class StationDetailScreen extends StatefulWidget {
 }
 
 class _StationDetailScreenState extends State<StationDetailScreen> {
-  double maxCap = 1000.0;
+  double maxCap = 500.0;
 
   double co2Kg = 0.0;
 
@@ -77,7 +76,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
               (cardboard ?? 0) +
               (metal ?? 0);
 
-      maxCap = (data['station_capacity'] as num?)?.toDouble() ?? 1000.0;
+      maxCap = (data['station_capacity'] as num?)?.toDouble() ?? 500.0;
 
       final full = total >= maxCap;
 
@@ -159,7 +158,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                     routeDistance: widget.routeDistance,
                   ),
 
-                  _LivePreviewMap(
+                  _MapThumbnail(
                     lat: widget.station.latitude ?? 3.1390,
                     lng: widget.station.longitude ?? 101.6869,
                   ),
@@ -514,105 +513,37 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-
-// ── Live preview map placeholder ──────────────────────────────────────
-// Replace inner Container with a real GoogleMap widget once wired up
-class _LivePreviewMap extends StatelessWidget {
-  final double lat, lng;
-  const _LivePreviewMap({required this.lat, required this.lng});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => FullMapScreen(lat: lat, lng: lng),
-          ),
-        );
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          children: [
-            SizedBox(
-              height: 180,
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(lat, lng),
-                  zoom: 15,
-                ),
-                markers: {
-                  Marker(
-                    markerId: MarkerId("preview"),
-                    position: LatLng(lat, lng),
-                  ),
-                },
-                zoomControlsEnabled: false,
-                myLocationButtonEnabled: false,
-                mapToolbarEnabled: false,
-                liteModeEnabled: true,
-              ),
-            ),
-
-            // 👇 这个你保留
-            Positioned(
-              bottom: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'LIVE PREVIEW',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class FullMapScreen extends StatelessWidget {
+class _MapThumbnail extends StatelessWidget {
   final double lat;
   final double lng;
-
-  const FullMapScreen({
-    super.key,
-    required this.lat,
-    required this.lng,
-  });
+  const _MapThumbnail({required this.lat, required this.lng});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Location"),
-        backgroundColor: const Color(0xFF1DB954),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      height: 160,
+      decoration: BoxDecoration(
+        color: const Color(0xFFDDEEDD),
+        borderRadius: BorderRadius.circular(16),
       ),
-      body: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: LatLng(lat, lng),
-          zoom: 17,
-        ),
-        markers: {
-          Marker(
-            markerId: const MarkerId("full_map"),
-            position: LatLng(lat, lng),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        children: [
+          // Placeholder for static map image / small GoogleMap widget
+          Container(
+            color: const Color(0xFFE8F5E9),
+            child: const Center(
+              child: Icon(Icons.map_outlined,
+                  color: Color(0xFF1DB954), size: 48),
+            ),
           ),
-        },
-        myLocationEnabled: true,
-        zoomControlsEnabled: true,
+          // Pin
+          const Center(
+            child: Icon(Icons.location_on,
+                color: Color(0xFF333), size: 48),
+          ),
+        ],
       ),
     );
   }
@@ -628,7 +559,7 @@ class _CapacityCard extends StatelessWidget {
     required this.capacity,
     required this.remainingKg,
     required this.usedKg,
-    this.maxCapKg = 1000,
+    this.maxCapKg = 500,
   });
 
   Color _color(int pct) {
@@ -741,10 +672,10 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          color: Color(0xFF0D1F0D),
-          fontSize: 16, // 👈 放大
-          fontWeight: FontWeight.w800, // 👈 更粗
-          letterSpacing: 0.5,
+          color: Color(0xFF666),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -773,7 +704,7 @@ class _MaterialsGrid extends StatelessWidget {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 1.45,
+          childAspectRatio: 1.65,
         ),
         itemCount: materials.length,
         itemBuilder: (_, i) {
@@ -827,7 +758,7 @@ class _MaterialsGrid extends StatelessWidget {
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
-                            color: hasMaterial ? color : Colors.grey[600],
+                            color: color,
                           ),
                         ),
                       ],

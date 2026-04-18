@@ -4,8 +4,6 @@ class RecycleCategory {
   final String? description;
   final double? point;
   final double? baseWeight;
-  final double? density;
-  final String? label;
 
   const RecycleCategory({
     required this.categoryId,
@@ -13,8 +11,6 @@ class RecycleCategory {
     this.description,
     this.point,
     this.baseWeight,
-    this.density,
-    this.label,
   });
 
   factory RecycleCategory.fromJson(Map<String, dynamic> json) {
@@ -24,8 +20,6 @@ class RecycleCategory {
       description: json['description']?.toString(),
       point: (json['point'] as num?)?.toDouble(),
       baseWeight: (json['base_weight'] as num?)?.toDouble(),
-      density: (json['density'] as num?)?.toDouble(),
-      label: json['label']?.toString(),
     );
   }
 
@@ -36,8 +30,6 @@ class RecycleCategory {
       if (description != null) 'description': description,
       if (point != null) 'point': point,
       if (baseWeight != null) 'base_weight': baseWeight,
-      if (density != null) 'density': density,
-      if (label != null) 'label': label,
     };
   }
 
@@ -47,8 +39,6 @@ class RecycleCategory {
     String? description,
     double? point,
     double? baseWeight,
-    double? density,
-    String? label,
   }) {
     return RecycleCategory(
       categoryId: categoryId ?? this.categoryId,
@@ -56,22 +46,19 @@ class RecycleCategory {
       description: description ?? this.description,
       point: point ?? this.point,
       baseWeight: baseWeight ?? this.baseWeight,
-      density: density ?? this.density,
-      label: label ?? this.label,
     );
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
+
     return other is RecycleCategory &&
         other.categoryId == categoryId &&
         other.categoryName == categoryName &&
         other.description == description &&
         other.point == point &&
-        other.baseWeight == baseWeight &&
-        other.density == density &&
-        other.label == label;
+        other.baseWeight == baseWeight;
   }
 
   @override
@@ -81,8 +68,6 @@ class RecycleCategory {
     description,
     point,
     baseWeight,
-    density,
-    label,
   );
 
   @override
@@ -91,9 +76,7 @@ class RecycleCategory {
         'id: $categoryId, '
         'name: $categoryName, '
         'point: $point, '
-        'baseWeight: $baseWeight, '
-        'density: $density, '
-        'label: $label'
+        'baseWeight: $baseWeight'
         ')';
   }
 }
