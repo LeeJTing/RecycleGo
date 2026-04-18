@@ -148,6 +148,7 @@ class _MainAppState extends State<MainApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
+
       initialRoute: Routes.adminHome,
       onGenerateRoute: (settings) {
         // Handle payment deep links from Stripe
