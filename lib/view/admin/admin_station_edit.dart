@@ -7,6 +7,10 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/services/storage_service.dart';
+import 'dart:ui' as ui;
+import 'package:path_provider/path_provider.dart';
+import 'dart:typed_data';
+import 'package:qr_flutter/qr_flutter.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -26,6 +30,24 @@ class _StationEditScreenState extends State<StationEditScreen> {
   final _formKey = GlobalKey<FormState>();
   bool get _isEdit => widget.station != null;
   late final TextEditingController _capacityCtrl;
+
+  Future<File> generateQrImage(String data) async {
+    final painter = QrPainter(
+      data: data,
+      version: QrVersions.auto,
+      gapless: true,
+    );
+
+    final picData = await painter.toImageData(300);
+    final buffer = picData!.buffer.asUint8List();
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/qr.png');
+
+    await file.writeAsBytes(buffer);
+
+    return file;
+  }
 
   // QR
   late final _qrCtrl = TextEditingController(
@@ -122,24 +144,28 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
   // ── Save ───────────────────────────────────────────────────────────
   void _save() async {
+    final storage = StorageService();
 
     String? finalImageUrl = _imageUrl;
 
-    Future<void> uploadImage({
-      required String bucketName,
-      required String path,
-      required File file,
-    }) async {
-      final client = Supabase.instance.client;
+    String? qrImageUrl;
 
-      await client.storage.from(bucketName).upload(
-        path,
-        file,
-        fileOptions: const FileOptions(
-          cacheControl: '3600',
-          upsert: true,
-        ),
+    final qrText = _qrCtrl.text.trim();
+
+    if (qrText.isNotEmpty) {
+      final qrFile = await generateQrImage(qrText);
+
+      final path = 'qr/qr_${DateTime.now().millisecondsSinceEpoch}.png';
+
+      await storage.uploadImage(
+        bucketName: 'station-images',
+        path: path,
+        file: qrFile,
       );
+
+      qrImageUrl = storage.getPublicUrl('station-images', path);
+
+      print("QR URL => $qrImageUrl");
     }
 
     if (_selectedImage != null) {
@@ -249,6 +275,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
           : _descCtrl.text.trim(),
       imageUrl: finalImageUrl,
       stationStatus: _status,
+      qrImageUrl: qrImageUrl,
 
       plasticStorage: _selectedMats.contains(RecycleMaterialType.plastic)
           ? (double.tryParse(_plasticCtrl.text) ?? 0)
@@ -499,6 +526,38 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+
+                    if (_qrCtrl.text.isNotEmpty)
+                      Center(
+                        child: Column(
+                          children: [
+                            const Text(
+                              "QR CODE",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF888888),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE0E0E0)),
+                              ),
+                              child: QrImageView(
+                                data: _qrCtrl.text,
+                                size: 150,
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                     const SizedBox(height: 16),
 
