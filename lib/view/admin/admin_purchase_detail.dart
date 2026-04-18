@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 
+import '../../models/RecyclePurchases.dart';
+
 class AdminPurchaseDetail extends StatelessWidget {
-  // Now accepting two distinct parameters
-  final Map<String, dynamic> purchase;
-  final List<Map<String, dynamic>> items;
+  final RecyclePurchases purchase;
+  final List<dynamic> items;
 
   const AdminPurchaseDetail({
     super.key,
@@ -35,13 +36,13 @@ class AdminPurchaseDetail extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- 1. ORDER & LOGISTICS ---
-            _buildOrderHeader(purchase, theme),
-            const SizedBox(height: 16),
+            // // --- 1. ORDER & LOGISTICS ---
+            // _buildOrderHeader(purchase, theme),
+            // const SizedBox(height: 16),
 
-            // --- 2. CUSTOMER INFO ---
-            _buildCustomerStationCard(purchase, theme),
-            const SizedBox(height: 24),
+            // // --- 2. CUSTOMER INFO ---
+            // _buildCustomerStationCard(purchase, theme),
+            // const SizedBox(height: 24),
 
             // --- 3. ITEMS PURCHASED (Using the 'items' parameter) ---
             Text("Items Purchased", style: TextDesign.headingThree()),
@@ -50,13 +51,13 @@ class AdminPurchaseDetail extends StatelessWidget {
             const SizedBox(height: 24),
 
             // --- 4. SUMMARY ---
-            _buildSummaryCard(purchase, theme),
-            const SizedBox(height: 24),
-
-            // --- 5. PAYMENT METHOD ---
-            Text("Payment Method", style: TextDesign.headingThree()),
-            const SizedBox(height: 12),
-            _buildPaymentCard(purchase, theme),
+            // _buildSummaryCard(purchase, theme),
+            // const SizedBox(height: 24),
+            //
+            // // --- 5. PAYMENT METHOD ---
+            // Text("Payment Method", style: TextDesign.headingThree()),
+            // const SizedBox(height: 12),
+            // _buildPaymentCard(purchase, theme),
 
             const SizedBox(height: 40),
 

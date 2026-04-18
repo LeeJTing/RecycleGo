@@ -9,7 +9,9 @@ import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/view/admin/admin_add_inventory.dart';
+import 'package:recycle_go/view/admin/admin_full_request_review.dart';
 import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/admin_view_purchase.dart';
 import 'package:recycle_go/view/admin/userManagement/user_management_screen.dart';
 import 'package:recycle_go/view/autho/forgot_password_screen.dart';
 import 'package:recycle_go/view/autho/login_screen.dart';
@@ -20,6 +22,7 @@ import 'package:recycle_go/view/admin/admin_view_inventory.dart';
 import 'package:recycle_go/view/admin/admin_update_inventory.dart';
 import 'package:recycle_go/view/autho/register_screen.dart';
 import 'package:recycle_go/view/autho/reset_password_screen.dart';
+import 'package:recycle_go/view/user/AI-verify-recycle/verify_recycle_item.dart';
 import 'package:recycle_go/view/user/homePage/home_screen.dart';
 import 'package:recycle_go/view/user/profile/edit_profile_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
@@ -158,7 +161,7 @@ class _MainAppState extends State<MainApp> {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
 
-      initialRoute: Routes.login,
+      initialRoute: Routes.adminHome,
       onGenerateRoute: (settings) {
         // Handle payment deep links from Stripe
         if (settings.name?.startsWith('recyclego://payment/') == true) {
@@ -240,10 +243,25 @@ class _MainAppState extends State<MainApp> {
         Routes.userHomePage: (context) => const UserHomeScreen(initialIndex: 0),
         Routes.userProfile: (context) => const UserHomeScreen(initialIndex: 4),
         Routes.adminHome: (context) => const AdminHome(),
-        Routes.adminPurchaseDetail: (context) =>
-            const AdminPurchaseDetail(purchase: {}, items: []),
-        Routes.adminPurchaseUpdate: (context) =>
-            const AdminPurchaseUpdate(purchase: {}, items: []),
+        Routes.adminPurchaseView: (context) => const AdminViewPurchase(),
+        Routes.adminPurchaseDetail: (context) {
+          // Catch the arguments passed from the navigator
+          final args = ModalRoute.of(context)!.settings.arguments as AdminPurchaseDetail;
+
+          return AdminPurchaseDetail(
+            purchase: args.purchase,
+            items: args.items,
+          );
+        },
+        Routes.adminPurchaseUpdate: (context) {
+          // Catch the arguments passed from the navigator
+          final args = ModalRoute.of(context)!.settings.arguments as AdminPurchaseUpdate;
+
+          return AdminPurchaseUpdate(
+            purchase: args.purchase,
+            items: args.items,
+          );
+        },
         Routes.adminInventory: (context) => const AdminInventory(),
         Routes.adminViewInventory: (context) {
           final item =
@@ -274,6 +292,23 @@ class _MainAppState extends State<MainApp> {
         ),
         Routes.userNotification: (context) => const NotificationListScreen(),
         Routes.adminNotification: (context) => const AdminNotificationScreen(),
+        Routes.adminPurchaseDetail: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseDetail;
+          return AdminPurchaseDetail(
+            purchase: args.purchase,
+            items: args.items,
+          );
+        },
+        Routes.adminPurchaseUpdate: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseUpdate;
+          return AdminPurchaseUpdate(
+            purchase: args.purchase,
+            items: args.items,
+          );
+        },
+        Routes.scanRecycleItem: (context) => const VerifyRecycleItem(),
+        Routes.adminFullRequestReview: (context) => const AdminSubmissionFullReview(),
+
       },
     );
   }
