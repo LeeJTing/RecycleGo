@@ -51,7 +51,7 @@ class _AppealReviewScreenState extends State<AppealReviewScreen> {
       final matchesFilter = _selectedFilter == 'All' || 
           appeal.appealStatus.toLowerCase() == _selectedFilter.toLowerCase();
       final matchesSearch = appeal.submissionId.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (appeal.userName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+          (appeal.user?.userName.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
       return matchesFilter && matchesSearch;
     }).toList();
   }
@@ -145,6 +145,8 @@ class _AppealReviewScreenState extends State<AppealReviewScreen> {
     final dateStr = appeal.createdAt != null 
         ? DateFormat('MMM dd, yyyy').format(appeal.createdAt!)
         : 'N/A';
+    
+    final photoUrl = appeal.submission?.photoUrl;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -168,47 +170,20 @@ class _AppealReviewScreenState extends State<AppealReviewScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              // Photo Thumbnail with Count Badge
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: appeal.photoUrl != null
-                          ? Image.network(
-                              appeal.photoUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(color: theme.background, child: Icon(Icons.image_not_supported, color: theme.hint)),
-                            )
-                          : Container(color: theme.background, child: Icon(Icons.image, color: theme.hint)),
-                    ),
-                  ),
-                  if (appeal.photoCount > 0)
-                    Positioned(
-                      right: 4,
-                      bottom: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.camera_alt, color: Colors.white, size: 10),
-                            const SizedBox(width: 2),
-                            Text(
-                              "${appeal.photoCount}",
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+              // Photo Thumbnail
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: photoUrl != null
+                      ? Image.network(
+                          photoUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(color: theme.background, child: Icon(Icons.image_not_supported, color: theme.hint)),
+                        )
+                      : Container(color: theme.background, child: Icon(Icons.image, color: theme.hint)),
+                ),
               ),
               const SizedBox(width: 12),
               // Info
@@ -220,18 +195,13 @@ class _AppealReviewScreenState extends State<AppealReviewScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          appeal.userName ?? 'Unknown User',
+                          appeal.user?.userName ?? 'Unknown User',
                           style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold),
                         ),
                         _buildStatusBadge(appeal.appealStatus, theme),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      "ID: ${appeal.submissionId.substring(0, 8).toUpperCase()}",
-                      style: TextDesign.smallText(color: theme.hint),
-                    ),
-                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Icon(Icons.calendar_today, size: 14, color: theme.hint),

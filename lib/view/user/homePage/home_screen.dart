@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/routes.dart';
-import 'package:recycle_go/models/Appeals.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/view/user/bottom_nav_bar.dart';
 import 'package:recycle_go/view/user/homePage/widgets/home_header.dart';
@@ -13,7 +12,6 @@ import 'package:recycle_go/view/recycle/map_screen.dart';
 import 'package:recycle_go/view/user/profile/profile_screen.dart';
 import 'package:recycle_go/view/voucher/voucher_main_page.dart';
 import 'package:recycle_go/view/user/homePage/widgets/purchase_card.dart';
-import 'package:recycle_go/view/user/appeal/widgets/appeal_status_card.dart';
 
 class UserHomeScreen extends StatefulWidget {
   final int initialIndex;
@@ -64,49 +62,16 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 }
 
-class _HomeContent extends StatefulWidget {
+class _HomeContent extends StatelessWidget {
   const _HomeContent();
-
-  @override
-  State<_HomeContent> createState() => _HomeContentState();
-}
-
-class _HomeContentState extends State<_HomeContent> {
-  List<Appeals> _appeals = [];
-  bool _isLoadingAppeals = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchAppeals();
-  }
-
-  Future<void> _fetchAppeals() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    if (userProvider.user?.userId == null) return;
-
-    try {
-      final appeals = await AppealsModel().getUserAppeals(
-        userProvider.user!.userId!,
-      );
-      if (mounted) {
-        setState(() {
-          _appeals = appeals;
-          _isLoadingAppeals = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingAppeals = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: _fetchAppeals,
+        onRefresh: () async {
+          // If needed, refresh user data via provider
+        },
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
@@ -128,25 +93,6 @@ class _HomeContentState extends State<_HomeContent> {
               const SizedBox(height: 24),
               const ScanButton(),
               const SizedBox(height: 24),
-              Consumer<UserProvider>(
-                builder: (context, userProvider, child) {
-                  if (!_isLoadingAppeals &&
-                      _appeals.isNotEmpty &&
-                      userProvider.user?.userId != null) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppealStatusCard(
-                          appeals: _appeals,
-                          userId: userProvider.user!.userId!,
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
               const NearbyBinCard(),
               const SizedBox(height: 24),
               const PurchaseCard(),

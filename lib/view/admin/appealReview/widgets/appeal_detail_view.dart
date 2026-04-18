@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/controller/admin/appeal_controller.dart';
+import 'package:recycle_go/models/Admins.dart';
 import 'package:recycle_go/models/Appeals.dart';
+import 'package:recycle_go/provider/AdminProvider.dart';
 
 class AppealDetailView extends StatefulWidget {
   final Appeals appeal;
@@ -21,7 +25,7 @@ class _AppealDetailViewState extends State<AppealDetailView> {
   @override
   void initState() {
     super.initState();
-    _pointsController.text = (widget.appeal.pointsGiven ?? (widget.appeal.submissionPoints?.toInt() ?? 0)).toString();
+    _pointsController.text = (widget.appeal.pointsGiven ?? (widget.appeal.submission?.pointAward ?? 0)).toString();
     _commentController.text = widget.appeal.adminComment ?? '';
   }
 
@@ -31,187 +35,102 @@ class _AppealDetailViewState extends State<AppealDetailView> {
     final isPending = widget.appeal.appealStatus.toLowerCase() == 'pending';
 
     return Scaffold(
-      backgroundColor: theme.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text("Appeal Details", style: TextDesign.appBarTitle()),
-        backgroundColor: theme.onPrimary,
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: theme.onSurface),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Image Header
-                if (widget.appeal.photoUrl != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                      children: [
-                        Image.network(
-                          widget.appeal.photoUrl!,
-                          height: 250,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                        if (widget.appeal.photoCount > 1)
-                          Positioned(
-                            bottom: 12,
-                            right: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.photo_library, color: Colors.white, size: 14),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    "${widget.appeal.photoCount} Photos",
-                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: theme.surface,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(Icons.image_not_supported, size: 50, color: theme.hint),
-                  ),
-                
-                const SizedBox(height: 24),
-                
-                // User & Date
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: theme.primary.withOpacity(0.1),
-                      radius: 24,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  // Image Section with Status Overlay
+                  _buildImageHeader(theme),
 
+                  const SizedBox(height: 20),
+
+                  // User Info Section
+                  _buildUserInfo(theme),
+
+                  const SizedBox(height: 20),
+
+                  // Chips Section (Station, Category, Weight)
+                  _buildChips(theme),
+
+                  const SizedBox(height: 24),
+
+                  // Appeal Reason
+                  _buildSectionTitle("APPEAL REASON"),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE9ECEF)),
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.appeal.userName ?? 'Unknown User', style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold)),
-                        Text(widget.appeal.userEmail ?? '', style: TextDesign.smallText(color: theme.hint)),
-                      ],
+                    child: Text(
+                      widget.appeal.appealReason,
+                      style: const TextStyle(fontSize: 14, color: Colors.black87),
                     ),
-                    const Spacer(),
-                    _buildStatusBadge(widget.appeal.appealStatus, theme),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Points Input Section (Reward point entry)
+                  if (isPending) _buildPointsInputSection(theme),
+
+                  const SizedBox(height: 20),
+
+                  // Reward Banner (Displaying the value from input)
+                  _buildRewardBanner(theme),
+
+                  const SizedBox(height: 24),
+
+                  // Admin Comment Section
+                  if (isPending) ...[
+                    _buildSectionTitle("ADMIN COMMENT"),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _commentController,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: "Add a note for the user...",
+                        fillColor: const Color(0xFFF8F9FA),
+                        filled: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
                   ],
-                ),
-                
-                const SizedBox(height: 24),
-                Text("Appeal Reason", style: TextDesign.headingThree()),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.border),
-                  ),
-                  child: Text(widget.appeal.appealReason, style: TextDesign.normalText()),
-                ),
-                
-                const SizedBox(height: 24),
-                Text("Submission Info", style: TextDesign.headingThree()),
-                const SizedBox(height: 8),
-                _buildInfoRow(Icons.pin_drop, "Station", widget.appeal.stationName ?? 'N/A', theme),
-                _buildInfoRow(Icons.category, "Category", widget.appeal.category ?? 'N/A', theme),
-                _buildInfoRow(Icons.scale, "Weight", "${widget.appeal.weight?.toStringAsFixed(2) ?? '0'} kg", theme),
-                _buildInfoRow(Icons.stars, "Original Points", "${widget.appeal.submissionPoints?.toInt() ?? 0} pts", theme),
-                
-                if (isPending) ...[
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 24),
-                  Text("Review Action", style: TextDesign.headingTwo()),
-                  const SizedBox(height: 16),
-                  Text("Points to Award", style: TextDesign.smallText(color: theme.hint)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _pointsController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      hintText: "Enter points",
-                      fillColor: theme.surface,
-                      filled: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text("Admin Comment", style: TextDesign.smallText(color: theme.hint)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _commentController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: "Add a comment for the user",
-                      fillColor: theme.surface,
-                      filled: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : () => _handleAction('approved'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.success,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text("APPROVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : () => _handleAction('rejected'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.error,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text("REJECT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                ] else ...[
-                  const SizedBox(height: 24),
-                  Text("Admin Review", style: TextDesign.headingThree()),
-                  const SizedBox(height: 8),
-                  _buildInfoRow(Icons.stars, "Points Awarded", "${widget.appeal.pointsGiven ?? 0} pts", theme),
-                  _buildInfoRow(Icons.comment, "Admin Comment", widget.appeal.adminComment ?? 'No comment', theme),
+
+                  // Buttons Section
+                  if (isPending)
+                    _buildActionButtons(theme)
+                  else
+                    _buildCompletedReview(theme),
+
                   const SizedBox(height: 40),
                 ],
-              ],
+              ),
             ),
           ),
           if (_isLoading)
@@ -224,50 +143,356 @@ class _AppealDetailViewState extends State<AppealDetailView> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, AppColors theme) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
+  Widget _buildImageHeader(AppColors theme) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
         children: [
-          Icon(icon, size: 18, color: theme.primary),
-          const SizedBox(width: 12),
-          Text(label, style: TextDesign.smallText(color: theme.hint)),
-          const Spacer(),
-          Text(value, style: TextDesign.normalText().copyWith(fontWeight: FontWeight.bold)),
+          Image.network(
+            widget.appeal.submission?.photoUrl ?? '',
+            height: 280,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              height: 280,
+              width: double.infinity,
+              color: const Color(0xFFF1F3F5),
+              child: const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+            ),
+          ),
+          Positioned(
+            top: 16,
+            left: 16,
+            child: Text(
+              widget.appeal.appealStatus[0].toUpperCase() + widget.appeal.appealStatus.substring(1).toLowerCase(),
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBadge(String status, AppColors theme) {
-    Color color;
-    switch (status.toLowerCase()) {
-      case 'approved': color = theme.success; break;
-      case 'rejected': color = theme.error; break;
-      default: color = theme.warning;
-    }
+  Widget _buildUserInfo(AppColors theme) {
+    final date = widget.appeal.createdAt != null
+        ? DateFormat('MMM dd, yyyy').format(widget.appeal.createdAt!)
+        : 'N/A';
+    final time = widget.appeal.createdAt != null
+        ? DateFormat('HH:mm a').format(widget.appeal.createdAt!)
+        : '';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundColor: Colors.grey[200],
+          backgroundImage: widget.appeal.user?.profilePhoto != null
+              ? NetworkImage(widget.appeal.user!.getUserProfileURL())
+              : null,
+          child: widget.appeal.user?.profilePhoto == null
+              ? const Icon(Icons.person, color: Colors.grey)
+              : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.appeal.user?.userName ?? 'Unknown User',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    "$date • $time",
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChips(AppColors theme) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 20, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.appeal.station?.stationName ?? 'N/A',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.recycling, size: 20, color: Color(0xFF409167)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.appeal.categoryName ?? 'N/A',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.scale_outlined, size: 20, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(
+                "Weight: ${widget.appeal.submission?.weight?.toStringAsFixed(2) ?? '0'} kg",
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const Spacer(),
+              Text(
+                "Submission ID: ${widget.appeal.submissionId.substring(0, 8).toUpperCase()}",
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
       child: Text(
-        status.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
+          color: Colors.black87,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPointsInputSection(AppColors theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.stars_rounded, size: 18, color: Colors.black54),
+            const SizedBox(width: 8),
+            const Text(
+              "REWARD POINT",
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.black87),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _pointsController,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+          onChanged: (value) => setState(() {}),
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            fillColor: const Color(0xFFF8F9FA),
+            filled: true,
+            hintText: "Enter points to award...",
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE9ECEF)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          "Admin can manually set the points to be awarded for this appeal.",
+          style: TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRewardBanner(AppColors theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD8F3DC),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            "Reward",
+            style: TextStyle(color: Color(0xFF2D6A4F), fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          Row(
+            children: [
+              Text(
+                _pointsController.text.isEmpty ? '0' : _pointsController.text,
+                style: const TextStyle(color: Color(0xFF2D6A4F), fontWeight: FontWeight.w900, fontSize: 20),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                "pts",
+                style: TextStyle(color: Color(0xFF2D6A4F), fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(AppColors theme) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isLoading ? null : () => _handleAction('approved'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              side: const BorderSide(color: Color(0xFFE9ECEF)),
+            ),
+            child: const Text(
+              "Approve",
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : () => _handleAction('rejected'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF05050),
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              elevation: 0,
+            ),
+            child: const Text(
+              "Reject",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              // Logic to edit or recalculate points can be added here
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF8F9FA),
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              elevation: 0,
+            ),
+            child: const Text(
+              "Edit",
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompletedReview(AppColors theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        const SizedBox(height: 16),
+        _buildSectionTitle("ADMIN REVIEW"),
+        const SizedBox(height: 12),
+        _buildReviewRow(Icons.stars, "Points Awarded", "${widget.appeal.pointsGiven?.toInt() ?? 0} pts"),
+        _buildReviewRow(Icons.comment, "Comment", widget.appeal.adminComment ?? 'No comment'),
+        _buildReviewRow(Icons.person, "Reviewed By", widget.appeal.reviewer?.username ?? 'N/A'),
+      ],
+    );
+  }
+
+  Widget _buildReviewRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF409167)),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
 
   Future<void> _handleAction(String status) async {
+    final admin = Provider.of<AdminProvider>(context, listen: false).admin;
+    if (admin == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Admin session not found")));
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       await _controller.updateAppealStatus(
         widget.appeal,
         status,
-        points: int.tryParse(_pointsController.text),
+        admin.adminId!,
+        points: double.tryParse(_pointsController.text),
         comment: _commentController.text.trim(),
       );
       if (mounted) {
