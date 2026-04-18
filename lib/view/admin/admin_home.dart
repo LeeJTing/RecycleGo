@@ -21,6 +21,8 @@ import 'package:recycle_go/view/admin/voucher_details/admin_voucher_details.dart
 import 'package:recycle_go/view/admin/admin_edit_voucher.dart';
 import 'package:recycle_go/view/admin/widgets/pending_vouchers_section.dart';
 import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
+import 'package:recycle_go/models/Notifications.dart';
+import 'package:recycle_go/view/admin/admin_dashboard.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -31,6 +33,8 @@ class AdminHome extends StatefulWidget {
 
 class _AdminHomeState extends State<AdminHome> {
   int _currentIndex = 0; // Default to 'Home'
+  int _unreadCount = 0;
+  String? _currentAdminId;
 
   // A list of the different 'Bodies' for each navigation button
   final List<Widget> _pages = [
@@ -40,6 +44,28 @@ class _AdminHomeState extends State<AdminHome> {
     const AdminViewPurchase(),
     const AdminProfileScreen(),
   ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final admin = Provider.of<AdminProvider>(context).admin;
+    if (admin?.adminId != _currentAdminId) {
+      _currentAdminId = admin?.adminId;
+      _loadUnreadCount();
+    }
+  }
+
+  Future<void> _loadUnreadCount() async {
+    if (_currentAdminId == null) return;
+    try {
+      final count = await NotificationsModel().getAdminUnreadCount(_currentAdminId!);
+      if (mounted) {
+        setState(() => _unreadCount = count);
+      }
+    } catch (e) {
+      debugPrint('Error loading unread count: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,19 +174,56 @@ class _AdminHomeState extends State<AdminHome> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text("Admin Dashboard", style: TextDesign.appBarTitle()),
+              if (_unreadCount > 0)
+                Text(
+                  "$_unreadCount unread notifications",
+                  style: TextDesign.label(color: theme.primary, fontSize: 10),
+                ),
             ],
           ),
         ],
       ),
       actions: [
-        IconButton(
-          onPressed: () {
-            Navigator.pushNamed(context, Routes.adminNotification);
-          },
-          icon: Badge(
-            label: const Text('9'),
-            child: Icon(Icons.notifications_none, color: theme.onSurface),
-          ),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: Icon(Icons.notifications_none_outlined, color: theme.onSurface, size: 28),
+              onPressed: () async {
+                final result = await Navigator.pushNamed(context, Routes.adminNotification);
+                if (result == true) {
+                  _loadUnreadCount();
+                }
+              },
+            ),
+            if (_unreadCount > 0)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: theme.error,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: theme.surface, width: 1.5),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$_unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(width: 2),
         Padding(
@@ -171,12 +234,16 @@ class _AdminHomeState extends State<AdminHome> {
             },
             icon: Consumer<AdminProvider>(
               builder: (context, adminProvider, _) {
+                final resolvedUrl = adminProvider.getProfileImageUrl();
+                // Add a timestamp to the URL to bypass image caching after an update
+                final timestampedUrl = '$resolvedUrl${resolvedUrl.contains('?') ? '&' : '?'}t=${DateTime.now().millisecondsSinceEpoch}';
+
                 return CircleAvatar(
                   radius: 22,
                   backgroundColor: theme.primary.withOpacity(0.1),
                   child: ClipOval(
                     child: Image.network(
-                      adminProvider.getProfileImageUrl(),
+                      timestampedUrl,
                       width: 44,
                       height: 44,
                       fit: BoxFit.cover,
@@ -209,6 +276,7 @@ class _AdminHomeState extends State<AdminHome> {
     );
   }
 }
+
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -374,7 +442,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             icon: Icons.card_giftcard_outlined,
             title: "Available Vouchers",
             subtitle:
-                "${_voucherCtrl.vouchers.where((v) => v.voucherStatus?.toLowerCase() == 'active').length} active vouchers",
+            "${_voucherCtrl.vouchers.where((v) => v.voucherStatus?.toLowerCase() == 'active').length} active vouchers",
             route: () async {
               await Navigator.push(
                 context,
@@ -408,13 +476,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildManagementTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required dynamic route, // Can be String or Function
-    required AppColors theme,
-  }) {
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required String subtitle,
+        required dynamic route, // Can be String or Function
+        required AppColors theme,
+      }) {
     return Card(
       elevation: 0,
       color: theme.surfaceVariant.withOpacity(0.5),

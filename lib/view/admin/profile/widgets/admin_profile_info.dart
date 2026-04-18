@@ -41,6 +41,9 @@ class AdminProfileInfo extends StatelessWidget {
       resolvedUrl = StorageService().getPublicUrl(DefaultUrl.profilesBucket, DefaultUrl.adminDefaultProfilePath);
     }
 
+    // Add a timestamp to the URL to bypass image caching after an update
+    final timestampedUrl = '$resolvedUrl${resolvedUrl.contains('?') ? '&' : '?'}t=${DateTime.now().millisecondsSinceEpoch}';
+
     return Column(
       children: [
         GestureDetector(
@@ -52,7 +55,7 @@ class AdminProfileInfo extends StatelessWidget {
                 backgroundColor: theme.surfaceVariant,
                 child: ClipOval(
                   child: Image.network(
-                    resolvedUrl,
+                    timestampedUrl,
                     width: size.width * 0.3,
                     height: size.width * 0.3,
                     fit: BoxFit.cover,

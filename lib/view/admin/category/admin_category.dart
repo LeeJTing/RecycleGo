@@ -36,9 +36,9 @@ class _AdminCategoryState extends State<AdminCategory> {
   Future<void> _loadCategory() async {
     setState(() => _isLoading = true);
     try {
-      final items = await CategoryController.getCategories(); // caching active
+      //final items = await CategoryController.getCategories(); // caching active
       setState(() {
-        _categoryItems = items;
+        //_categoryItems = items;
         _isLoading = false;
       });
     } catch (e) {
@@ -122,7 +122,7 @@ class _AdminCategoryState extends State<AdminCategory> {
               setState(() => _isLoading = true);
 
               try {
-                await CategoryController.deleteCategory(item.categoryId!);
+                //await CategoryController.deleteCategory(item.categoryId!);
                 await _loadCategory();
               } catch (e) {
                 ScaffoldMessenger.of(

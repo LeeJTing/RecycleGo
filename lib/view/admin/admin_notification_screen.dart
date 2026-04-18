@@ -4,17 +4,16 @@ import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Notifications.dart';
-import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 
-class NotificationListScreen extends StatefulWidget {
-  const NotificationListScreen({super.key});
+class AdminNotificationScreen extends StatefulWidget {
+  const AdminNotificationScreen({super.key});
 
   @override
-  State<NotificationListScreen> createState() => _NotificationListScreenState();
+  State<AdminNotificationScreen> createState() => _AdminNotificationScreenState();
 }
 
-class _NotificationListScreenState extends State<NotificationListScreen> {
+class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
   List<Notifications> _notifications = [];
   bool _isLoading = true;
 
@@ -25,26 +24,17 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
     final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-    
-    final userId = userProvider.user?.userId;
     final adminId = adminProvider.admin?.adminId;
-
-    if (userId == null && adminId == null) {
+    
+    if (adminId == null) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     if (mounted) setState(() => _isLoading = true);
     try {
-      List<Notifications> notifications = [];
-      if (adminId != null) {
-        notifications = await NotificationsModel().getAdminNotifications(adminId);
-      } else if (userId != null) {
-        notifications = await NotificationsModel().getUserNotifications(userId);
-      }
-
+      final notifications = await NotificationsModel().getAdminNotifications(adminId);
       if (mounted) {
         setState(() {
           _notifications = notifications;
@@ -87,6 +77,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
+                'Sent by: ${notification.whoSend}',
+                style: TextDesign.smallText(color: AppThemes.color.primary).copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
                 notification.createdAt != null
                     ? DateFormat('dd MMM yyyy, HH:mm').format(notification.createdAt!)
                     : 'Recently',
@@ -125,12 +120,22 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
+    final unreadCount = _notifications.where((n) => n.notificationStatus == 'unread').length;
     final hasRead = _notifications.any((n) => n.notificationStatus == 'read');
 
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
-        title: Text("Notifications", style: TextDesign.appBarTitle()),
+        title: Column(
+          children: [
+            Text("Admin Notifications", style: TextDesign.appBarTitle()),
+            if (unreadCount > 0)
+              Text(
+                "$unreadCount Unread",
+                style: TextDesign.label(color: theme.primary, fontSize: 12),
+              ),
+          ],
+        ),
         backgroundColor: theme.onPrimary,
         elevation: 0,
         centerTitle: true,
@@ -233,11 +238,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
               Icon(Icons.notifications_off_outlined, size: 80, color: theme.hint.withOpacity(0.5)),
               const SizedBox(height: 16),
               Text(
-                "No notifications yet",
+                "No admin alerts",
                 style: TextDesign.largeText(color: theme.hint),
               ),
               Text(
-                "We'll notify you when something arrives!",
+                "System updates and user appeals will appear here.",
                 style: TextDesign.smallText(color: theme.hint),
               ),
             ],
@@ -267,11 +272,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 0,
-        color: isUnread ? theme.secondary.withOpacity(0.08) : theme.surface,
+        color: isUnread ? theme.primary.withOpacity(0.08) : theme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isUnread ? theme.secondary.withOpacity(0.5) : theme.border,
+            color: isUnread ? theme.primary.withOpacity(0.5) : theme.border,
             width: isUnread ? 1.5 : 1,
           ),
         ),
@@ -281,12 +286,12 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (isUnread ? theme.secondary : theme.hint).withOpacity(0.1),
+              color: (isUnread ? theme.primary : theme.hint).withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isUnread ? Icons.notifications_active : Icons.notifications_none,
-              color: isUnread ? theme.secondary : theme.onHint,
+              isUnread ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined,
+              color: isUnread ? theme.primary : theme.onHint,
               size: 24,
             ),
           ),
@@ -308,33 +313,33 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                 style: TextDesign.smallText(color: theme.onSurface.withOpacity(0.6)),
               ),
               const SizedBox(height: 10),
-              Text(
-                notification.createdAt != null
-                    ? DateFormat('dd MMM, hh:mm a').format(notification.createdAt!)
-                    : 'N/A',
-                style: TextDesign.label(fontSize: 10, color: theme.hint),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'By: ${notification.whoSend}',
+                    style: TextDesign.label(fontSize: 10, color: theme.primary),
+                  ),
+                  Text(
+                    notification.createdAt != null
+                        ? DateFormat('dd MMM, HH:mm').format(notification.createdAt!)
+                        : 'N/A',
+                    style: TextDesign.label(fontSize: 10, color: theme.hint),
+                  ),
+                ],
               ),
             ],
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isUnread)
-                Container(
+          trailing: isUnread
+              ? Container(
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: theme.secondary,
+                    color: theme.primary,
                     shape: BoxShape.circle,
                   ),
-                ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(Icons.delete_outline, color: theme.onHint, size: 20),
-                onPressed: () => _deleteNotification(notification.notificationId!),
-              ),
-            ],
-          ),
+                )
+              : null,
         ),
       ),
     );

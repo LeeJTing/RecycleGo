@@ -32,6 +32,7 @@ import 'package:recycle_go/view/user/purchase/payment_verification.dart';
 import 'package:recycle_go/view/admin/adminManagement/admin_management_screen.dart';
 import 'package:recycle_go/view/user/notifications/notification_list_screen.dart';
 import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
+import 'package:recycle_go/view/admin/admin_notification_screen.dart';
 import 'package:app_links/app_links.dart';
 
 import 'controller/admin/category_controller.dart';
@@ -86,11 +87,14 @@ class _MainAppState extends State<MainApp> {
     _appLinks = AppLinks();
 
     // 1. Handle links while the app is already open (Background/Foreground)
-    _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
-      _handleDeepLink(uri);
-    }, onError: (err) {
-      debugPrint('AppLinks Error: $err');
-    });
+    _linkSubscription = _appLinks.uriLinkStream.listen(
+      (uri) {
+        _handleDeepLink(uri);
+      },
+      onError: (err) {
+        debugPrint('AppLinks Error: $err');
+      },
+    );
 
     // 2. Handle the link that opened the app (Cold Start)
     try {
@@ -109,16 +113,21 @@ class _MainAppState extends State<MainApp> {
 
   void _handleDeepLink(Uri uri) {
     debugPrint('DEBUG: Processing URI: $uri');
-    
+
     final host = uri.host.toLowerCase();
     final scheme = uri.scheme.toLowerCase();
 
     // Check for host 'recyclego' and path '/reset-password'
-    if ((host == 'recyclego' || scheme == 'recyclego') && uri.path.contains('reset-password')) {
+    if ((host == 'recyclego' || scheme == 'recyclego') &&
+        uri.path.contains('reset-password')) {
       final token = uri.queryParameters['token'];
-      
-      if (token != null && token.isNotEmpty && !_handledTokens.contains(token)) {
-        _handledTokens.add(token); // Prevent duplicate navigation for the same token
+
+      if (token != null &&
+          token.isNotEmpty &&
+          !_handledTokens.contains(token)) {
+        _handledTokens.add(
+          token,
+        ); // Prevent duplicate navigation for the same token
         _safeNavigate(Routes.resetPassword, {'token': token});
       }
     }
@@ -149,7 +158,7 @@ class _MainAppState extends State<MainApp> {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
 
-      initialRoute: Routes.adminHome,
+      initialRoute: Routes.login,
       onGenerateRoute: (settings) {
         // Handle payment deep links from Stripe
         if (settings.name?.startsWith('recyclego://payment/') == true) {
@@ -164,18 +173,23 @@ class _MainAppState extends State<MainApp> {
               builder: (context) => const UserPurchaseScreen(),
             );
           }
+        }
+
+        // Handle named routes with arguments
         if (settings.name == Routes.resetPassword) {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
             builder: (context) => ResetPasswordScreen(token: args['token']),
           );
         }
+
         if (settings.name == Routes.editProfile) {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
             builder: (context) => EditProfileScreen(user: args['user']),
           );
         }
+
         if (settings.name == Routes.userPurchaseDetail) {
           final args = settings.arguments as Map<String, dynamic>;
           final purchase = args['purchase'] as RecyclePurchases;
@@ -183,6 +197,7 @@ class _MainAppState extends State<MainApp> {
             builder: (context) => PurchaseDetailScreen(purchase: purchase),
           );
         }
+
         if (settings.name == Routes.paymentSuccess) {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
@@ -198,6 +213,7 @@ class _MainAppState extends State<MainApp> {
             ),
           );
         }
+
         if (settings.name == Routes.paymentVerification) {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
@@ -214,6 +230,7 @@ class _MainAppState extends State<MainApp> {
             ),
           );
         }
+
         return null;
       },
       routes: {
@@ -229,12 +246,14 @@ class _MainAppState extends State<MainApp> {
             const AdminPurchaseUpdate(purchase: {}, items: []),
         Routes.adminInventory: (context) => const AdminInventory(),
         Routes.adminViewInventory: (context) {
-          final item = ModalRoute.of(context)!.settings.arguments as RecycleInventory;
+          final item =
+              ModalRoute.of(context)!.settings.arguments as RecycleInventory;
           return AdminViewInventory(item: item);
         },
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) {
-          final item = ModalRoute.of(context)!.settings.arguments as RecycleInventory;
+          final item =
+              ModalRoute.of(context)!.settings.arguments as RecycleInventory;
           return AdminUpdateInventory(item: item);
         },
         Routes.map: (context) => const UserHomeScreen(initialIndex: 2),
@@ -256,10 +275,8 @@ class _MainAppState extends State<MainApp> {
           appBar: AppBar(title: const Text("Appeal Review")),
           body: const Center(child: Text("Appeal Review Screen")),
         ),
-        Routes.adminUserManagement: (context) => const UserManagementScreen(),
-        Routes.adminManagement: (context) => const AdminManagementScreen(),
-        Routes.adminAppealReview: (context) => const AppealReviewScreen(),
         Routes.userNotification: (context) => const NotificationListScreen(),
+        Routes.adminNotification: (context) => const AdminNotificationScreen(),
       },
     );
   }

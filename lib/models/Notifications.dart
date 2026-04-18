@@ -68,6 +68,21 @@ class NotificationsModel extends Connector {
     }
   }
 
+  Future<int> getAdminUnreadCount(String adminId) async {
+    try {
+      final response = await client
+          .from('notifications')
+          .count(CountOption.exact)
+          .eq('admin_id', adminId)
+          .eq('notification_status', 'unread');
+      
+      return response;
+    } catch (e) {
+      debugPrint('Error fetching admin unread count: $e');
+      return 0;
+    }
+  }
+
   Future<List<Notifications>> getUserNotifications(String userId) async {
     try {
       final response = await client
@@ -79,6 +94,21 @@ class NotificationsModel extends Connector {
       return (response as List).map((json) => Notifications.fromJson(json)).toList();
     } catch (e) {
       debugPrint('Error fetching user notifications: $e');
+      return [];
+    }
+  }
+
+  Future<List<Notifications>> getAdminNotifications(String adminId) async {
+    try {
+      final response = await client
+          .from('notifications')
+          .select()
+          .eq('admin_id', adminId)
+          .order('created_at', ascending: false);
+
+      return (response as List).map((json) => Notifications.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Error fetching admin notifications: $e');
       return [];
     }
   }
