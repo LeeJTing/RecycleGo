@@ -8,13 +8,10 @@ import 'package:recycle_go/view/admin/admin_inventory.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
-import 'package:recycle_go/view/admin/request_admin.dart';
-import 'package:recycle_go/view/admin/admin_view_purchase.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/models/Notifications.dart';
-
-// IMPORTANT: Import your dashboard file!
 import 'package:recycle_go/view/admin/admin_dashboard.dart';
+import 'appealReview/appeal_review_screen.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -30,7 +27,7 @@ class _AdminHomeState extends State<AdminHome> {
 
   final List<Widget> _pages = const [
     AdminDashboard(),
-    RequestAdmin(),
+    AppealReviewScreen(),
     AdminInventory(),
     AdminVoucherManagement(),
     AdminProfileScreen(),

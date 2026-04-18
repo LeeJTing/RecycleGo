@@ -256,7 +256,6 @@ class _MainAppState extends State<MainApp> {
         Routes.adminPurchaseUpdate: (context) {
           // Catch the arguments passed from the navigator
           final args = ModalRoute.of(context)!.settings.arguments as AdminPurchaseUpdate;
-
           return AdminPurchaseUpdate(
             purchase: args.purchase,
             items: args.items,
@@ -289,10 +288,7 @@ class _MainAppState extends State<MainApp> {
           body: const Center(child: Text("User Management Screen")),
         ),
         Routes.adminManagement: (context) => const AdminManagementScreen(),
-        Routes.adminAppealReview: (context) => Scaffold(
-          appBar: AppBar(title: const Text("Appeal Review")),
-          body: const Center(child: Text("Appeal Review Screen")),
-        ),
+        Routes.adminAppealReview: (context) => const AppealReviewScreen(),
         Routes.userNotification: (context) => const NotificationListScreen(),
         Routes.adminNotification: (context) => const AdminNotificationScreen(),
         Routes.adminPurchaseDetail: (context) {
