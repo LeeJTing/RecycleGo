@@ -711,18 +711,8 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
       final sessionId = paymentData['sessionId'] as String;
       final totalPrice = item.pricePerKg * quantity;
 
-      // Create purchase record through controller with pickup location
-      final purchaseId = await _purchaseCtrl.createPurchaseRecord(
-        user.userId ?? '',
-        item,
-        quantity,
-        pickupLocationId: selectedStation!.stationId,
-        pickupLocationName: selectedStation!.stationName,
-        pickupAddress: selectedStation!.address,
-      );
-
-      // DO NOT decrement inventory yet - wait for payment success
-      // await _purchaseCtrl.updateInventoryStock(item.inventoryId, quantity);
+      // DO NOT create purchase record yet - wait for payment verification
+      // This ensures purchases are only created with 'success' or 'failed' status, never 'pending'
 
       // Show WebView checkout modal
       if (mounted) {
@@ -736,8 +726,8 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
               Navigator.pop(context); // Close WebView modal
               _verifyPaymentAndNavigate(
                 sessionId,
-                purchaseId,
-                item.inventoryName ?? 'Item',
+                user.userId ?? '',
+                item,
                 quantity,
                 totalPrice,
                 item.inventoryId,
@@ -754,8 +744,7 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
                   duration: const Duration(seconds: 4),
                 ),
               );
-              // Note: We don't restore inventory here because we never decremented it
-              // The purchase record was created but payment was not completed
+              // Note: No purchase record was created, so nothing to clean up
             },
           ),
         );
@@ -763,18 +752,21 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        // Provide specific error messages
-        String errorMessage = 'Payment error: $e';
-        if (e.toString().contains('401')) {
-          errorMessage =
-              'Authentication error with payment service. Please try again.';
-        } else if (e.toString().contains('JWT')) {
-          errorMessage = 'Authentication error. Please try again.';
-        } else if (e.toString().contains('404')) {
-          errorMessage =
-              'Payment service not configured. Please contact support.';
-        }
+      }
 
+      // Provide specific error messages
+      String errorMessage = 'Payment error: $e';
+      if (e.toString().contains('401')) {
+        errorMessage =
+            'Authentication error with payment service. Please try again.';
+      } else if (e.toString().contains('JWT')) {
+        errorMessage = 'Authentication error. Please try again.';
+      } else if (e.toString().contains('404')) {
+        errorMessage =
+            'Payment service not configured. Please contact support.';
+      }
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
@@ -788,8 +780,8 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
 
   Future<void> _verifyPaymentAndNavigate(
     String sessionId,
-    String purchaseId,
-    String itemName,
+    String userId,
+    RecycleInventory item,
     double quantity,
     double totalPrice,
     String inventoryId,
@@ -831,46 +823,61 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
         final paymentStatus = responseData['paymentStatus'] as String?;
         final bankAccount = responseData['bankAccount'] as String?;
 
-        // Update payment status in database
+        // Create purchase record with verified payment status (success or failed)
         if (paymentStatus == 'success' || paymentStatus == 'failed') {
+          // Generate purchase ID
+          final purchaseId = await _purchaseCtrl.generateNextPurchaseId();
+
+          // Create purchase with the verified status
           final purchasesModel = RecyclePurchasesModel();
-          await purchasesModel.updatePaymentStatus(purchaseId, paymentStatus!);
+          final purchase = RecyclePurchases(
+            purchaseId: purchaseId,
+            userId: userId,
+            totalPrice: totalPrice,
+            paymentStatus: paymentStatus!,
+            createdAt: DateTime.now(),
+            itemName: item.inventoryName,
+            quantity: quantity,
+            pickupLocationId: selectedStation?.stationId,
+            pickupLocationName: selectedStation?.stationName,
+            pickupAddress: selectedStation?.address,
+          );
+          await purchasesModel.createPurchase(purchase);
 
           if (bankAccount != null && bankAccount.isNotEmpty) {
             await purchasesModel.updateBankAccount(purchaseId, bankAccount);
           }
-        }
 
-        // Handle success
-        if (paymentStatus == 'success') {
-          await _purchaseCtrl.updateInventoryStock(inventoryId, quantity);
+          // Handle success
+          if (paymentStatus == 'success') {
+            await _purchaseCtrl.updateInventoryStock(inventoryId, quantity);
 
-          if (mounted) {
-            Navigator.pushReplacementNamed(
-              context,
-              Routes.paymentSuccess,
-              arguments: {
-                'itemName': itemName,
-                'quantity': quantity,
-                'totalPrice': totalPrice,
-                'purchaseId': purchaseId,
-                'bankAccount': bankAccount,
-                'pickupLocationId': selectedStation?.stationId,
-                'pickupAddress': selectedStation?.address,
-                'pickupLocationName': selectedStation?.stationName,
-              },
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Payment failed. Please try again.'),
-                backgroundColor: theme.error,
-              ),
-            );
-            // Note: Don't restore inventory because we never decremented it
-            // The purchase record is in "failed" state for record-keeping
+            if (mounted) {
+              Navigator.pushReplacementNamed(
+                context,
+                Routes.paymentSuccess,
+                arguments: {
+                  'itemName': item.inventoryName ?? 'Item',
+                  'quantity': quantity,
+                  'totalPrice': totalPrice,
+                  'purchaseId': purchaseId,
+                  'bankAccount': bankAccount,
+                  'pickupLocationId': selectedStation?.stationId,
+                  'pickupAddress': selectedStation?.address,
+                  'pickupLocationName': selectedStation?.stationName,
+                },
+              );
+            }
+          } else {
+            // Payment failed - purchase record created with 'failed' status
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Payment failed. Please try again.'),
+                  backgroundColor: theme.error,
+                ),
+              );
+            }
           }
         }
       } else {
@@ -887,15 +894,29 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
         print('Auth error detected - treating as payment success');
 
         if (mounted) {
+          // Generate purchase ID and create with success status
+          final purchaseId = await _purchaseCtrl.generateNextPurchaseId();
           final purchasesModel = RecyclePurchasesModel();
-          await purchasesModel.updatePaymentStatus(purchaseId, 'success');
+          final purchase = RecyclePurchases(
+            purchaseId: purchaseId,
+            userId: userId,
+            totalPrice: totalPrice,
+            paymentStatus: 'success',
+            createdAt: DateTime.now(),
+            itemName: item.inventoryName,
+            quantity: quantity,
+            pickupLocationId: selectedStation?.stationId,
+            pickupLocationName: selectedStation?.stationName,
+            pickupAddress: selectedStation?.address,
+          );
+          await purchasesModel.createPurchase(purchase);
           await _purchaseCtrl.updateInventoryStock(inventoryId, quantity);
 
           Navigator.pushReplacementNamed(
             context,
             Routes.paymentSuccess,
             arguments: {
-              'itemName': itemName,
+              'itemName': item.inventoryName ?? 'Item',
               'quantity': quantity,
               'totalPrice': totalPrice,
               'purchaseId': purchaseId,
