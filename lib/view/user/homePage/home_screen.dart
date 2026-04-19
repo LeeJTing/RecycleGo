@@ -33,6 +33,8 @@ class UserHomeScreen extends StatefulWidget {
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
   late int _currentIndex;
+  final GlobalKey<QrScanScreenState> _scanScreenKey =
+      GlobalKey<QrScanScreenState>();
 
   @override
   void initState() {
@@ -47,7 +49,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
     final List<Widget> _pages = [
       const _HomeContent(),
-      const QrScanScreen(),
+      QrScanScreen(key: _scanScreenKey),
       const MapScreen(),
       VoucherMainPage(
         currentPoints: user?.totalPoints ?? 0,
@@ -66,6 +68,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           setState(() {
             _currentIndex = index;
           });
+          // Refresh camera when Scan tab is tapped (index 1)
+          if (index == 1) {
+            _scanScreenKey.currentState?.refreshCamera();
+          }
         },
       ),
     );
@@ -186,14 +192,18 @@ class _HomeContentState extends State<_HomeContent> {
               const SizedBox(height: 24),
 
               if (_isLoadingSubmissions)
-                const Center(child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: CircularProgressIndicator(),
-                ))
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
               else if (_recentSubmissions.isEmpty)
                 Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -218,7 +228,9 @@ class _HomeContentState extends State<_HomeContent> {
               else
                 Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -229,7 +241,10 @@ class _HomeContentState extends State<_HomeContent> {
                           children: [
                             const Text(
                               "Recent Submissions",
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             TextButton(
                               onPressed: _navigateToAllSubmissions,
@@ -239,7 +254,10 @@ class _HomeContentState extends State<_HomeContent> {
                         ),
                         const SizedBox(height: 8),
                         Column(
-                          children: _recentSubmissions.take(3).map((sub) => _SubmissionTile(submission: sub)).toList(),
+                          children: _recentSubmissions
+                              .take(3)
+                              .map((sub) => _SubmissionTile(submission: sub))
+                              .toList(),
                         ),
                       ],
                     ),
@@ -258,6 +276,7 @@ class _HomeContentState extends State<_HomeContent> {
     );
   }
 }
+
 class _SubmissionTile extends StatelessWidget {
   final RecycleSubmission submission;
 
@@ -291,7 +310,9 @@ class _SubmissionTile extends StatelessWidget {
         color: isRejected ? Colors.red.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isRejected ? Colors.red.withOpacity(0.3) : Colors.grey.shade200,
+          color: isRejected
+              ? Colors.red.withOpacity(0.3)
+              : Colors.grey.shade200,
         ),
       ),
       // Material + InkWell provides the clickable ripple effect
@@ -303,16 +324,14 @@ class _SubmissionTile extends StatelessWidget {
             // 1. .trim() removes any invisible spaces from the database string!
             final exactStatus = submission.status.trim().toLowerCase();
 
-            print("Tile Tapped! The exact status is: '$exactStatus'");
-            print("Submission ID: ${submission.submissionId}");
-
             // --- 🔴 REJECTED LOGIC ---
             if (exactStatus == 'rejected' || exactStatus == 'reject') {
               if (submission.submissionId != null) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AppealPage(submissionId: submission.submissionId!),
+                    builder: (_) =>
+                        AppealPage(submissionId: submission.submissionId!),
                   ),
                 );
               } else {
@@ -346,7 +365,10 @@ class _SubmissionTile extends StatelessWidget {
             }
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: 12.0,
+            ),
             child: Row(
               children: [
                 // Icon
@@ -389,8 +411,12 @@ class _SubmissionTile extends StatelessWidget {
                             : "Awarded: ${submission.pointAward?.toStringAsFixed(0) ?? '0'} pts",
                         style: TextStyle(
                           fontSize: 13,
-                          color: isRejected ? Colors.red.shade700 : Colors.grey.shade600,
-                          fontWeight: isRejected ? FontWeight.w500 : FontWeight.normal,
+                          color: isRejected
+                              ? Colors.red.shade700
+                              : Colors.grey.shade600,
+                          fontWeight: isRejected
+                              ? FontWeight.w500
+                              : FontWeight.normal,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -404,7 +430,10 @@ class _SubmissionTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: _getStatusColor().withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),

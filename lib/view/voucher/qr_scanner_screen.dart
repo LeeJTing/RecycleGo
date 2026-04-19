@@ -93,6 +93,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 
   @override
+  void deactivate() {
+    controller.stop();
+    super.deactivate();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
 
