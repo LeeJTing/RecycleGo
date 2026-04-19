@@ -183,13 +183,6 @@ class _HomeContentState extends State<_HomeContent> {
                 },
               ),
               const SizedBox(height: 24),
-              ScanButton(
-                onScanCompleted: () async {
-                  debugPrint("Scan completed → refreshing UI");
-                  await _fetchSubmissions();
-                },
-              ),
-              const SizedBox(height: 24),
 
               if (_isLoadingSubmissions)
                 const Center(
