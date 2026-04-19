@@ -91,6 +91,40 @@ class Vouchers {
 
     return map;
   }
+
+  /// Get expiration date for this voucher
+  /// Returns null if voucher is infinite or no creation/duration data
+  DateTime? getExpirationDate() {
+    if (isInfinite || createdAt == null || voucherDuration == null) {
+      return null;
+    }
+    return createdAt!.add(Duration(days: voucherDuration!));
+  }
+
+  /// Check if voucher has expired
+  /// Returns false if voucher is infinite
+  bool isExpired() {
+    if (isInfinite) return false;
+
+    final expirationDate = getExpirationDate();
+    if (expirationDate == null) return false;
+
+    return DateTime.now().isAfter(expirationDate);
+  }
+
+  /// Get days remaining until expiration
+  /// Returns null if voucher is infinite or already expired
+  int? daysUntilExpiration() {
+    if (isInfinite) return null;
+
+    final expirationDate = getExpirationDate();
+    if (expirationDate == null) return null;
+
+    final now = DateTime.now();
+    if (now.isAfter(expirationDate)) return 0;
+
+    return expirationDate.difference(now).inDays;
+  }
 }
 
 class VouchersModel extends Connector {
@@ -197,6 +231,53 @@ class VouchersModel extends Connector {
       throw Exception('Failed to delete voucher: ${e.message}');
     } catch (e) {
       throw Exception('Failed to delete voucher: $e');
+    }
+  }
+
+  /// Auto-inactivate all expired vouchers
+  /// Returns list of voucher IDs that were inactivated
+  Future<List<String>> autoInactivateExpiredVouchers() async {
+    try {
+      final response = await SupabaseService().client.from('vouchers').select();
+      final vouchers = (response as List)
+          .map((e) => Vouchers.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      final inactivatedIds = <String>[];
+
+      for (var voucher in vouchers) {
+        // Only check active vouchers
+        if (voucher.voucherStatus == 'active' && voucher.isExpired()) {
+          try {
+            final updatedVoucher = Vouchers(
+              voucherId: voucher.voucherId,
+              voucherName: voucher.voucherName,
+              description: voucher.description,
+              pointsRequired: voucher.pointsRequired,
+              voucherStatus: 'inactive',
+              voucherCategory: voucher.voucherCategory,
+              numberOfVouchers: voucher.numberOfVouchers,
+              createdAt: voucher.createdAt,
+              updatedAt: DateTime.now(),
+              isInfinite: voucher.isInfinite,
+              voucherDuration: voucher.voucherDuration,
+            );
+            await updateVouchers(voucher.voucherId ?? '', updatedVoucher);
+            inactivatedIds.add(voucher.voucherId ?? '');
+          } catch (e) {
+            // Log error but continue with other vouchers
+            print(
+              'Failed to inactivate expired voucher ${voucher.voucherId}: $e',
+            );
+          }
+        }
+      }
+
+      return inactivatedIds;
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to auto-inactivate vouchers: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to auto-inactivate vouchers: $e');
     }
   }
 }
