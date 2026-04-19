@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
@@ -6,6 +7,7 @@ import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/view/admin/inventory/admin_inventory.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
+import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/app/routes.dart';
@@ -24,6 +26,7 @@ class _AdminHomeState extends State<AdminHome> {
   int _currentIndex = 0;
   int _unreadCount = 0;
   String? _currentAdminId;
+  StreamSubscription? _notificationSubscription;
 
   final List<Widget> _pages = const [
     AdminDashboard(),
@@ -40,23 +43,33 @@ class _AdminHomeState extends State<AdminHome> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final admin = context.read<AdminProvider>().admin;
       _currentAdminId = admin?.adminId;
-      _loadUnreadCount();
+      _setupNotificationListener();
     });
   }
 
-  Future<void> _loadUnreadCount() async {
+  void _setupNotificationListener() {
     if (_currentAdminId == null) return;
 
-    try {
-      final count = await NotificationsModel()
-          .getAdminUnreadCount(_currentAdminId!);
-
+    _notificationSubscription?.cancel();
+    _notificationSubscription = NotificationsModel()
+        .getAdminNotificationStream(_currentAdminId!)
+        .listen((notifications) {
       if (mounted) {
-        setState(() => _unreadCount = count);
+        setState(() {
+          _unreadCount = notifications
+              .where((n) => n.notificationStatus.toLowerCase() == 'unread')
+              .length;
+        });
       }
-    } catch (e) {
-      debugPrint('Error loading unread count: $e');
-    }
+    }, onError: (e) {
+      debugPrint('Error in notification stream: $e');
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -102,7 +115,7 @@ class _AdminHomeState extends State<AdminHome> {
               title: const Text("Home"),
             ),
 
-            // VERIFY
+            // Appeals
             SalomonBottomBarItem(
               icon: Badge(
                 isLabelVisible: _unreadCount > 0,
@@ -116,14 +129,14 @@ class _AdminHomeState extends State<AdminHome> {
                 backgroundColor: theme.error,
                 child: const Icon(Icons.check_circle),
               ),
-              title: const Text("Verify"),
+              title: const Text("Appeals"),
             ),
 
             // PURCHASE
             SalomonBottomBarItem(
               icon: const Icon(Icons.receipt_long_outlined),
               activeIcon: const Icon(Icons.receipt_long),
-              title: const Text("Inventory"),
+              title: const Text("Items"),
             ),
 
             SalomonBottomBarItem(
@@ -146,7 +159,7 @@ class _AdminHomeState extends State<AdminHome> {
   String get _currentTitle {
     switch (_currentIndex) {
       case 0: return "Admin Dashboard";
-      case 1: return "Review Requests";
+      case 1: return "Appeal Review";
       case 2: return "Admin Inventory";
       case 3: return "Admin Vouchers";
       case 4: return "Admin Profile";
@@ -200,14 +213,11 @@ class _AdminHomeState extends State<AdminHome> {
                 size: 28,
               ),
               onPressed: () async {
-                final result = await Navigator.pushNamed(
+                await Navigator.pushNamed(
                   context,
                   Routes.adminNotification,
                 );
-
-                if (result == true) {
-                  _loadUnreadCount();
-                }
+                // No need to manually reload count as stream handles it
               },
             ),
             if (_unreadCount > 0)

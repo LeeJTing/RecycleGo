@@ -42,7 +42,6 @@ import 'package:recycle_go/view/admin/admin_notification_screen.dart';
 import 'package:app_links/app_links.dart';
 
 import 'controller/admin/category_controller.dart';
-import 'controller/admin/inventory_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -292,20 +291,7 @@ class _MainAppState extends State<MainApp> {
         Routes.adminAppealReview: (context) => const AppealReviewScreen(),
         Routes.userNotification: (context) => const NotificationListScreen(),
         Routes.adminNotification: (context) => const AdminNotificationScreen(),
-        Routes.adminPurchaseDetail: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseDetail;
-          return AdminPurchaseDetail(
-            purchase: args.purchase,
-            items: args.items,
-          );
-        },
-        Routes.adminPurchaseUpdate: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseUpdate;
-          return AdminPurchaseUpdate(
-            purchase: args.purchase,
-            items: args.items,
-          );
-        },
+        
         Routes.scanRecycleItem: (context) => const VerifyRecycleItem(),
         Routes.adminFullRequestReview: (context) => const AdminSubmissionFullReview(),
 

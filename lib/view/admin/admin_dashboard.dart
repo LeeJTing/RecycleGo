@@ -12,7 +12,9 @@ import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/view/admin/purchase/admin_view_purchase.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
+import 'package:recycle_go/view/admin/admin_station_registry.dart';
 
+import '../../controller/admin/dashboard_controller.dart';
 import 'category/admin_recycle_category.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -28,16 +30,42 @@ class _AdminDashboardState extends State<AdminDashboard> {
   List<RedeemedVouchers> _pendingVouchers = [];
   bool _isLoading = false;
 
-  // Mock Data
-  final int _totalActiveUsers = 1245;
-  final double _totalWeightRecycled = 8450.5;
-  final double _totalRevenue = 15230.00;
-  final int _pointsLiability = 450000;
+  int _totalActiveUsers = 0;
+  double _totalWeightRecycled = 0.0;
+  double _totalRevenue = 0.0;
+  int _pointsLiability = 0;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      // Call the controller we just built!
+      final stats = await DashboardController().fetchDashboardStats();
+
+      // Once the data arrives, update the variables and redraw the screen
+      if (mounted) {
+        setState(() {
+          _totalActiveUsers = stats['totalActiveUsers'];
+          _totalWeightRecycled = stats['totalWeightRecycled'];
+          _totalRevenue = stats['totalRevenue'];
+          _pointsLiability = stats['pointsLiability'];
+
+          _isLoading = false; // Turn off the loading spinner
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to load dashboard data: $e"))
+        );
+      }
+    }
   }
 
   Future<void> _refreshData() async {
@@ -140,15 +168,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
               },
             ),
 
-            _buildManagementTile(
-              context,
-              icon: Icons.gavel_outlined,
-              title: "Appeal Review",
-              subtitle: "Review user appeal submissions",
-              route: Routes.adminAppealReview,
-              theme: theme,
-            ),
-
             const SizedBox(height: 32),
             Text("Voucher Management", style: TextDesign.headingThree()),
             const SizedBox(height: 16),
@@ -193,6 +212,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               },
 
+              theme: theme,
+            ),
+
+            const SizedBox(height: 32),
+            Text("Recycle Station Management", style: TextDesign.headingThree()),
+            const SizedBox(height: 16),
+
+            _buildManagementTile(
+              context,
+              icon: Icons.location_on_outlined,
+              title: "Recycle Station Management",
+              subtitle: "Manage recycle stations and locations",
+              route: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StationRegistryScreen()),
+                );
+              },
               theme: theme,
             ),
 

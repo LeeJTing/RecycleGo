@@ -11,9 +11,12 @@ enum RecycleMaterialType { plastic, paper, glass, cardboard, metal }
 extension StationStatusExt on StationStatus {
   String get label {
     switch (this) {
-      case StationStatus.active:      return 'ACTIVE';
-      case StationStatus.maintenance: return 'MAINTENANCE';
-      case StationStatus.offline:     return 'OFFLINE';
+      case StationStatus.active:
+        return 'ACTIVE';
+      case StationStatus.maintenance:
+        return 'MAINTENANCE';
+      case StationStatus.offline:
+        return 'OFFLINE';
     }
   }
 }
@@ -21,11 +24,16 @@ extension StationStatusExt on StationStatus {
 extension MaterialTypeExt on RecycleMaterialType {
   String get label {
     switch (this) {
-      case RecycleMaterialType.plastic:   return 'PLASTIC';
-      case RecycleMaterialType.paper:     return 'PAPER';
-      case RecycleMaterialType.glass:     return 'GLASS';
-      case RecycleMaterialType.cardboard: return 'CARDBOARD';
-      case RecycleMaterialType.metal:     return 'METAL';
+      case RecycleMaterialType.plastic:
+        return 'PLASTIC';
+      case RecycleMaterialType.paper:
+        return 'PAPER';
+      case RecycleMaterialType.glass:
+        return 'GLASS';
+      case RecycleMaterialType.cardboard:
+        return 'CARDBOARD';
+      case RecycleMaterialType.metal:
+        return 'METAL';
     }
   }
 }
@@ -47,6 +55,7 @@ class RecycleStation {
   final DateTime createdAt;
   final String? imageUrl;
   final double stationCapacity;
+  final String? qrImageUrl;
 
   const RecycleStation({
     this.stationId,
@@ -64,15 +73,16 @@ class RecycleStation {
     required this.qrCodeValue,
     required this.createdAt,
     this.imageUrl,
+    this.qrImageUrl,
     required this.stationCapacity,
   });
 
   double get totalCapacity =>
       (plasticStorage ?? 0) +
-          (paperStorage ?? 0) +
-          (glassStorage ?? 0) +
-          (cardboardStorage ?? 0) +
-          (metalStorage ?? 0);
+      (paperStorage ?? 0) +
+      (glassStorage ?? 0) +
+      (cardboardStorage ?? 0) +
+      (metalStorage ?? 0);
 
   List<RecycleMaterialType> get supportedMaterials {
     final list = <RecycleMaterialType>[];
@@ -132,21 +142,15 @@ class RecycleStation {
           ? null
           : (plasticStorage ?? this.plasticStorage),
 
-      paperStorage: setPaperNull
-          ? null
-          : (paperStorage ?? this.paperStorage),
+      paperStorage: setPaperNull ? null : (paperStorage ?? this.paperStorage),
 
-      glassStorage: setGlassNull
-          ? null
-          : (glassStorage ?? this.glassStorage),
+      glassStorage: setGlassNull ? null : (glassStorage ?? this.glassStorage),
 
       cardboardStorage: setCardboardNull
           ? null
           : (cardboardStorage ?? this.cardboardStorage),
 
-      metalStorage: setMetalNull
-          ? null
-          : (metalStorage ?? this.metalStorage),
+      metalStorage: setMetalNull ? null : (metalStorage ?? this.metalStorage),
 
       qrCodeValue: qrCodeValue ?? this.qrCodeValue,
       createdAt: createdAt ?? this.createdAt,
@@ -164,9 +168,12 @@ class RecycleStation {
     final dLat = _toRad(latitude - lat);
     final dLng = _toRad(longitude - lng);
 
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_toRad(lat)) * cos(_toRad(latitude)) *
-            sin(dLng / 2) * sin(dLng / 2);
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRad(lat)) *
+            cos(_toRad(latitude)) *
+            sin(dLng / 2) *
+            sin(dLng / 2);
 
     final c = 2 * atan2(sqrt(a), sqrt(1 - a.clamp(0, 1)));
 
@@ -192,9 +199,9 @@ class RecycleStation {
       'created_at': createdAt.toIso8601String(),
       'image_url': imageUrl,
       'station_capacity': stationCapacity,
+      'qr_image_url': qrImageUrl,
     };
 
-    // ✅ 只有 update 才传 id
     if (stationId != null) {
       data['station_id'] = stationId;
     }
@@ -209,9 +216,10 @@ class RecycleStation {
     latitude: (map['latitude'] ?? 0).toDouble(),
     longitude: (map['longitude'] ?? 0).toDouble(),
     description: map['description'],
+    qrImageUrl: map['qr_image_url'],
     stationStatus: StationStatus.values.firstWhere(
-          (s) =>
-      s.name.toLowerCase() ==
+      (s) =>
+          s.name.toLowerCase() ==
           (map['station_status'] ?? '').toString().toLowerCase(),
       orElse: () => StationStatus.active,
     ),
@@ -244,6 +252,23 @@ class RecycleStation {
   }
 }
 
+class StationWithDistance {
+  final RecycleStation station;
+  final double distance; // distance in km
+
+  const StationWithDistance({required this.station, required this.distance});
+
+  /// Formats distance as a readable string (e.g., "2.5 km" or "500 m")
+  String get distanceText {
+    if (distance < 1.0) {
+      final meters = (distance * 1000).round();
+      return '$meters m';
+    } else {
+      return '${distance.toStringAsFixed(1)} km';
+    }
+  }
+}
+
 class RecycleStationModel extends Connector {
   static final RecycleStationModel _instance = RecycleStationModel._internal();
   factory RecycleStationModel() => _instance;
@@ -270,7 +295,7 @@ class RecycleStationModel extends Connector {
   // ✅ CREATE
   Future<RecycleStation?> insertStation(RecycleStation s) async {
     try {
-      print('📦 DATA => ${s.toMap()}'); // 👈 一定要加
+      print('📦 DATA => ${s.toMap()}');
 
       final res = await client
           .from('recyclestation')
@@ -279,7 +304,6 @@ class RecycleStationModel extends Connector {
           .single();
 
       return RecycleStation.fromJson(res);
-
     } catch (e) {
       print('❌ ERROR TYPE: ${e.runtimeType}');
       print('❌ ERROR: $e');
@@ -339,10 +363,7 @@ class RecycleStationModel extends Connector {
             .inFilter('submission_id', submissionIds);
       }
 
-      await client
-          .from('recyclingsubmission')
-          .delete()
-          .eq('station_id', id);
+      await client.from('recyclingsubmission').delete().eq('station_id', id);
 
       final res = await client
           .from('recyclestation')
@@ -351,7 +372,6 @@ class RecycleStationModel extends Connector {
           .select();
 
       return res.isNotEmpty;
-
     } catch (e) {
       print('DELETE ERROR: $e');
       return false;
@@ -360,13 +380,9 @@ class RecycleStationModel extends Connector {
 
   Future<List<RecycleStation>> getAllStations() async {
     try {
-      final response = await client
-          .from('recyclestation')
-          .select();
+      final response = await client.from('recyclestation').select();
 
-      return (response as List)
-          .map((e) => RecycleStation.fromJson(e))
-          .toList();
+      return (response as List).map((e) => RecycleStation.fromJson(e)).toList();
     } catch (e) {
       print('DEBUG: Error fetching stations: $e');
       return [];

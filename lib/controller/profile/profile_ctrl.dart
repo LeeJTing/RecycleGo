@@ -16,7 +16,7 @@ import 'package:recycle_go/controller/autho/login_ctrl.dart';
 class ProfileCtrl {
   final AchievementModel _achievementModel = AchievementModel();
   final UsersModel _usersModel = UsersModel();
-  //final RecycleSubmissionModel _submissionModel = RecycleSubmissionModel();
+  final RecycleSubmissionModel _submissionModel = RecycleSubmissionModel();
   final StorageService _storageService = StorageService();
   final ImagePicker _picker = ImagePicker();
 

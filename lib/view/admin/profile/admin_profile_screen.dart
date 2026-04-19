@@ -6,6 +6,7 @@ import 'package:recycle_go/controller/admin/admin_profile_ctrl.dart';
 import 'package:recycle_go/controller/autho/login_ctrl.dart';
 import 'package:recycle_go/models/Admins.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
+import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/profile/edit_admin_profile_screen.dart';
 import 'package:recycle_go/view/admin/profile/widgets/admin_profile_info.dart';
 import 'package:recycle_go/view/user/profile/change_password_screen.dart';
@@ -83,7 +84,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 48),
+                const SizedBox(height: 16),
 
                 _buildMenuButton(
                   icon: Icons.lock_outline,
