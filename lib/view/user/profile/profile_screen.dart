@@ -122,6 +122,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 32),
 
                 _buildMenuButton(
+                  icon: Icons.report_problem,
+                  label: 'Appeals',
+                  onTap: () => _navigateToSettings(user.userId!),
+                  theme: theme,
+                  size: size,
+                ),
+
+                const SizedBox(height: 32),
+
+                _buildMenuButton(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
                   onTap: () => _navigateToSettings(user.userId!),

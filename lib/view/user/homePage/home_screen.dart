@@ -15,6 +15,9 @@ import 'package:recycle_go/view/voucher/voucher_main_page.dart';
 import 'package:recycle_go/view/user/homePage/widgets/purchase_card.dart';
 import 'package:recycle_go/view/user/appeal/widgets/appeal_status_card.dart';
 
+import '../../../app/TextDesign.dart';
+import '../appeal/appeal_list_screen.dart';
+
 class UserHomeScreen extends StatefulWidget {
   final int initialIndex;
   const UserHomeScreen({super.key, this.initialIndex = 0});
@@ -128,24 +131,47 @@ class _HomeContentState extends State<_HomeContent> {
               const SizedBox(height: 24),
               const ScanButton(),
               const SizedBox(height: 24),
-              Consumer<UserProvider>(
-                builder: (context, userProvider, child) {
-                  if (!_isLoadingAppeals &&
-                      _appeals.isNotEmpty &&
-                      userProvider.user?.userId != null) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppealStatusCard(
-                          appeals: _appeals,
-                          userId: userProvider.user!.userId!,
+
+              Text(
+                "Recent Submissions",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              Text(
+                "Recent Submissions",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+              ),
+              const SizedBox(height: 12),
+
+
+              const SizedBox(height: 24),
+// ... the rest (ElevatedButton, NearbyBinCard, PurchaseCard)
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  final userProvider = context.read<UserProvider>();
+                  final userId = userProvider.user?.userId;
+
+                  if (userId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AppealListScreen(
+                          initialAppeals: _appeals,
+                          userId: userId,
                         ),
-                        const SizedBox(height: 24),
-                      ],
+                      ),
                     );
+                  } else {
+                    print("Error: User ID is null");
                   }
-                  return const SizedBox.shrink();
                 },
+                child: const Text("View Appeals"),
               ),
               const NearbyBinCard(),
               const SizedBox(height: 24),

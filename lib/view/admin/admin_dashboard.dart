@@ -9,11 +9,11 @@ import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/models/RedeemedVouchers.dart';
 import 'package:recycle_go/services/supabase_service.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
-import 'package:recycle_go/view/admin/admin_view_purchase.dart';
+import 'package:recycle_go/view/admin/purchase/admin_view_purchase.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/view/admin/admin_pending_vouchers.dart';
 
-import 'admin_recycle_category.dart';
+import 'category/admin_recycle_category.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -99,19 +99,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Platform Performance", style: TextDesign.headingThree()),
             const SizedBox(height: 16),
 
             // --- 1. KPI GRID ---
             _buildKPIGrid(theme),
             const SizedBox(height: 32),
-
-            // --- 2. CHART SECTION ---
-            Text("30-Day Growth Trends", style: TextDesign.headingThree()),
-            const SizedBox(height: 16),
-            _buildGrowthChart(theme),
-
-            const SizedBox(height: 40),
 
             // --- 3. MANAGEMENT TILES ---
             Text("System Management", style: TextDesign.headingThree()),
@@ -221,14 +213,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
               },
               theme: theme,
             ),
-            const SizedBox(height: 40), // Bottom padding
+            const SizedBox(height: 32),
+
+            // --- 2. CHART SECTION ---
+            Text("30-Day Growth Trends", style: TextDesign.headingThree()),
+            const SizedBox(height: 16),
+            _buildGrowthChart(theme),
+
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
-
-  // --- WIDGET HELPERS ---
 
   Widget _buildKPIGrid(AppColors theme) {
     return Column(
