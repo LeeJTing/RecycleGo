@@ -54,22 +54,18 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     });
   }
 
-  String _invalidPhoneMessage(String countryCode) {
+  String _invalidPhoneMessage(String value, String countryCode) {
+    if (value.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'Numbers only allowed';
+    }
     switch (countryCode) {
-      case '+60':
-        return 'Please enter a valid Malaysia phone number (9 or 10 digits)';
-      case '+65':
-        return 'Please enter a valid Singapore phone number (8 digits)';
-      case '+1':
-        return 'Please enter a valid American or Canadian phone number (10 digits)';
-      case '+44':
-        return 'Please enter a valid UK phone number (10 digits)';
-      case '+86':
-        return 'Please enter a valid China phone number (11 digits)';
-      case '+91':
-        return 'Please enter a valid India phone number (10 digits)';
-      default:
-        return 'Invalid phone number';
+      case '+60': return 'Enter a valid Malaysia phone number (9-10 digits)';
+      case '+65': return 'Enter a valid Singapore phone number (8 digits)';
+      case '+1':  return 'Enter a valid American/Canadian phone number (10 digits)';
+      case '+44': return 'Enter a valid UK phone number (10 digits)';
+      case '+86': return 'Enter a valid China phone number (11 digits)';
+      case '+91': return 'Enter a valid India phone number (10 digits)';
+      default: return 'Invalid phone number';
     }
   }
 
@@ -180,8 +176,16 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               children: [
                 CircleAvatar(
                   radius: 50,
-                  backgroundColor: theme.secondary.withOpacity(0.1),
-                  child: Icon(Icons.person, size: 50, color: theme.secondary),
+                  backgroundColor: theme.secondary.withValues(alpha: 0.1),
+                  child: ClipOval(
+                    child: Image.network(
+                      widget.user.getUserProfileURL(),
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Icon(Icons.person, size: 50, color: theme.secondary),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 if (!_isEditing) ...[
@@ -203,8 +207,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     ),
                     borderColor:
                         _usernameController.text.isNotEmpty && !_isUsernameValid
-                        ? theme.error.withOpacity(0.3)
+                        ? theme.error
                         : null,
+                    errorText: _usernameController.text.isNotEmpty && !_isUsernameValid ? 'Only letters and spaces allowed' : null,
                   ),
                 ],
                 const SizedBox(height: 32),
@@ -242,7 +247,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                   AuthTextField(
                     controller: _phoneController,
                     hintText: '123456789',
-                    keyboardType: TextInputType.phone,
+                    keyboardType: TextInputType.number,
                     onChanged: (_) => _validateFields(),
                     prefixIcon: Container(
                       width: 80,
@@ -270,7 +275,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                         ],
                       ),
                     ),
-                    errorText: _phoneController.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_selectedCountryCode) : null,
+                    borderColor: _phoneController.text.isNotEmpty && !_isPhoneValid ? theme.error : null,
+                    errorText: _phoneController.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_phoneController.text, _selectedCountryCode) : null,
                   ),
                   const SizedBox(height: 16),
                   _buildEditDropdown(
@@ -318,7 +324,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _updateUser,
+                      onPressed: (_isLoading || !_isUsernameValid || !_isPhoneValid) ? null : _updateUser,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         shape: RoundedRectangleBorder(

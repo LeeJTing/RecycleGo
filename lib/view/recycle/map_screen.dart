@@ -19,6 +19,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   Set<String> _favorites = {};
+  final FocusNode _searchFocus = FocusNode();
 
   void _onMapIdle() {
     if (_isManualMove) return;
@@ -494,6 +495,9 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    _searchFocus.addListener(() {
+      setState(() {});
+    });
     _initLocation();
     _loadStations();
     _loadSearchHistory();
@@ -548,6 +552,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _searchFocus.dispose();
     _mapController?.dispose();
     super.dispose();
   }
@@ -825,6 +830,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     child: TextField(
                       controller: _searchCtrl,
+                      focusNode: _searchFocus,
                       onChanged: (value) {
                         if (value.isEmpty) {
                           setState(() {
@@ -844,7 +850,6 @@ class _MapScreenState extends State<MapScreen> {
                         hintText: 'Search recycle stations..',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                         prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
-                        suffixIcon: const Icon(Icons.tune, color: Color(0xFF1DB954), size: 20),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -853,7 +858,9 @@ class _MapScreenState extends State<MapScreen> {
                 ),
 
                 // 3. 搜索历史 (放在搜索框下面，并增加装饰)
-                if (_searchCtrl.text.isEmpty && _searchHistory.isNotEmpty)
+                if (_searchFocus.hasFocus &&
+                    _searchCtrl.text.isEmpty &&
+                    _searchHistory.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.fromLTRB(24, 10, 24, 0), // 左右边距比搜索框稍大一点，更有层次感
                     decoration: BoxDecoration(
@@ -903,6 +910,7 @@ class _MapScreenState extends State<MapScreen> {
                           ), // 提示点击可填入
                           onTap: () {
                             _searchCtrl.text = item;
+                            FocusScope.of(context).unfocus();
                             _onSearch(item);
                           },
                         );
@@ -993,10 +1001,6 @@ class _MapScreenState extends State<MapScreen> {
                   onTap: _goToMyLocation,
                 ),
                 const SizedBox(height: 12),
-                _MapFab(
-                  icon: Icons.layers_outlined,
-                  onTap: () {},
-                ),
               ],
             ),
           ),
@@ -1050,7 +1054,7 @@ class _MapScreenState extends State<MapScreen> {
             builder: (context, scrollController) {
               return Container(
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: const Color(0xFF1E1E1E),
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(20),
                   ),

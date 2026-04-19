@@ -587,7 +587,12 @@ class _VoucherManagementState extends State<VoucherManagement> {
                                       : _filteredVouchers.length,
                                   itemBuilder: (context, index) {
                                     final voucher = _filteredVouchers[index];
-                                    final category = voucher.description;
+                                    final category = voucher
+                                            .voucherCategory
+                                            .trim()
+                                            .isNotEmpty
+                                        ? voucher.voucherCategory
+                                        : 'General';
 
                                     return VoucherCard(
                                       voucher: voucher,

@@ -41,24 +41,18 @@ import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/admin_notification_screen.dart';
 import 'package:app_links/app_links.dart';
 import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
-import 'controller/admin/category_controller.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:recycle_go/services/notification_services.dart';
+import 'package:recycle_go/services/notification_service.dart';
 
-final FlutterLocalNotificationsPlugin notificationsPlugin =
-FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin notificationsPlugin = FlutterLocalNotificationsPlugin();
 
 Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-
   final notification = message.notification;
-
   if (notification != null) {
     final plugin = FlutterLocalNotificationsPlugin();
-
     await plugin.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       notification.title,
@@ -81,21 +75,9 @@ Future<void> main() async {
   await SupabaseService.initialize();
   FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
 
-  const AndroidInitializationSettings androidSettings =
-  AndroidInitializationSettings('@mipmap/ic_launcher');
+  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
 
-  const InitializationSettings initSettings =
-  InitializationSettings(android: androidSettings);
-
-  final permission = await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
-  print("Permission: ${permission.authorizationStatus}");
-  if (permission.authorizationStatus == AuthorizationStatus.denied) {
-    print("If the user refuses the notification permission, local notifications will not pop up");
-  }
   await notificationsPlugin.initialize(initSettings);
 
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -106,8 +88,7 @@ Future<void> main() async {
   );
 
   await notificationsPlugin
-      .resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 
   runApp(
@@ -133,18 +114,15 @@ class _MainAppState extends State<MainApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
-
   final Set<String> _handledTokens = {};
+  bool _isNavigating = false;
+  final ValueNotifier<bool> _isAppReady = ValueNotifier<bool>(false);
 
   void _initFCM() async {
-    await saveFcmToken();
-
     await FirebaseMessaging.instance.subscribeToTopic("stations");
 
-    // 前台
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
-
       if (notification != null) {
         notificationsPlugin.show(
           DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -162,12 +140,10 @@ class _MainAppState extends State<MainApp> {
       }
     });
 
-    // 点击通知（后台）
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _navigatorKey.currentState?.pushNamed(Routes.map);
     });
 
-    // 点击通知（关闭状态）
     FirebaseMessaging.instance.getInitialMessage().then((message) {
       if (message != null) {
         _navigatorKey.currentState?.pushNamed(Routes.map);
@@ -179,24 +155,30 @@ class _MainAppState extends State<MainApp> {
   void initState() {
     super.initState();
     _initFCM();
-    // Initialize deep links after the first frame to ensure Navigator is attached
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initDeepLinks();
+    
+    // Step 1: Initialize the base app and wait for stability
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        _isAppReady.value = true;
+        _initDeepLinks();
+      }
     });
   }
 
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    _isAppReady.dispose();
     super.dispose();
   }
 
   Future<void> _initDeepLinks() async {
     _appLinks = AppLinks();
 
-    // 1. Handle links while the app is already open (Background/Foreground)
+    // Handle links while app is in background/foreground
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
+        debugPrint('DEBUG: Received Link from Stream: $uri');
         _handleDeepLink(uri);
       },
       onError: (err) {
@@ -204,15 +186,26 @@ class _MainAppState extends State<MainApp> {
       },
     );
 
-    // 2. Handle the link that opened the app (Cold Start)
+    // Handle links that opened the app (Cold Start)
     try {
       final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
-        // CRITICAL: Delay navigation to ensure the initial route (Login) is completely loaded
-        // This solves the 'framework.dart' assertion error.
-        Future.delayed(const Duration(seconds: 10), () {
+        debugPrint('DEBUG: Cold Start Link: $initialUri');
+        // We wait for the app to be ready before processing the cold start link
+        if (_isAppReady.value) {
           _handleDeepLink(initialUri);
-        });
+        } else {
+          late VoidCallback listener;
+
+          listener = () {
+            if (_isAppReady.value) {
+              _handleDeepLink(initialUri);
+              _isAppReady.removeListener(listener);
+            }
+          };
+
+          _isAppReady.addListener(listener);
+        }
       }
     } catch (e) {
       debugPrint('Error getting initial link: $e');
@@ -220,22 +213,19 @@ class _MainAppState extends State<MainApp> {
   }
 
   void _handleDeepLink(Uri uri) {
-    debugPrint('DEBUG: Processing URI: $uri');
+    if (_isNavigating) return;
 
     final host = uri.host.toLowerCase();
     final scheme = uri.scheme.toLowerCase();
+    final path = uri.path.toLowerCase();
 
-    // Check for host 'recyclego' and path '/reset-password'
-    if ((host == 'recyclego' || scheme == 'recyclego') &&
-        uri.path.contains('reset-password')) {
+    // Supports recyclego://reset-password and https://recyclego/reset-password
+    if ((scheme == 'recyclego' && host == 'reset-password') ||
+        (scheme == 'https' && path == '/reset-password')) {
       final token = uri.queryParameters['token'];
 
-      if (token != null &&
-          token.isNotEmpty &&
-          !_handledTokens.contains(token)) {
-        _handledTokens.add(
-          token,
-        ); // Prevent duplicate navigation for the same token
+      if (token != null && token.isNotEmpty && !_handledTokens.contains(token)) {
+        _handledTokens.add(token);
         _safeNavigate(Routes.resetPassword, {'token': token});
       }
     }
@@ -243,17 +233,11 @@ class _MainAppState extends State<MainApp> {
 
   void _safeNavigate(String routeName, Map<String, dynamic> args) {
     if (!mounted) return;
-
-    // Use addPostFrameCallback to ensure navigation doesn't happen during build
+    
+    _isNavigating = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_navigatorKey.currentState != null) {
-        _navigatorKey.currentState?.pushNamed(routeName, arguments: args);
-      } else {
-        // Final retry delay for slow devices
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _navigatorKey.currentState?.pushNamed(routeName, arguments: args);
-        });
-      }
+      _navigatorKey.currentState?.pushNamed(routeName, arguments: args);
+      _isNavigating = false;
     });
   }
 
@@ -265,47 +249,27 @@ class _MainAppState extends State<MainApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('en'),
-
       initialRoute: Routes.login,
       onGenerateRoute: (settings) {
-        // Handle payment deep links from Stripe
         if (settings.name?.startsWith('recyclego://payment/') == true) {
           if (settings.name == 'recyclego://payment/success') {
-            // Payment succeeded - close browser and go to home
-            return MaterialPageRoute(
-              builder: (context) => const UserHomeScreen(initialIndex: 0),
-            );
+            return MaterialPageRoute(builder: (context) => const UserHomeScreen(initialIndex: 0));
           } else if (settings.name == 'recyclego://payment/cancelled') {
-            // Payment cancelled - go back to purchase screen
-            return MaterialPageRoute(
-              builder: (context) => const UserPurchaseScreen(),
-            );
+            return MaterialPageRoute(builder: (context) => const UserPurchaseScreen());
           }
         }
-
-        // Handle named routes with arguments
         if (settings.name == Routes.resetPassword) {
           final args = settings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-            builder: (context) => ResetPasswordScreen(token: args['token']),
-          );
+          return MaterialPageRoute(builder: (context) => ResetPasswordScreen(token: args['token']));
         }
-
         if (settings.name == Routes.editProfile) {
           final args = settings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-            builder: (context) => EditProfileScreen(user: args['user']),
-          );
+          return MaterialPageRoute(builder: (context) => EditProfileScreen(user: args['user']));
         }
-
         if (settings.name == Routes.userPurchaseDetail) {
           final args = settings.arguments as Map<String, dynamic>;
-          final purchase = args['purchase'] as RecyclePurchases;
-          return MaterialPageRoute(
-            builder: (context) => PurchaseDetailScreen(purchase: purchase),
-          );
+          return MaterialPageRoute(builder: (context) => PurchaseDetailScreen(purchase: args['purchase']));
         }
-
         if (settings.name == Routes.paymentSuccess) {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
@@ -321,7 +285,6 @@ class _MainAppState extends State<MainApp> {
             ),
           );
         }
-
         if (settings.name == Routes.paymentVerification) {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
@@ -338,7 +301,6 @@ class _MainAppState extends State<MainApp> {
             ),
           );
         }
-
         return null;
       },
       routes: {
@@ -350,61 +312,41 @@ class _MainAppState extends State<MainApp> {
         Routes.adminHome: (context) => const AdminHome(),
         Routes.adminPurchaseView: (context) => const AdminViewPurchase(),
         Routes.adminPurchaseDetail: (context) {
-          final purchase =
-          ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
-
-          return AdminPurchaseDetail(
-            purchase: purchase,
-            items: [],  // Assuming items are empty for now
-          );
+          final purchase = ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
+          return AdminPurchaseDetail(purchase: purchase, items: const []);
         },
         Routes.adminPurchaseUpdate: (context) {
-          final purchase =
-          ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
-
-          return AdminPurchaseUpdate(
-            purchase: purchase,
-            items: [],
-          );
+          final purchase = ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
+          return AdminPurchaseUpdate(purchase: purchase, items: const []);
         },
         Routes.adminInventory: (context) => const AdminInventory(),
         Routes.adminViewInventory: (context) {
-          final item =
-              ModalRoute.of(context)!.settings.arguments as RecycleInventory;
+          final item = ModalRoute.of(context)!.settings.arguments as RecycleInventory;
           return AdminViewInventory(item: item);
         },
         Routes.adminAddInventory: (context) => const AdminAddInventory(),
         Routes.adminUpdateInventory: (context) {
-          final item =
-              ModalRoute.of(context)!.settings.arguments as RecycleInventory;
+          final item = ModalRoute.of(context)!.settings.arguments as RecycleInventory;
           return AdminUpdateInventory(item: item);
         },
         Routes.map: (context) => const UserHomeScreen(initialIndex: 2),
         Routes.qrScan: (context) => const UserHomeScreen(initialIndex: 1),
-
         Routes.adminStationRegistry: (context) => const StationRegistryScreen(),
-        Routes.adminVoucherManagement: (context) =>
-            const AdminVoucherManagement(),
+        Routes.adminVoucherManagement: (context) => const AdminVoucherManagement(),
         Routes.userPurchase: (context) => const UserPurchaseScreen(),
         Routes.userPurchaseHistory: (context) => const PurchaseHistoryScreen(),
-
-        // Management Routes
         Routes.adminUserManagement: (context) => const UserManagementScreen(),
         Routes.adminManagement: (context) => const AdminManagementScreen(),
         Routes.adminAppealReview: (context) => const AppealReviewScreen(),
         Routes.userNotification: (context) => const NotificationListScreen(),
         Routes.adminNotification: (context) => const AdminNotificationScreen(),
-        
         Routes.scanRecycleItem: (context) => const VerifyRecycleItem(),
         Routes.adminFullRequestReview: (context) => const AdminSubmissionFullReview(),
         Routes.adminProfile: (context) => const AdminProfileScreen(),
-
         Routes.adminAddCategory: (context)=> const AdminAddCategory(),
-        Routes.adminUpdateCategory: (context)  {
+        Routes.adminUpdateCategory: (context) {
           final args = ModalRoute.of(context)?.settings.arguments as AdminUpdateCategory;
-          return AdminUpdateCategory(
-            category: args.category,
-          );
+          return AdminUpdateCategory(category: args.category);
         },
       },
     );

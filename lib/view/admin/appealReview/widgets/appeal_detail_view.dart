@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
@@ -286,15 +287,14 @@ class _AppealDetailViewState extends State<AppealDetailView> {
             children: [
               const Icon(Icons.scale_outlined, size: 20, color: Colors.grey),
               const SizedBox(width: 8),
-              Text(
-                "Weight: ${widget.appeal.submission?.weight?.toStringAsFixed(2) ?? '0'} kg",
-                style: const TextStyle(fontWeight: FontWeight.w500),
+              Flexible(
+                child: Text(
+                  "Weight: ${widget.appeal.submission?.weight?.toStringAsFixed(2) ?? '0'} kg",
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
-              Text(
-                "Submission ID: ${widget.appeal.submissionId.substring(0, 8).toUpperCase()}",
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
-              ),
+              const SizedBox(width: 8),
             ],
           ),
         ),
@@ -334,7 +334,10 @@ class _AppealDetailViewState extends State<AppealDetailView> {
         const SizedBox(height: 8),
         TextField(
           controller: _pointsController,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          ],
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
           onChanged: (value) => setState(() {}),
           decoration: InputDecoration(
@@ -362,6 +365,10 @@ class _AppealDetailViewState extends State<AppealDetailView> {
   }
 
   Widget _buildRewardBanner(AppColors theme) {
+    final pointsText = _pointsController.text.trim();
+    final double? val = double.tryParse(pointsText);
+    final String displayValue = pointsText.isEmpty ? '0' : (val == null ? 'Invalid' : pointsText);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -379,7 +386,7 @@ class _AppealDetailViewState extends State<AppealDetailView> {
           Row(
             children: [
               Text(
-                _pointsController.text.isEmpty ? '0' : _pointsController.text,
+                displayValue,
                 style: const TextStyle(color: Color(0xFF2D6A4F), fontWeight: FontWeight.w900, fontSize: 20),
               ),
               const SizedBox(width: 4),
@@ -486,13 +493,28 @@ class _AppealDetailViewState extends State<AppealDetailView> {
       return;
     }
 
+    double? points;
+    if (status == 'approved') {
+      final pointsText = _pointsController.text.trim();
+      points = double.tryParse(pointsText);
+      if (points == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter a valid numeric value for points")),
+        );
+        return;
+      }
+    } else {
+      // If rejected, do not update pointsGiven (pass null)
+      points = null;
+    }
+
     setState(() => _isLoading = true);
     try {
       await _controller.updateAppealStatus(
         widget.appeal,
         status,
         admin.adminId!,
-        points: double.tryParse(_pointsController.text),
+        points: points,
         comment: _commentController.text.trim(),
       );
       if (mounted) {
