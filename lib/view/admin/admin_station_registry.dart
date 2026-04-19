@@ -1,4 +1,3 @@
-// lib/view/admin/station_registry_screen.dart
 import 'package:flutter/material.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
 import 'package:recycle_go/view/admin/admin_station_edit.dart';

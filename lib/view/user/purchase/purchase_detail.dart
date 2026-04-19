@@ -745,26 +745,6 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
               ),
             if (widget.purchase.paymentStatus.toLowerCase() == 'success')
               const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Need help? Contact support'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: Text(
-                  'Contact Support',
-                  style: TextDesign.smallText(color: theme.primary),
-                ),
-              ),
-            ),
 
             const SizedBox(height: 20),
           ],
