@@ -23,4 +23,11 @@ class UserProvider extends ChangeNotifier {
     _unreadNotificationCount = 0;
     notifyListeners();
   }
+
+  void updateUserPoints(int newTotalPoints) {
+    if (_user != null) {
+      _user = _user!.copyWith(totalPoints: newTotalPoints);
+      notifyListeners();
+    }
+  }
 }
