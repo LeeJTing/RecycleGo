@@ -15,8 +15,6 @@ class StationDetailScreen extends StatefulWidget {
     super.key,
     required this.station,
     required this.distanceKm,
-
-    // ✅ constructor 也要加
     this.duration,
     this.routeDistance,
   });
@@ -84,14 +82,14 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
       final full = total >= maxCap;
 
-      // ♻️ 每种材料的 CO2 减排系数（kg CO2 / kg）
+      // The CO2 reduction coefficient of each material (kg CO2 / kg)
       const plasticFactor = 6.0;
       const glassFactor = 0.5;
       const cardboardFactor = 3.0;
       const metalFactor = 9.0;
       const paperFactor = 2.5;
 
-      // ✅ 计算 CO2
+      // Calculate CO2
       final co2 =
           ((plastic ?? 0) * plasticFactor) +
               ((glass ?? 0) * glassFactor) +
@@ -99,7 +97,6 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
               ((metal ?? 0) * metalFactor) +
               ((paper ?? 0) * paperFactor);
 
-      // ✅ 一次 setState
       setState(() {
         materials = [
           {
@@ -160,7 +157,6 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 👇 返回按钮
                   Row(
                     children: [
                       GestureDetector(
@@ -197,7 +193,6 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 
                   const SizedBox(height: 16),
 
-                  // ✅ 用 DB
                   _CapacityCard(
                     capacity: capacity,
                     remainingKg: remainingKg,
@@ -210,12 +205,11 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                   const _SectionLabel(label: 'SUPPORTED MATERIALS'),
                   const SizedBox(height: 8),
 
-                  // ✅ 用 DB
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _MaterialsGrid(
                     materials: materials,
-                    totalKg: totalKg, // ✅ 加这个
+                    totalKg: totalKg,
                     maxCap: maxCap,
                   ),
 
@@ -349,7 +343,7 @@ class _StationHeaderCard extends StatelessWidget {
             children: [
               ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.pop(context, station); // 👈 把站点传回去
+                  Navigator.pop(context, station);
                 },
                 icon: const Icon(Icons.navigation,
                     size: 16, color: Colors.white),
@@ -438,7 +432,7 @@ class _StatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: bgColor, // ✅ 用你传进来的颜色！
+          color: bgColor,
           borderRadius: BorderRadius.circular(14),
           border: isBordered
               ? Border.all(color: const Color(0xFFDDEEDD), width: 1)
@@ -461,8 +455,8 @@ class _StatTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     color: isDarkBg
-                        ? Colors.white   // ✅ 绿色背景 → 白字
-                        : Colors.black87, // 白背景 → 灰字
+                        ? Colors.white
+                        : Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -478,7 +472,7 @@ class _StatTile extends StatelessWidget {
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: isDarkBg
-                    ? Colors.white   // ✅ 绿色背景 → 白字
+                    ? Colors.white
                     : Colors.black,
               ),
             ),
@@ -531,7 +525,6 @@ class _LivePreviewMap extends StatelessWidget {
               ),
             ),
 
-            // 👇 这个你保留
             Positioned(
               bottom: 12,
               left: 12,
@@ -717,8 +710,8 @@ class _SectionLabel extends StatelessWidget {
         label,
         style: const TextStyle(
           color: Color(0xFF0D1F0D),
-          fontSize: 16, // 👈 放大
-          fontWeight: FontWeight.w800, // 👈 更粗
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
           letterSpacing: 0.5,
         ),
       ),
@@ -728,7 +721,7 @@ class _SectionLabel extends StatelessWidget {
 
 class _MaterialsGrid extends StatelessWidget {
   final List<Map<String, dynamic>> materials;
-  final double totalKg; // ✅ 加这个
+  final double totalKg;
   final double maxCap;
 
   const _MaterialsGrid({
@@ -1000,7 +993,7 @@ class _ScanCTA extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               color: disabled
-                  ? Colors.grey   // 👈 灰掉
+                  ? Colors.grey
                   : const Color(0xFF0D1F0D),
               borderRadius: BorderRadius.circular(14),
             ),
@@ -1011,7 +1004,7 @@ class _ScanCTA extends StatelessWidget {
                     color: Color(0xFF1DB954), size: 20),
                 const SizedBox(width: 10),
                 Text(
-                  disabled ? 'STATION FULL' : 'SCAN QR TO START', // 👈 关键
+                  disabled ? 'STATION FULL' : 'SCAN QR TO START',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,

@@ -78,7 +78,7 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
       MaterialPageRoute(builder: (_) => const StationEditScreen()),
     );
     if (result != null) {
-      await _model.insertStation(result);   // ✅ 存进 DB
+      await _model.insertStation(result);
       await _loadStations();
       _snack('Station ${result.stationId} added');
     }
@@ -91,8 +91,8 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
     );
 
     if (result != null) {
-      await _model.updateStation(result);  // ✅ update DB
-      await _loadStations();               // ✅ refresh
+      await _model.updateStation(result);
+      await _loadStations();
       _snack('Station ${result.stationId} updated');
     }
   }
@@ -107,8 +107,8 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
     );
 
     if (ok == true) {
-      await _model.deleteStation(s.stationId ?? ''); // ✅ DB delete
-      await _loadStations();                   // ✅ refresh
+      await _model.deleteStation(s.stationId ?? '');
+      await _loadStations();
       _snack('Station ${s.stationId} deleted');
     }
   }
@@ -143,7 +143,7 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
     _loadStations();
 
     _searchCtrl.addListener(() {
-      setState(() {}); // 🔥 让 suffixIcon 动态出现
+      setState(() {});
     });
   }
 
@@ -288,7 +288,7 @@ class _TopBar extends StatelessWidget {
           width: 38, height: 38,
           decoration: null,
           child: Padding(
-            padding: const EdgeInsets.all(4), // 🔥 让logo不要贴边
+            padding: const EdgeInsets.all(4),
             child: Image.asset(
               'assets/images/logo.webp',
               width: 38,
@@ -426,7 +426,7 @@ class _SearchBar extends StatelessWidget {
         onChanged: onChanged,
         style: const TextStyle(fontSize: 13),
 
-        decoration: InputDecoration( // ❌ remove const
+        decoration: InputDecoration(
           hintText: 'SEARCH BY STATION ID OR NAME...',
           hintStyle: const TextStyle(
               color: Color(0xFFBBBBBB), fontSize: 11, letterSpacing: 0.5),
@@ -434,7 +434,6 @@ class _SearchBar extends StatelessWidget {
           prefixIcon: const Icon(Icons.search,
               color: Color(0xFFBBBBBB), size: 18),
 
-          // ✅ 加这个（关键）
           suffixIcon: ctrl.text.isNotEmpty
               ? GestureDetector(
             onTap: () {
@@ -477,12 +476,10 @@ class _FilterRow extends StatelessWidget {
     };
 
     return Column(
-      // 关键点 1：强制让 Column 的子组件全部靠左对齐，消除中间的大空位感
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          // 移除 ScrollView 可能自带的 padding 干扰
           clipBehavior: Clip.none,
           child: Row(
             children: chips.entries.map((e) {
@@ -511,7 +508,6 @@ class _FilterRow extends StatelessWidget {
           ),
         ),
 
-        // 关键点 2：控制两行之间的间距
         const SizedBox(height: 12),
 
         GestureDetector(
@@ -520,11 +516,10 @@ class _FilterRow extends StatelessWidget {
             onSort(next);
           },
           child: Container(
-            // 关键点 3：这里可以稍微增加一点内边距，让它看起来更像一个功能按钮
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8), // 改成小圆角，区别于上方的筛选圆角
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFEEEEEE)),
               boxShadow: [
                 BoxShadow(
@@ -537,7 +532,7 @@ class _FilterRow extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.swap_vert_rounded, size: 14, color: _green), // 换一个更有指向性的图标
+                const Icon(Icons.swap_vert_rounded, size: 14, color: _green),
                 const SizedBox(width: 4),
                 const Text(
                   'SORT BY:',
@@ -552,7 +547,7 @@ class _FilterRow extends StatelessWidget {
                   sort.name.toUpperCase(),
                   style: const TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w800, // 加粗排序后的文字
+                    fontWeight: FontWeight.w800,
                     color: _darkGreen,
                     letterSpacing: 0.5,
                   ),
@@ -576,7 +571,6 @@ class _TableHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: const [
-          // 名称列标题 (占满剩余空间)
           Expanded(
             child: Text(
               'LOCATION NAME',
@@ -588,7 +582,6 @@ class _TableHeader extends StatelessWidget {
               ),
             ),
           ),
-          // 材质列标题 (对应内容的 85px)
           SizedBox(
             width: 85,
             child: Text(
@@ -601,7 +594,6 @@ class _TableHeader extends StatelessWidget {
               ),
             ),
           ),
-          // 按钮预留空间 (对应内容的 62px)
           SizedBox(width: 62),
         ],
       ),
@@ -760,23 +752,17 @@ class _Pagination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 基础范围计算
     final startItem = ((page - 1) * pageSize + 1).clamp(0, count);
     final endItem = (page * pageSize).clamp(0, count);
 
-    // 动态生成页码列表 (例如展示当前页前后的页码)
-    // 这里使用 Set 自动去重，并确保页码在 1 到 total 之间
     final pageSet = <int>{};
 
-    // 始终显示第一页
     pageSet.add(1);
 
-    // 显示当前页及其前后各一页
     for (var i = page - 1; i <= page + 1; i++) {
       if (i >= 1 && i <= total) pageSet.add(i);
     }
 
-    // 始终显示最后一页
     pageSet.add(total);
 
     final sortedPages = pageSet.toList()..sort();
@@ -794,7 +780,7 @@ class _Pagination extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        // 上一页
+
         _PageBtn(
           label: '‹',
           active: false,
@@ -802,7 +788,6 @@ class _Pagination extends StatelessWidget {
           onTap: () => onTap(page - 1),
         ),
 
-        // 循环渲染不重复的页码
         ...sortedPages.map((p) => _PageBtn(
           label: '$p',
           active: p == page,
@@ -810,7 +795,6 @@ class _Pagination extends StatelessWidget {
           onTap: () => onTap(p),
         )),
 
-        // 下一页
         _PageBtn(
           label: '›',
           active: false,
@@ -836,12 +820,11 @@ class _PageBtn extends StatelessWidget {
     onTap: enabled ? onTap : null,
     child: Container(
       width: 32, height: 32,
-      margin: const EdgeInsets.only(left: 6), // 稍微增加间距
+      margin: const EdgeInsets.only(left: 6),
       decoration: BoxDecoration(
         color: active ? _green : Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          // 如果不可用，边框调淡一点点，但依然可见
             color: active ? _green : (enabled ? const Color(0xFFDDDDDD) : const Color(0xFFEEEEEE))),
       ),
       child: Center(
@@ -850,9 +833,9 @@ class _PageBtn extends StatelessWidget {
           style: TextStyle(
               color: active
                   ? Colors.white
-                  : (enabled ? const Color(0xFF222222) : const Color(0xFFBBBBBB)), // 调深了颜色
-              fontWeight: FontWeight.w800, // 强制加粗，让 ‹ › 更明显
-              fontSize: label == '‹' || label == '›' ? 18 : 13), // 让箭头符号大一点
+                  : (enabled ? const Color(0xFF222222) : const Color(0xFFBBBBBB)),
+              fontWeight: FontWeight.w800,
+              fontSize: label == '‹' || label == '›' ? 18 : 13),
         ),
       ),
     ),
