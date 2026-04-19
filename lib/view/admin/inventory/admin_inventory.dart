@@ -4,7 +4,6 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/provider/CategoryProvider.dart';
 import '../../../app/routes.dart';
-import '../../../controller/admin/category_controller.dart';
 import '../../../controller/admin/inventory_controller.dart';
 import '../../../models/RecycleInventory.dart';
 
