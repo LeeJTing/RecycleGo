@@ -1,4 +1,3 @@
-// lib/view/admin/station_edit_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:recycle_go/models/RecycleStations.dart';
@@ -15,6 +14,8 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import 'package:recycle_go/services/notification_services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -481,6 +482,18 @@ class _StationEditScreenState extends State<StationEditScreen> {
                             ),
                           ),
                         ]),
+                        const SizedBox(height: 12),
+
+                        _PickLocationMap(
+                          lat: double.tryParse(_latCtrl.text) ?? 3.1390,
+                          lng: double.tryParse(_lngCtrl.text) ?? 101.6869,
+                          onLocationSelected: (lat, lng) {
+                            setState(() {
+                              _latCtrl.text = lat.toStringAsFixed(6);
+                              _lngCtrl.text = lng.toStringAsFixed(6);
+                            });
+                          },
+                        ),
                         const SizedBox(height: 14),
                         _FormField(
                             label: 'DESCRIPTION (optional)',
@@ -1166,7 +1179,7 @@ class _LivePreviewMap extends StatelessWidget {
   }
 }
 
-class FullMapScreen extends StatelessWidget {
+class FullMapScreen extends StatefulWidget {
   final double lat;
   final double lng;
 
@@ -1177,6 +1190,19 @@ class FullMapScreen extends StatelessWidget {
   });
 
   @override
+  State<FullMapScreen> createState() => _FullMapScreenState();
+}
+
+class _FullMapScreenState extends State<FullMapScreen> {
+  LatLng? _selectedLatLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLatLng = LatLng(widget.lat, widget.lng);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -1185,17 +1211,20 @@ class FullMapScreen extends StatelessWidget {
       ),
       body: GoogleMap(
         initialCameraPosition: CameraPosition(
-          target: LatLng(lat, lng),
-          zoom: 17,
+          target: _selectedLatLng!,
+          zoom: 15,
         ),
         markers: {
           Marker(
-            markerId: const MarkerId("full_map"),
-            position: LatLng(lat, lng),
+            markerId: const MarkerId("selected"),
+            position: _selectedLatLng!,
           ),
         },
-        myLocationEnabled: true,
-        zoomControlsEnabled: true,
+        onTap: (LatLng position) {
+          setState(() {
+            _selectedLatLng = position;
+          });
+        },
       ),
     );
   }
@@ -1220,46 +1249,72 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(_GridPainter oldDelegate) => false;
 }
 
-// ── Admin bottom nav (shared) ─────────────────────────────────────────
-class _BottomNav extends StatelessWidget {
-  final int selected;
-  const _BottomNav({required this.selected});
+class _PickLocationMap extends StatefulWidget {
+  final double lat;
+  final double lng;
+  final Function(double, double) onLocationSelected;
+
+  const _PickLocationMap({
+    required this.lat,
+    required this.lng,
+    required this.onLocationSelected,
+  });
+
+  @override
+  State<_PickLocationMap> createState() => _PickLocationMapState();
+}
+
+class _PickLocationMapState extends State<_PickLocationMap> {
+  LatLng? _selectedLatLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLatLng = LatLng(widget.lat, widget.lng);
+  }
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _NavItem(icon: Icons.home_outlined,    label: 'HOME'),
-      _NavItem(icon: Icons.list_alt_outlined, label: 'REGISTRY'),
-      _NavItem(icon: Icons.map_outlined,      label: 'MAP'),
-      _NavItem(icon: Icons.history_outlined,  label: 'LOGS'),
-    ];
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom + 4, top: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: items.asMap().entries.map((e) {
-          final active = e.key == selected;
-          return Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(e.value.icon,
-                color: active ? _green : const Color(0xFFAAAAAA), size: 22),
-            const SizedBox(height: 2),
-            Text(e.value.label,
-                style: TextStyle(
-                    color: active ? _green : const Color(0xFFAAAAAA),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5)),
-          ]);
-        }).toList(),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 180,
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: _selectedLatLng!,
+            zoom: 15,
+          ),
+
+          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+            Factory<OneSequenceGestureRecognizer>(
+                  () => EagerGestureRecognizer(),
+            ),
+          },
+
+          markers: {
+            if (_selectedLatLng != null)
+              Marker(
+                markerId: const MarkerId("selected"),
+                position: _selectedLatLng!,
+              ),
+          },
+
+          onTap: (LatLng position) {
+            setState(() {
+              _selectedLatLng = position;
+            });
+
+            // 🔥 回传给表单
+            widget.onLocationSelected(
+              position.latitude,
+              position.longitude,
+            );
+          },
+
+          myLocationEnabled: true,
+          zoomControlsEnabled: true,
+        ),
       ),
     );
   }
-}
-
-class _NavItem {
-  final IconData icon;
-  final String label;
-  const _NavItem({required this.icon, required this.label});
 }
