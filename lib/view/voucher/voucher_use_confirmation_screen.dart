@@ -99,6 +99,18 @@ class _VoucherUseConfirmationScreenState
 
   Future<void> _confirmUseVoucher() async {
     if (_redeemedVoucher == null) return;
+    if (_redeemedVoucher!.voucherStatus == RedeemedVoucherStatus.used ||
+        _redeemedVoucher!.voucherStatus == RedeemedVoucherStatus.pending) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This voucher cannot be used again.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
 
     // Check if voucher is exchange type and validate/get bank information
     final isExchange = VoucherStatusHelpers.isExchangeVoucher(
@@ -127,8 +139,8 @@ class _VoucherUseConfirmationScreenState
 
     setState(() => _isLoading = true);
     try {
-      // For exchange vouchers, set status to pending (waiting for admin approval)
-      // For other vouchers, set status to used immediately
+      // Keep existing exchange flow (pending for admin approval).
+      // Normal vouchers are marked as used immediately.
       final newStatus = isExchange
           ? RedeemedVoucherStatus.pending
           : RedeemedVoucherStatus.used;
@@ -198,6 +210,8 @@ class _VoucherUseConfirmationScreenState
 
     final isAlreadyUsed =
         _redeemedVoucher!.voucherStatus == RedeemedVoucherStatus.used;
+    final isPending =
+        _redeemedVoucher!.voucherStatus == RedeemedVoucherStatus.pending;
     final isExchange = VoucherStatusHelpers.isExchangeVoucher(
       _voucherDetails?.voucherCategory,
     );
@@ -232,6 +246,7 @@ class _VoucherUseConfirmationScreenState
             // Action Buttons
             VoucherActionButtonsWidget(
               isAlreadyUsed: isAlreadyUsed,
+              isPending: isPending,
               onUseVoucher: _confirmUseVoucher,
             ),
           ],

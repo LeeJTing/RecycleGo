@@ -229,37 +229,46 @@ class BankTransferDetailWidget extends StatelessWidget {
 /// Widget for displaying action buttons
 class VoucherActionButtonsWidget extends StatelessWidget {
   final bool isAlreadyUsed;
+  final bool isPending;
   final VoidCallback onUseVoucher;
 
   const VoucherActionButtonsWidget({
     super.key,
     required this.isAlreadyUsed,
+    required this.isPending,
     required this.onUseVoucher,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (isAlreadyUsed) {
+    if (isAlreadyUsed || isPending) {
+      final title = isAlreadyUsed ? 'Voucher Already Used' : 'Voucher Pending';
+      final subtitle = isAlreadyUsed
+          ? 'This voucher has already been redeemed.'
+          : 'This voucher is pending approval and cannot be used again now.';
+      final icon = isAlreadyUsed ? Icons.check_circle : Icons.schedule;
+      final color = isAlreadyUsed ? Colors.green : Colors.amber[800]!;
+
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          border: Border.all(color: Colors.green),
+          color: color.withOpacity(0.1),
+          border: Border.all(color: color),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 32),
+            Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
             Text(
-              'Voucher Already Used',
-              style: TextDesign.normalText(color: Colors.green, fontSize: 16),
+              title,
+              style: TextDesign.normalText(color: color, fontSize: 16),
             ),
             const SizedBox(height: 4),
             Text(
-              'This voucher has already been redeemed.',
-              style: TextDesign.smallText(color: Colors.green),
+              subtitle,
+              style: TextDesign.smallText(color: color),
             ),
           ],
         ),
