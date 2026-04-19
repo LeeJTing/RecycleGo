@@ -43,8 +43,10 @@ class Validators {
   static bool isValidPhoneNumber(String phone, String countryCode) {
     if (phone.isEmpty) return true;
 
-    // Remove any non-digit characters
-    String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    // Strictly allow only digits. No symbols, spaces or letters.
+    if (!RegExp(r'^[0-9]+$').hasMatch(phone)) return false;
+
+    String cleanPhone = phone;
 
     // Handle leading zero if present (common in Malaysia +60)
     if (countryCode == '+60' && cleanPhone.startsWith('0')) {
@@ -74,20 +76,22 @@ class Validators {
     return null;
   }
 
+  /// Validates that input contains only digits and is not empty.
   static String? requiredNumber(String? val) {
     if (val == null || val.trim().isEmpty) return "Required";
-    final number = double.tryParse(val.trim());
-    if (number == null) return "Invalid number format";
-    if (number < 0) return "Cannot be negative";
+    final cleanVal = val.trim();
+    // Allows only positive integers. If you need decimals, use r'^[0-9]+(\.[0-9]+)?$'
+    final numberRegExp = RegExp(r'^[0-9]+$');
+    if (!numberRegExp.hasMatch(cleanVal)) return "Numbers only allowed";
     return null;
   }
 
+  /// Validates that input contains only digits if provided.
   static String? optionalNumber(String? val) {
     if (val == null || val.trim().isEmpty) return null;
-    final number = double.tryParse(val.trim());
-    if (number == null) return "Invalid number format";
-    if (number < 0) return "Cannot be negative";
+    final cleanVal = val.trim();
+    final numberRegExp = RegExp(r'^[0-9]+$');
+    if (!numberRegExp.hasMatch(cleanVal)) return "Numbers only allowed";
     return null;
   }
-
 }

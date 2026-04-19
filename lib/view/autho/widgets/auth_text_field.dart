@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 
@@ -7,6 +8,7 @@ class AuthTextField extends StatelessWidget {
   final String hintText;
   final bool obscureText;
   final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final Widget? prefixIcon;
   final Widget? suffixIcon;
   final Color? borderColor;
@@ -22,6 +24,7 @@ class AuthTextField extends StatelessWidget {
     required this.hintText,
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
+    this.inputFormatters,
     this.prefixIcon,
     this.suffixIcon,
     this.borderColor,
@@ -34,6 +37,8 @@ class AuthTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
+    final bool hasError = errorText != null && errorText!.isNotEmpty;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -43,7 +48,7 @@ class AuthTextField extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: theme.shadow.withOpacity(0.02),
+                color: theme.shadow.withValues(alpha: 0.02),
                 blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
@@ -55,6 +60,7 @@ class AuthTextField extends StatelessWidget {
             onChanged: onChanged,
             obscureText: obscureText,
             keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
             style: TextDesign.normalText(fontSize: 14),
             decoration: InputDecoration(
               filled: filled ?? false,
@@ -65,17 +71,23 @@ class AuthTextField extends StatelessWidget {
               suffixIcon: suffixIcon,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: borderColor ?? theme.border),
+                borderSide: BorderSide(
+                  color: hasError ? theme.error : (borderColor ?? theme.border),
+                  width: hasError ? 1.5 : 1.0,
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: theme.primary, width: 1.2),
+                borderSide: BorderSide(
+                  color: hasError ? theme.error : theme.primary, 
+                  width: 1.5,
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
         ),
-        if (errorText != null && errorText!.isNotEmpty)
+        if (hasError)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Row(

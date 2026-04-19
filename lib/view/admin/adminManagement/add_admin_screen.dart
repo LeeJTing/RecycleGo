@@ -77,7 +77,7 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
                     onChanged: (_) => _validateFields(),
                     hintText: 'Enter username',
                     prefixIcon: Icon(Icons.person_outline, color: theme.onHint, size: 20),
-                    borderColor: _usernameController.text.isNotEmpty && !_isUsernameValid ? theme.error.withOpacity(0.3) : null,
+                    errorText: _usernameController.text.isNotEmpty && !_isUsernameValid ? 'Only letters and spaces allowed' : null,
                   ),
                   const SizedBox(height: 20),
 
@@ -86,8 +86,9 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
                     controller: _emailController,
                     onChanged: (_) => _validateFields(),
                     hintText: 'Enter email',
+                    keyboardType: TextInputType.emailAddress,
                     prefixIcon: Icon(Icons.email_outlined, color: theme.onHint, size: 20),
-                    borderColor: _emailController.text.isNotEmpty && !_isEmailValid ? theme.error.withOpacity(0.3) : null,
+                    errorText: _emailController.text.isNotEmpty && !_isEmailValid ? 'Please enter a valid email address' : null,
                   ),
                   const SizedBox(height: 20),
 
@@ -125,7 +126,7 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submit,
+                      onPressed: (_isLoading || !_isUsernameValid || !_isEmailValid) ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         disabledBackgroundColor: theme.border,
@@ -176,6 +177,7 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
         createdAdmin.adminId!,
         createdAdmin.username,
         isInvite: true,
+        accountType: 'admin',
       );
 
       if (mounted) {
