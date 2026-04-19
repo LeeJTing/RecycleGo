@@ -421,7 +421,7 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => AdminPurchaseDetail(
+                        builder: (context) => AdminPurchaseUpdate(
                           purchase: purchase,
                           items: const [], // Update screen will fetch its own items!
                         ),

@@ -14,7 +14,9 @@ import '../../../app/app_theme.dart';
 import '../../../app/assets.dart';
 import '../../../models/Recycle_category.dart';
 import '../../../models/RecyclingSubmission.dart';
+import '../../../models/Users.dart';
 import '../../../provider/UserProvider.dart';
+import '../../../services/LocalStorageService.dart';
 import '../../../utils/async_task_runner.dart';
 import 'package:recycle_go/services/LocalStorageService.dart';
 import 'package:geolocator/geolocator.dart';
@@ -47,7 +49,6 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
 
   List<RecycleCategory> _categories = [];
   Map<String, RecycleCategory> _categoryByLabel = {};
-  String? _stationId;
 
   double getDensity(String label) => _categoryByLabel[label]?.density ?? 1.0;
   double getBaseWeight(String label) =>
@@ -153,12 +154,6 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       }
 
       final userId = supabase.auth.currentUser!.id;
-      final userRes = await supabase
-          .from('users')
-          .select('station_id')
-          .eq('user_id', userId)
-          .single();
-      _stationId = userRes['station_id'] as String?;
 
       setState(() => _isLoadingData = false);
     } catch (e) {
@@ -327,7 +322,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
         highestIndex = i;
       }
     }
-    if (highestScore > 0.60 && highestIndex < labels.length) {
+    if (highestScore > 0.75 && highestIndex < labels.length) {
       temp.add({
         "tag": labels[highestIndex],
         "w": 200.0,
@@ -357,12 +352,19 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
     double totalPoints,
     Map<String, dynamic> stats,
   ) async {
+    final Map<String, dynamic>? station = await LocalStorageService.getStation();
+
+    final String stationId = station?['station_id'];
+
+    if (station == null || station['station_id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Station ID not found')),
+      );
+      return;
+    }
+
     final File? imageFile = capturedImage;
     if (imageFile == null) return;
-    // if (_stationId == null) {
-    //   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Station ID not found')));
-    //   return;
-    // }
 
     await TaskRunner.run(
       context: context,
@@ -438,7 +440,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
 
         final newSubmission = RecycleSubmission(
           userId: userId,
-          stationId: '33333333-3333-3333-3333-000000000001',
+          stationId: stationId,
           weight: totalWeightKg,
           pointAward: totalPointsEarned.toDouble(),
           categoryId: categoryId,
@@ -451,6 +453,16 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
             .from('recyclingsubmission')
             .insert(newSubmission.toJsonForInsert());
 
+        await UsersModel().addUserPoints(userId, totalPointsEarned);
+
+        if (mounted) {
+          final userProvider = context.read<UserProvider>();
+          if (userProvider.user != null) {
+            final currentPoints = userProvider.user!.totalPoints;
+            userProvider.updateUserPoints(currentPoints + totalPointsEarned.toInt());
+          }
+          Navigator.pop(context, true);
+        }
         setState(() {
           _hasMadeSubmission = true;
           userWallet += totalPointsEarned;
@@ -459,6 +471,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
       },
     );
   }
+
 
   // --- UI BUILDING ---
   @override
