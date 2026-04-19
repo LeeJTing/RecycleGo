@@ -77,118 +77,133 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     final theme = AppThemes.color;
     final categoryProvider = context.watch<CategoryProvider>();
 
+    // Get screen width for adaptive padding
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth > 600 ? 32.0 : 20.0;
+
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
         title: Text("Add New Inventory", style: TextDesign.appBarTitle()),
         backgroundColor: theme.surface,
         elevation: 0,
+        centerTitle: true,
       ),
-      body: _isSaving
-          ? Center(child: CircularProgressIndicator(color: theme.primary))
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildImagePlaceholder(theme),
-              const SizedBox(height: 32),
+      // SafeArea prevents clipping on notches and dynamic islands
+      body: SafeArea(
+        child: _isSaving
+            ? Center(child: CircularProgressIndicator(color: theme.primary))
+            : Center(
+          // ConstrainedBox prevents the form from stretching too wide on iPads/Tablets
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(horizontalPadding, 24.0, horizontalPadding, 40.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildImagePlaceholder(theme),
+                    const SizedBox(height: 32),
 
-              _buildInputField(
-                theme: theme,
-                label: "Item Name",
-                hint: "e.g. Aluminum Beverage Cans",
-                controller: _nameController,
-                validator: _validateRequiredText,
-              ),
-
-              _buildLabel("Category"),
-              if (categoryProvider.isLoading)
-                const Center(child: CircularProgressIndicator())
-              else
-                DropdownButtonFormField<int>(
-                  value: _selectedCategoryId,
-                  decoration: _inputDecoration("Select a category", theme),
-                  items: categoryProvider.categories.map((cat) => DropdownMenuItem(
-                      value: cat.categoryId,
-                      child: Text(cat.categoryName)
-                  )).toList(),
-                  onChanged: (val) => setState(() => _selectedCategoryId = val),
-                  validator: (val) => val == null ? "Please select a category" : null,
-                ),
-              const SizedBox(height: 20),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildInputField(
+                    _buildInputField(
                       theme: theme,
-                      label: "Price per KG (RM)",
-                      hint: "0.00",
-                      controller: _priceController,
-                      isNumber: true,
-                      textColor: theme.success,
-                      validator: _validateNumber,
+                      label: "Item Name",
+                      hint: "e.g. Aluminum Beverage Cans",
+                      controller: _nameController,
+                      validator: _validateRequiredText,
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildInputField(
+
+                    _buildLabel("Category"),
+                    if (categoryProvider.isLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      DropdownButtonFormField<int>(
+                        value: _selectedCategoryId,
+                        decoration: _inputDecoration("Select a category", theme),
+                        items: categoryProvider.categories.map((cat) => DropdownMenuItem(
+                            value: cat.categoryId,
+                            child: Text(cat.categoryName)
+                        )).toList(),
+                        onChanged: (val) => setState(() => _selectedCategoryId = val),
+                        validator: (val) => val == null ? "Please select a category" : null,
+                      ),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildInputField(
+                            theme: theme,
+                            label: "Price/KG (RM)",
+                            hint: "0.00",
+                            controller: _priceController,
+                            isNumber: true,
+                            textColor: theme.success,
+                            validator: _validateNumber,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildInputField(
+                            theme: theme,
+                            label: "Stock (kg)",
+                            hint: "0.0",
+                            controller: _weightController,
+                            isNumber: true,
+                            validator: _validateNumber,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    _buildInputField(
                       theme: theme,
-                      label: "Current Stock (kg)",
-                      hint: "0.0",
-                      controller: _weightController,
+                      label: "Low Stock Warning Level (kg)",
+                      hint: "e.g. 50.0",
+                      controller: _minWeightController,
                       isNumber: true,
-                      validator: _validateNumber,
+                      validator: _validateOptionalNumber,
                     ),
-                  ),
-                ],
-              ),
 
-              _buildInputField(
-                theme: theme,
-                label: "Low Stock Warning Level (kg)",
-                hint: "e.g. 50.0",
-                controller: _minWeightController,
-                isNumber: true,
-                validator: _validateOptionalNumber,
-              ),
+                    _buildLabel("Status"),
+                    DropdownButtonFormField<String>(
+                      value: _selectedStatus,
+                      decoration: _inputDecoration("Select status", theme),
+                      items: const [
+                        DropdownMenuItem(value: 'active', child: Text("Active (Visible)")),
+                        DropdownMenuItem(value: 'inactive', child: Text("Inactive (Hidden)")),
+                      ],
+                      onChanged: (val) => setState(() => _selectedStatus = val!),
+                    ),
+                    const SizedBox(height: 20),
 
-              _buildLabel("Status"),
-              DropdownButtonFormField<String>(
-                value: _selectedStatus,
-                decoration: _inputDecoration("Select status", theme),
-                items: const [
-                  DropdownMenuItem(value: 'active', child: Text("Active (Visible)")),
-                  DropdownMenuItem(value: 'inactive', child: Text("Inactive (Hidden)")),
-                ],
-                onChanged: (val) => setState(() => _selectedStatus = val!),
-              ),
-              const SizedBox(height: 20),
+                    _buildInputField(
+                      theme: theme,
+                      label: "Description",
+                      hint: "Briefly describe this item...",
+                      controller: _descController,
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 32),
 
-              _buildInputField(
-                theme: theme,
-                label: "Description",
-                hint: "Briefly describe this item...",
-                controller: _descController,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 40),
-
-              SizedBox(
-                width: double.infinity, height: 55,
-                child: ElevatedButton(
-                  onPressed: _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: const Text("ADD INVENTORY ITEM", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    // Standardized full-width button
+                    ElevatedButton(
+                      onPressed: _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(55), // Adapts perfectly to parent width
+                        backgroundColor: theme.primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      child: const Text("ADD INVENTORY ITEM", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -255,11 +270,19 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
       child: GestureDetector(
         onTap: _pickImage,
         child: Container(
-          height: 140, width: 140,
+          height: 140,
+          width: 140,
           decoration: BoxDecoration(
             color: theme.surfaceVariant,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: theme.border.withOpacity(0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: theme.onBackground.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
@@ -270,7 +293,7 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
               children: [
                 Icon(Icons.add_photo_alternate_outlined, size: 40, color: theme.primary),
                 const SizedBox(height: 8),
-                Text("Upload Image", style: TextStyle(color: theme.primary, fontSize: 12)),
+                Text("Upload Image", style: TextStyle(color: theme.primary, fontSize: 12, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -289,7 +312,9 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
       final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
       if (pickedFile != null) setState(() => _selectedImage = pickedFile);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to pick image: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to pick image: $e")));
+      }
     }
   }
 
@@ -305,7 +330,6 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     String? imageUrl;
 
     try {
-      // ✨ Use the Controller to handle the upload!
       if (_selectedImage != null) {
         imageUrl = await InventoryController.uploadImage(File(_selectedImage!.path));
         if (imageUrl == null) throw Exception("Image upload failed.");
@@ -315,7 +339,6 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
       final weight = double.tryParse(_weightController.text.trim()) ?? 0.0;
       final minWeight = double.tryParse(_minWeightController.text.trim());
 
-      // ✨ Use the Controller to generate the code!
       final inventoryCode = InventoryController.generateCode(_nameController.text.trim());
 
       final newItem = RecycleInventory(
@@ -331,7 +354,6 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
         minWeightLevel: minWeight,
       );
 
-      // ✨ Controller handles the database insertion
       await InventoryController.addInventory(newItem);
 
       if (mounted) {

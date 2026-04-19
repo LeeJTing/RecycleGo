@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-import 'package:recycle_go/models/Connector.dart';
-
 import '../../../models/RecyclePurchases.dart';
 
 class AdminPurchaseUpdate extends StatefulWidget {
   final RecyclePurchases purchase;
   final List<dynamic> items;
 
-  const AdminPurchaseUpdate({super.key, required this.purchase, required this.items});
+  const AdminPurchaseUpdate({
+    super.key,
+    required this.purchase,
+    required this.items,
+  });
 
   @override
   State<AdminPurchaseUpdate> createState() => _AdminPurchaseUpdateState();
@@ -24,14 +26,46 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
   @override
   void initState() {
     super.initState();
-    // Set initial real statuses directly from the model
     paymentStatus = widget.purchase.paymentStatus;
-    // Default to 'pending' if pickupStatus is null in the database
     pickupStatus = widget.purchase.pickupStatus ?? 'pending';
-
-    // NOTE: We completely removed the _fetchItems() logic because the
-    // itemName, quantity, and totalPrice are now stored directly in the purchase object!
   }
+
+  // ===============================
+  // 🔒 STATUS RULES
+  // ===============================
+
+  List<String> getPaymentOptions(String current) {
+    if (current == "pending") {
+      return ["success", "cancelled"];
+    }
+    return []; // final state
+  }
+
+  List<String> getPickupOptions(String current, String payment) {
+    // 🚫 Cannot complete if not paid
+    if (payment != "success") {
+      if (current == "pending") return ["cancelled"];
+      return [];
+    }
+
+    // ✅ Payment success → allow flow
+    if (current == "pending") {
+      return ["completed", "cancelled"];
+    }
+
+    return []; // final state
+  }
+
+  bool isValidUpdate() {
+    if (pickupStatus == "completed" && paymentStatus != "success") {
+      return false;
+    }
+    return true;
+  }
+
+  // ===============================
+  // UI
+  // ===============================
 
   @override
   Widget build(BuildContext context) {
@@ -54,95 +88,48 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
-                  // --- 1. PAYMENT STATUS ---
+                  // PAYMENT
                   _buildSectionLabel("Payment Status", Icons.account_balance_wallet_outlined),
                   const SizedBox(height: 12),
-                  _buildStatusSelector(["pending", "success", "failed"], paymentStatus, (val) => setState(() => paymentStatus = val), theme),
+                  _buildStatusSelector(
+                    getPaymentOptions(paymentStatus),
+                    paymentStatus,
+                        (val) {
+                      setState(() {
+                        paymentStatus = val;
+
+                        // 🔁 Auto cancel pickup if payment cancelled
+                        if (val == "cancelled") {
+                          pickupStatus = "cancelled";
+                        }
+                      });
+                    },
+                    theme,
+                  ),
 
                   const SizedBox(height: 32),
 
-                  // --- 2. PICKUP STATUS ---
+                  // PICKUP
                   _buildSectionLabel("Pickup Status", Icons.local_shipping_outlined),
                   const SizedBox(height: 12),
-                  _buildStatusSelector(["pending", "completed", "cancelled"], pickupStatus, (val) => setState(() => pickupStatus = val), theme),
+                  _buildStatusSelector(
+                    getPickupOptions(pickupStatus, paymentStatus),
+                    pickupStatus,
+                        (val) => setState(() => pickupStatus = val),
+                    theme,
+                  ),
 
                   const SizedBox(height: 32),
 
-                  // --- 3. PURCHASE DETAILS (User Submitted) ---
+                  // DETAILS
                   _buildSectionLabel("Request Details", Icons.inventory_2_outlined),
                   const SizedBox(height: 12),
                   _buildPurchaseSummaryCard(widget.purchase, theme),
-
                 ],
               ),
             ),
           ),
           _buildBottomAction(theme),
-        ],
-      ),
-    );
-  }
-
-  // --- NEW: SUMMARY CARD ---
-  Widget _buildPurchaseSummaryCard(RecyclePurchases purchase, AppColors theme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.border.withOpacity(0.5)),
-        boxShadow: [BoxShadow(color: theme.onBackground.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(purchase.itemName ?? "Unspecified Item", style: TextDesign.headingThree()),
-          const SizedBox(height: 8),
-
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.location_on_outlined, size: 18, color: theme.hint),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  purchase.pickupLocationName ?? purchase.pickupAddress ?? "No location specified",
-                  style: TextDesign.smallText(color: theme.hint),
-                ),
-              ),
-            ],
-          ),
-
-          const Divider(height: 24),
-
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("QUANTITY", style: TextDesign.label()),
-                    const SizedBox(height: 4),
-                    Text("${purchase.quantity ?? 0.0} kg", style: TextDesign.mediumText(fontSize: 18)),
-                  ],
-                ),
-              ),
-              Container(width: 1, height: 30, color: theme.border),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("TOTAL PRICE", style: TextDesign.label()),
-                      const SizedBox(height: 4),
-                      Text("RM ${purchase.totalPrice.toStringAsFixed(2)}", style: TextDesign.priceText()),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -158,7 +145,32 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
     );
   }
 
-  Widget _buildStatusSelector(List<String> options, String current, Function(String) onSelect, AppColors theme) {
+  // ===============================
+  // 🔘 STATUS SELECTOR (SMART)
+  // ===============================
+  Widget _buildStatusSelector(
+      List<String> options,
+      String current,
+      Function(String) onSelect,
+      AppColors theme,
+      ) {
+    // 🔒 LOCKED STATE
+    if (options.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            current.toUpperCase(),
+            style: TextDesign.badgeText(color: theme.onSurface),
+          ),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: theme.surfaceVariant.withOpacity(0.3),
@@ -194,72 +206,98 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
     );
   }
 
-  Widget _buildBottomAction(AppColors theme) {
+  // ===============================
+  // SUMMARY CARD
+  // ===============================
+  Widget _buildPurchaseSummaryCard(RecyclePurchases purchase, AppColors theme) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4))],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.border.withOpacity(0.5)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: Text("Discard", style: TextDesign.mediumText()),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveUpdates,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: _isSaving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text("Update Status", style: TextDesign.buttonText()),
-            ),
-          ),
+          Text(purchase.itemName ?? "Item", style: TextDesign.headingThree()),
+          const SizedBox(height: 8),
+          Text("Quantity: ${purchase.quantity ?? 0} kg"),
+          Text("Total: RM ${purchase.totalPrice.toStringAsFixed(2)}"),
         ],
       ),
     );
   }
 
-  // --- DYNAMIC DATABASE SAVE ---
+  // ===============================
+  // SAVE
+  // ===============================
+  Widget _buildBottomAction(AppColors theme) {
+    return Container(
+      padding: const EdgeInsets.all(24), // Matches your standard page padding
+      child: ElevatedButton(
+        onPressed: _isSaving ? null : _saveUpdates,
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size.fromHeight(55), // Full width, consistent height
+          backgroundColor: theme.primary,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16), // Your standard app radius
+          ),
+        ),
+        child: _isSaving
+            ? const SizedBox(
+          height: 24,
+          width: 24,
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2.5,
+          ),
+        )
+            : const Text(
+          "UPDATE STATUS",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            letterSpacing: 1.2, // Gives it that clean, modern button feel
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveUpdates() async {
     setState(() => _isSaving = true);
 
     try {
+      // 🔒 FINAL VALIDATION
+      if (!isValidUpdate()) {
+        throw Exception("Cannot complete pickup before payment success");
+      }
+
       if (widget.purchase.purchaseId != null) {
-        // 1. Update Payment Status
         await RecyclePurchasesModel().updatePaymentStatus(
-            widget.purchase.purchaseId!,
-            paymentStatus
+          widget.purchase.purchaseId!,
+          paymentStatus,
         );
 
-        // 2. Update Pickup Status
         await RecyclePurchasesModel().updatePickupStatus(
-            widget.purchase.purchaseId!,
-            pickupStatus
+          widget.purchase.purchaseId!,
+          pickupStatus,
         );
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Statuses Updated successfully!")));
-        Navigator.pop(context, true); // Go back and tell the previous screen to refresh
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Statuses updated successfully")),
+        );
+        Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
