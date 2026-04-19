@@ -13,7 +13,6 @@ import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/models/Notifications.dart';
 import 'package:recycle_go/view/admin/admin_dashboard.dart';
-import 'appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/admin_station_registry.dart';
 
 class AdminHome extends StatefulWidget {
@@ -253,13 +252,14 @@ class _AdminHomeState extends State<AdminHome> {
 
         Padding(
           padding: const EdgeInsets.only(right: 10),
-          child: IconButton(
-            onPressed: () => setState(() => _currentIndex = 4),
-            icon: Consumer<AdminProvider>(
-              builder: (context, adminProvider, _) {
-                final url = adminProvider.getProfileImageUrl();
+          child: Consumer<AdminProvider>(
+            builder: (context, adminProvider, _) {
+              // Add a timestamp to bypass image cache if the filename is fixed
+              final url = "${adminProvider.getProfileImageUrl()}?t=${DateTime.now().millisecondsSinceEpoch}";
 
-                return CircleAvatar(
+              return IconButton(
+                onPressed: () => setState(() => _currentIndex = 4),
+                icon: CircleAvatar(
                   radius: 22,
                   backgroundColor: theme.primary.withOpacity(0.1),
                   child: ClipOval(
@@ -272,11 +272,11 @@ class _AdminHomeState extends State<AdminHome> {
                           Icon(Icons.person, color: theme.primary),
                     ),
                   ),
-                );
-              },
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              );
+            },
           ),
         ),
       ],
