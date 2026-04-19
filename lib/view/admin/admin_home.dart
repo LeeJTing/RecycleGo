@@ -5,7 +5,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/assets.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
-import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/inventory/admin_inventory.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
@@ -17,6 +17,7 @@ import 'package:recycle_go/view/admin/MoreScreen.dart';
 
 // IMPORTANT: Import your dashboard file!
 import 'package:recycle_go/view/admin/admin_dashboard.dart';
+import 'appealReview/appeal_review_screen.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -31,20 +32,12 @@ class _AdminHomeState extends State<AdminHome> {
   String? _currentAdminId;
   StreamSubscription? _notificationSubscription;
 
-  void changeTab(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
-  }
-
-  List<Widget> get _pages => [
-    const AdminDashboard(),
-    const AppealReviewScreen(),
-    const AdminInventory(),
-    MoreScreen(onNavigate: changeTab),
-    const AdminVoucherManagement(),
-    const StationRegistryScreen(),
-    const AdminProfileScreen(),
+  final List<Widget> _pages = const [
+    AdminDashboard(),
+    AppealReviewScreen(),
+    AdminInventory(),
+    AdminVoucherManagement(),
+    AdminProfileScreen(),
   ];
 
   @override
@@ -165,11 +158,9 @@ class _AdminHomeState extends State<AdminHome> {
     switch (_currentIndex) {
       case 0: return "Admin Dashboard";
       case 1: return "Appeal Review";
-      case 2: return "Inventory";
-      case 3: return "More";
-      case 4: return "Voucher Management";
-      case 5: return "Station Registry";
-      case 6: return "Admin Profile";
+      case 2: return "Admin Inventory";
+      case 3: return "Admin Vouchers";
+      case 4: return "Admin Profile";
       default: return "";
     }
   }
