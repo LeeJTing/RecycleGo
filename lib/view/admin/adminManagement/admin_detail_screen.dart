@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Admins.dart';
+import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/controller/admin/admin_management_ctrl.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/services/email_service.dart';
@@ -101,6 +102,7 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
         _currentAdmin.adminId!,
         _currentAdmin.username,
         isInvite: false,
+        accountType: 'admin',
       );
 
       if (mounted) {
@@ -201,7 +203,7 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
                     ),
                     borderColor:
                         _usernameController.text.isNotEmpty && !_isUsernameValid
-                        ? theme.error.withOpacity(0.3)
+                        ? theme.error
                         : null,
                     errorText: _usernameController.text.isNotEmpty && !_isUsernameValid
                         ? 'Only letters and spaces allowed'
@@ -293,7 +295,7 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _updateAdmin,
+                      onPressed: (_isLoading || !_isUsernameValid) ? null : _updateAdmin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         shape: RoundedRectangleBorder(
