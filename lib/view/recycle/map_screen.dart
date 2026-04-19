@@ -31,7 +31,7 @@ class _MapScreenState extends State<MapScreen> {
 
     final centerLatLng = _lastCameraPosition!.target;
 
-    // 找最近的 station
+    // Find the nearest station
     RecycleStation? nearest;
     double minDistance = double.infinity;
 
@@ -77,7 +77,7 @@ class _MapScreenState extends State<MapScreen> {
     final stationId = s.stationId!;
     final mode = _travelMode;
 
-    // ✅ 1. 先查 cache（只针对 duration / distance）
+    // check the cache (only for duration/distance)
     if (!draw && _durationCache[stationId]?[mode] != null) {
       setState(() {
         _durations[stationId] = _durationCache[stationId]![mode]!;
@@ -86,19 +86,18 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
-    // ✅ 2. call API（只 call 一次）
+    // call API (call only once)
     final url =
         'https://maps.googleapis.com/maps/api/directions/json'
         '?origin=${_currentPosition.latitude},${_currentPosition.longitude}'
         '&destination=${s.latitude},${s.longitude}'
         '&mode=$mode'
         '&departure_time=now'
-        '&key=YOUR_API_KEY'; // ❗记得换掉
+        '&key=AIzaSyCpKVaF6ku0yKq-SV__pK8pCsrbao_k5pQ';
 
     final res = await http.get(Uri.parse(url));
     final data = json.decode(res.body);
 
-    // ❗加这个（很关键）
     if (data['status'] != 'OK' || data['routes'].isEmpty) {
       setState(() {
         _durations[stationId] = "No route";
@@ -113,19 +112,19 @@ class _MapScreenState extends State<MapScreen> {
     final duration = leg['duration']['text'];
     final distance = leg['distance']['text'];
 
-    // ✅ 3. 存 cache
+    // store cache
     _durationCache.putIfAbsent(stationId, () => {});
     _distanceCache.putIfAbsent(stationId, () => {});
     _durationCache[stationId]![mode] = duration;
     _distanceCache[stationId]![mode] = distance;
 
-    // ✅ 4. 更新 UI（基础数据）
+    // Update UI (basic data)
     setState(() {
       _durations[stationId] = duration;
       _distances[stationId] = distance;
     });
 
-    // ✅ 5. 如果需要画路线
+    // If a route needs to be drawn
     if (draw) {
       final points = route['overview_polyline']['points'];
       final decoded = _decodePolyline(points);
@@ -142,7 +141,7 @@ class _MapScreenState extends State<MapScreen> {
         );
       });
 
-      // ✅ 自动 zoom 到路线
+      // Automatically zoom to the route
       if (decoded.isNotEmpty) {
         double minLat = decoded.first.latitude;
         double maxLat = decoded.first.latitude;
@@ -174,7 +173,7 @@ class _MapScreenState extends State<MapScreen> {
       _selectedStation = s;
     });
 
-    // 👉 移动地图
+    // mobile map
     _isManualMove = true;
 
     _mapController?.animateCamera(
@@ -185,7 +184,7 @@ class _MapScreenState extends State<MapScreen> {
       _isManualMove = false;
     });
 
-    // 👉 拿 route info
+    // 路由信息
     _fetchRoute(s);
   }
 
@@ -236,7 +235,7 @@ class _MapScreenState extends State<MapScreen> {
 
           setState(() {
             _travelMode = mode;
-            _polylines.clear(); // 清路线（等用户点 View 才画）
+            _polylines.clear();
           });
 
           _getRouteInfo(_selectedStation!);
@@ -283,10 +282,10 @@ class _MapScreenState extends State<MapScreen> {
 
     final leg = data['routes'][0]['legs'][0];
 
-    final durationText = leg['duration']['text'];   // e.g. "15 mins"
-    final durationValue = leg['duration']['value']; // 秒
+    final durationText = leg['duration']['text'];
+    final durationValue = leg['duration']['value'];
 
-    final distanceText = leg['distance']['text'];   // e.g. "5.2 km"
+    final distanceText = leg['distance']['text'];
 
     setState(() {
       _durations[s.stationId!] = durationText;
@@ -303,7 +302,6 @@ class _MapScreenState extends State<MapScreen> {
       );
     });
 
-    // ✅ 就放这里（最重要）
     if (decoded.isNotEmpty) {
       _isManualMove = true;
 
@@ -362,12 +360,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _getRouteInfo(RecycleStation s) async {
-    if (s.stationId == null) return; // ✅ 防 crash
+    if (s.stationId == null) return;
 
-    final stationId = s.stationId!; // ✅ 就放这里
+    final stationId = s.stationId!;
     final mode = _travelMode;
 
-    // ✅ 如果 cache 已存在 → 直接用
+    // f the cache already exists → Use it directly
     if (_durationCache[stationId]?[mode] != null) {
       setState(() {
         _durations[s.stationId!] = _durationCache[stationId]![mode]!;
@@ -394,7 +392,7 @@ class _MapScreenState extends State<MapScreen> {
     final duration = leg['duration']['text'];
     final distance = leg['distance']['text'];
 
-    // ✅ 存进 cache
+    // save in cache
     _durationCache.putIfAbsent(stationId, () => {});
     _distanceCache.putIfAbsent(stationId, () => {});
 
@@ -432,7 +430,7 @@ class _MapScreenState extends State<MapScreen> {
       onTap: () {
         setState(() {
           _travelMode = mode;
-          _polylines.clear(); // 清路线
+          _polylines.clear();
         });
 
         if (_selectedStation != null) {
@@ -546,7 +544,7 @@ class _MapScreenState extends State<MapScreen> {
 
     await prefs.setStringList('search_history', _searchHistory);
 
-    setState(() {}); // 👈 记得刷新 UI
+    setState(() {});
   }
 
   @override
@@ -705,20 +703,20 @@ class _MapScreenState extends State<MapScreen> {
       _filteredStations = results;
     });
 
-    // ✅ 如果有结果 → 自动跳第一个
+    // If there is a result → automatically jump to the first one
     if (results.isNotEmpty) {
       final s = results.first;
 
       _selectStation(s);
 
-      // 👉 移动地图
+      // mobile map
       _mapController?.animateCamera(
         CameraUpdate.newLatLng(
           LatLng(s.latitude - 0.002, s.longitude),
         ),
       );
 
-      // 👉 滑到对应卡片
+      // Swipe to the corresponding card
       final index = _filteredStations.indexOf(s);
       if (index != -1) {
         _pageController.animateToPage(
@@ -728,7 +726,7 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
 
-      // 👉 拿 route info
+      // route info
       _getRouteInfo(s);
     }
   }
@@ -797,13 +795,13 @@ class _MapScreenState extends State<MapScreen> {
                 );
               }
             },
-            // ✅ Blue dot = built-in Google Maps "My Location" layer
+            // Blue dot = built-in Google Maps "My Location" layer
             myLocationEnabled: true,
             myLocationButtonEnabled: false, // we use our own FAB
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
             onTap: (_) {
-              FocusScope.of(context).unfocus(); // 👈 再保险一次
+              FocusScope.of(context).unfocus();
               setState(() => _selectedStation = null);
             },
           ),
@@ -843,7 +841,7 @@ class _MapScreenState extends State<MapScreen> {
                         }
                       },
                       onSubmitted: (value) {
-                        FocusScope.of(context).unfocus(); // 👈 顺便收键盘
+                        FocusScope.of(context).unfocus();
                         _onSearch(value);
                       },
                       decoration: InputDecoration(
@@ -857,12 +855,12 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
-                // 3. 搜索历史 (放在搜索框下面，并增加装饰)
+                // Search History
                 if (_searchFocus.hasFocus &&
                     _searchCtrl.text.isEmpty &&
                     _searchHistory.isNotEmpty)
                   Container(
-                    margin: const EdgeInsets.fromLTRB(24, 10, 24, 0), // 左右边距比搜索框稍大一点，更有层次感
+                    margin: const EdgeInsets.fromLTRB(24, 10, 24, 0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
@@ -876,9 +874,9 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: _searchHistory.take(3).map((item) { // 只取最近3条，防止遮挡地图太多
+                      children: _searchHistory.take(3).map((item) {
                         return ListTile(
-                          dense: true, // 使行高更紧凑
+                          dense: true,
                           leading: const Icon(Icons.history, size: 18, color: Colors.grey),
                           title: Text(
                             item,
@@ -898,7 +896,6 @@ class _MapScreenState extends State<MapScreen> {
                                   _filteredStations = _stations;
                                 });
 
-                                // 👉 optional：回到最近站点
                                 if (_stations.isNotEmpty) {
                                   _selectStation(_stations.first);
                                 }
@@ -907,7 +904,7 @@ class _MapScreenState extends State<MapScreen> {
                               setState(() {});
                             },
                             child: const Icon(Icons.close, size: 16, color: Colors.red),
-                          ), // 提示点击可填入
+                          ),
                           onTap: () {
                             _searchCtrl.text = item;
                             FocusScope.of(context).unfocus();
@@ -1063,7 +1060,6 @@ class _MapScreenState extends State<MapScreen> {
                   controller: scrollController,
                   children: [
 
-                    // 👇 拖动条
                     Center(
                       child: Container(
                         margin: EdgeInsets.symmetric(vertical: 4),
@@ -1076,7 +1072,6 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
-                    // 👇 标题
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
@@ -1097,7 +1092,7 @@ class _MapScreenState extends State<MapScreen> {
                     SizedBox(
                       height: 200,
                       child: PageView.builder(
-                        controller: _pageController,// 👈 卡片露一点
+                        controller: _pageController,
                         itemCount: _filteredStations.length,
 
                         onPageChanged: (index) {
@@ -1148,23 +1143,19 @@ class _MapScreenState extends State<MapScreen> {
                                     ),
                                   );
 
-                                  // 👇 如果是从 Navigate 按钮回来
                                   if (result != null && result is RecycleStation) {
                                     setState(() {
                                       _selectedStation = result;
                                     });
 
-                                    // 👉 移动地图
                                     _mapController?.animateCamera(
                                       CameraUpdate.newLatLng(
                                         LatLng(result.latitude - 0.002, result.longitude),
                                       ),
                                     );
 
-                                    // 👉 画路线（最关键）
                                     await _drawRoute(result);
 
-                                    // 👉 打开 bottom sheet
                                     if (_sheetController.isAttached) {
                                       _sheetController.animateTo(
                                         0.45,

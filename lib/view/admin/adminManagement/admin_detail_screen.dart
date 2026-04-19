@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Admins.dart';
-import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/controller/admin/admin_management_ctrl.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/services/email_service.dart';

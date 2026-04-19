@@ -16,7 +16,6 @@ class QrScanScreen extends StatefulWidget {
 class QrScanScreenState extends State<QrScanScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
 
-  // ── 用工厂方法方便重建 ────────────────────────────────────────
   MobileScannerController _cameraController = _buildController();
 
   static MobileScannerController _buildController() =>
@@ -54,19 +53,15 @@ class QrScanScreenState extends State<QrScanScreen>
     }
   }
 
-  // ── 核心修复：dispose + 重建，替代 stop/start ─────────────────
   Future<void> refreshCamera() async {
     if (!mounted) return;
 
-    // 1. 释放旧 controller
     try { _cameraController.stop(); } catch (_) {}
     try { _cameraController.dispose(); } catch (_) {}
 
-    // 2. 给硬件时间完全释放
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
 
-    // 3. 重建
     setState(() {
       _cameraController = _buildController();
       _scanned = false;
@@ -74,7 +69,6 @@ class QrScanScreenState extends State<QrScanScreen>
       _started = false;
     });
 
-    // 4. 等 widget rebuild 后启动
     await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
     try {
@@ -231,7 +225,7 @@ class QrScanScreenState extends State<QrScanScreen>
       backgroundColor: Colors.black,
       body: Stack(children: [
         MobileScanner(
-          key: ValueKey(_cameraController), // ⭐ 核心
+          key: ValueKey(_cameraController),
           controller: _cameraController,
           onDetect: _onDetect,
         ),
@@ -275,8 +269,11 @@ class QrScanScreenState extends State<QrScanScreen>
                 ),
                 _ManualEntryButton(onTap: _showManualEntryDialog),
                 _ControlButton(
-                    icon: Icons.close,
-                    onTap: () => Navigator.pop(context)),
+                  icon: Icons.close,
+                  onTap: () {
+                    Navigator.pushReplacementNamed(context, Routes.map);
+                  },
+                ),
               ],
             ),
           ),
