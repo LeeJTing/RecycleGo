@@ -19,7 +19,8 @@ class QrScanScreen extends StatefulWidget {
 }
 
 class _QrScanScreenState extends State<QrScanScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+
   final MobileScannerController _cameraController = MobileScannerController();
   bool _torchOn = false;
   bool _scanned = false;
@@ -31,6 +32,7 @@ class _QrScanScreenState extends State<QrScanScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -41,11 +43,41 @@ class _QrScanScreenState extends State<QrScanScreen>
     );
   }
 
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _cameraController.start();
+      _started = true;
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cameraController.dispose();
     _animController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _cameraController.start();
+        break;
+
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+        _cameraController.stop();
+        break;
+
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        break;
+    }
   }
 
   Future<bool> _isNearStation(double lat, double lng) async {
@@ -94,7 +126,12 @@ class _QrScanScreenState extends State<QrScanScreen>
   }
 
   void _onDetect(BarcodeCapture capture) async {
-    if (_scanned) return;
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _scanned = false);
+        _cameraController.start();
+      }
+    });
 
     final barcode = capture.barcodes.firstOrNull;
     final qrValue = barcode?.rawValue;
@@ -156,6 +193,8 @@ class _QrScanScreenState extends State<QrScanScreen>
         onContinue: () async {
           Navigator.pop(context);
 
+          _cameraController.stop();
+
           // ✅ 加这个：记录验证时间
           station['verified_at'] = DateTime.now().toIso8601String();
 
@@ -163,11 +202,16 @@ class _QrScanScreenState extends State<QrScanScreen>
           await LocalStorageService.saveStation(station);
 
           // ✅ 跳去队友页面 + 传 data
-          Navigator.pushNamed(
+          await Navigator.pushNamed(
             context,
             Routes.scanRecycleItem,
             arguments: station,
           );
+
+          if (!mounted) return;
+
+          setState(() => _scanned = false);
+          await _cameraController.start();
         },
         onRetry: () {
           Navigator.pop(context);
@@ -192,50 +236,7 @@ class _QrScanScreenState extends State<QrScanScreen>
 
           // ── Dark overlay with cut-out ────────────────────────────────
           _ScanOverlay(scanLineAnim: _scanLine),
-
-          // ── Top bar ──────────────────────────────────────────────────
-          SafeArea(
-            child: Padding(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1DB954),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.eco,
-                            color: Colors.white, size: 16),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'ECOLEDGER',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.white24,
-                    child: const Icon(Icons.person,
-                        color: Colors.white, size: 18),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
+          const SizedBox(height: 30),
           // ── Instruction label ────────────────────────────────────────
           Positioned(
             top: MediaQuery.of(context).padding.top + 70,
@@ -296,29 +297,10 @@ class _QrScanScreenState extends State<QrScanScreen>
                       // Close
                       _ControlButton(
                         icon: Icons.close,
-                        onTap: () => Navigator.pop(context),
+                          onTap: () {
+                            Navigator.pop(context);
+                          }
                       ),
-                    ],
-                  ),
-                ),
-
-                // Bottom nav hint
-                Container(
-                  color: Colors.white.withOpacity(0.05),
-                  padding: EdgeInsets.fromLTRB(
-                      0, 8, 0, MediaQuery.of(context).padding.bottom + 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
-                      _NavHint(icon: Icons.map_outlined, label: 'MAP'),
-                      _NavHint(
-                          icon: Icons.qr_code_scanner,
-                          label: 'SCAN',
-                          active: true),
-                      _NavHint(
-                          icon: Icons.store_outlined, label: 'STATIONS'),
-                      _NavHint(
-                          icon: Icons.bar_chart_outlined, label: 'IMPACT'),
                     ],
                   ),
                 ),
