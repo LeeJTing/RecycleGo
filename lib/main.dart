@@ -6,20 +6,23 @@ import 'package:recycle_go/l10n/app_localization.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
 import 'package:recycle_go/models/RecyclePurchases.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
+import 'package:recycle_go/provider/CategoryProvider.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
-import 'package:recycle_go/view/admin/admin_add_inventory.dart';
+import 'package:recycle_go/view/admin/inventory/admin_add_inventory.dart';
 import 'package:recycle_go/view/admin/admin_full_request_review.dart';
-import 'package:recycle_go/view/admin/admin_inventory.dart';
-import 'package:recycle_go/view/admin/admin_view_purchase.dart';
+import 'package:recycle_go/view/admin/inventory/admin_inventory.dart';
+import 'package:recycle_go/view/admin/purchase/admin_view_purchase.dart';
+import 'package:recycle_go/view/admin/category/admin_add_category.dart';
+import 'package:recycle_go/view/admin/category/admin_update_category.dart';
 import 'package:recycle_go/view/admin/userManagement/user_management_screen.dart';
 import 'package:recycle_go/view/autho/forgot_password_screen.dart';
 import 'package:recycle_go/view/autho/login_screen.dart';
 import 'package:recycle_go/view/admin/admin_home.dart';
-import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
-import 'package:recycle_go/view/admin/admin_purchase_update.dart';
-import 'package:recycle_go/view/admin/admin_view_inventory.dart';
-import 'package:recycle_go/view/admin/admin_update_inventory.dart';
+import 'package:recycle_go/view/admin/purchase/admin_purchase_detail.dart';
+import 'package:recycle_go/view/admin/purchase/admin_purchase_update.dart';
+import 'package:recycle_go/view/admin/inventory/admin_view_inventory.dart';
+import 'package:recycle_go/view/admin/inventory/admin_update_inventory.dart';
 import 'package:recycle_go/view/autho/register_screen.dart';
 import 'package:recycle_go/view/autho/reset_password_screen.dart';
 import 'package:recycle_go/view/user/AI-verify-recycle/verify_recycle_item.dart';
@@ -112,7 +115,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => AdminProvider()),
-        ChangeNotifierProvider(create: (_) => CategoryController()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
       ],
       child: const MainApp(),
     ),
@@ -347,21 +350,21 @@ class _MainAppState extends State<MainApp> {
         Routes.adminHome: (context) => const AdminHome(),
         Routes.adminPurchaseView: (context) => const AdminViewPurchase(),
         Routes.adminPurchaseDetail: (context) {
-          // Catch the arguments passed from the navigator
-          final args = ModalRoute.of(context)!.settings.arguments as AdminPurchaseDetail;
+          final purchase =
+          ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
 
           return AdminPurchaseDetail(
-            purchase: args.purchase,
-            items: args.items,
+            purchase: purchase,
+            items: [],  // Assuming items are empty for now
           );
         },
         Routes.adminPurchaseUpdate: (context) {
-          // Catch the arguments passed from the navigator
-          final args = ModalRoute.of(context)!.settings.arguments as AdminPurchaseUpdate;
+          final purchase =
+          ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
 
           return AdminPurchaseUpdate(
-            purchase: args.purchase,
-            items: args.items,
+            purchase: purchase,
+            items: [],
           );
         },
         Routes.adminInventory: (context) => const AdminInventory(),
@@ -396,6 +399,13 @@ class _MainAppState extends State<MainApp> {
         Routes.adminFullRequestReview: (context) => const AdminSubmissionFullReview(),
         Routes.adminProfile: (context) => const AdminProfileScreen(),
 
+        Routes.adminAddCategory: (context)=> const AdminAddCategory(),
+        Routes.adminUpdateCategory: (context)  {
+          final args = ModalRoute.of(context)?.settings.arguments as AdminUpdateCategory;
+          return AdminUpdateCategory(
+            category: args.category,
+          );
+        },
       },
     );
   }

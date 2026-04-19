@@ -4,7 +4,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 
 // IMPORTANT: Make sure this path matches where your model actually is!
-import '../../models/Recycle_category.dart';
+import '../../../models/Recycle_category.dart';
 
 class AdminRecycleCategory extends StatefulWidget {
   const AdminRecycleCategory({super.key});
