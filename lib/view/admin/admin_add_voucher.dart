@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Vouchers.dart';
@@ -48,13 +49,21 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
   }
 
   bool _isFormValid() {
-    // Voucher Name: max 15 characters, not empty
-    if (nameController.text.isEmpty || nameController.text.length > 15) {
+    // Voucher Name: max 25 characters, not empty
+    if (nameController.text.isEmpty || nameController.text.length > 25) {
       return false;
     }
 
-    // Description: max 20 characters, not empty
-    if (descController.text.isEmpty || descController.text.length > 20) {
+    // Value: numeric only, between 0 and 100
+    final valueText = descController.text.trim();
+    if (valueText.isEmpty) {
+      return false;
+    }
+    if (!RegExp(r'^\d+$').hasMatch(valueText)) {
+      return false;
+    }
+    final value = int.tryParse(valueText);
+    if (value == null || value < 0 || value > 100) {
       return false;
     }
 
@@ -83,15 +92,21 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
 
   String? _getNameError() {
     if (nameController.text.isEmpty) return "Name cannot be empty";
-    if (nameController.text.length > 15)
-      return "Name cannot exceed 15 characters";
+    if (nameController.text.length > 25)
+      return "Name cannot exceed 25 characters";
     return null;
   }
 
   String? _getDescError() {
-    if (descController.text.isEmpty) return "Description cannot be empty";
-    if (descController.text.length > 20)
-      return "Description cannot exceed 20 characters";
+    final valueText = descController.text.trim();
+    if (valueText.isEmpty) return "Value cannot be empty";
+    if (!RegExp(r'^\d+$').hasMatch(valueText)) {
+      return "Value cannot contain special characters";
+    }
+    final value = int.tryParse(valueText);
+    if (value == null) return "Value must be a valid number";
+    if (value < 0) return "Value cannot be negative";
+    if (value > 100) return "Value cannot exceed 100";
     return null;
   }
 
@@ -165,26 +180,34 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
                 ).copyWith(errorText: _getNameError()),
                 validator: (v) {
                   if (v == null || v.isEmpty) return "Name cannot be empty";
-                  if (v.length > 15) return "Name cannot exceed 15 characters";
+                  if (v.length > 25) return "Name cannot exceed 25 characters";
                   return null;
                 },
               ),
               const SizedBox(height: 24),
 
-              _buildLabel("Description"),
+              _buildLabel("Value"),
               TextFormField(
                 controller: descController,
-                maxLines: 3,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: false,
+                ),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: TextDesign.smallText(),
                 decoration: _inputStyle(
-                  "e.g., via Stripe Gateway",
+                  "e.g., 10",
                   theme,
                 ).copyWith(errorText: _getDescError()),
                 validator: (v) {
-                  if (v == null || v.isEmpty)
-                    return "Description cannot be empty";
-                  if (v.length > 20)
-                    return "Description cannot exceed 20 characters";
+                  final valueText = v?.trim() ?? '';
+                  if (valueText.isEmpty) return "Value cannot be empty";
+                  if (!RegExp(r'^\d+$').hasMatch(valueText)) {
+                    return "Value cannot contain special characters";
+                  }
+                  final value = int.tryParse(valueText);
+                  if (value == null) return "Value must be a valid number";
+                  if (value < 0) return "Value cannot be negative";
+                  if (value > 100) return "Value cannot exceed 100";
                   return null;
                 },
               ),
@@ -224,7 +247,9 @@ class _AdminAddVoucherState extends State<AdminAddVoucher> {
                 ),
                 child: DropdownButton<String>(
                   isExpanded: true,
-                  value: selectedCategory,
+                  value: categories.contains(selectedCategory)
+                      ? selectedCategory
+                      : 'Exchange',
                   underline: const SizedBox(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   items: categories.map((String value) {

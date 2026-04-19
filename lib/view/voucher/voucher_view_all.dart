@@ -311,8 +311,10 @@ class _VoucherViewAllScreenState extends State<VoucherViewAllScreen> {
                         itemCount: _filteredVouchers.length,
                         itemBuilder: (context, index) {
                           final voucher = _filteredVouchers[index];
-                          final category = voucher.description ?? 'Exchange';
-
+                          final category =
+                              voucher.voucherCategory.trim().isNotEmpty
+                              ? voucher.voucherCategory
+                              : 'General';
                           return VoucherCard(
                             voucher: voucher,
                             category: category,

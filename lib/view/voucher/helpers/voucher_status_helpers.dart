@@ -32,7 +32,8 @@ class VoucherStatusHelpers {
 
   /// Check if voucher is exchange type
   static bool isExchangeVoucher(String? category) {
-    return category?.toLowerCase() == 'exchange';
+    final normalized = category?.toLowerCase().trim() ?? '';
+    return normalized == 'exchange' || normalized.contains('exchange');
   }
 
   /// Get status message for exchange vouchers

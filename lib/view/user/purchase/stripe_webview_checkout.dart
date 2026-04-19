@@ -134,7 +134,6 @@ class _StripeWebViewCheckoutState extends State<StripeWebViewCheckout> {
                 ),
               ),
             ),
-          // Close button in top-right
           Positioned(
             top: 8,
             right: 8,
