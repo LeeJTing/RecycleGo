@@ -4,7 +4,9 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 
 class ScanButton extends StatelessWidget {
-  const ScanButton({super.key});
+  final VoidCallback? onScanCompleted;
+
+  const ScanButton({super.key, this.onScanCompleted});
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +14,16 @@ class ScanButton extends StatelessWidget {
     final size = MediaQuery.of(context).size;
 
     return InkWell(
-      onTap: () => Navigator.pushNamed(context, Routes.scanRecycleItem),  //Routes.qrScan
+      onTap: () async {
+        final result = await Navigator.pushNamed(
+          context,
+          Routes.scanRecycleItem,
+        );
+        print("Returned from scan: $result");
+        if (result == true) {
+          onScanCompleted?.call();
+        }
+      },  //Routes.qrScan
       borderRadius: BorderRadius.circular(30),
       child: Container(
         width: double.infinity,

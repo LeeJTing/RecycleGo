@@ -1,11 +1,160 @@
 import 'package:flutter/foundation.dart';
 
+import 'Connector.dart';
+
 enum InventoryStatus {
   active,
   inactive,
   lowStock,
 }
 
+class RecycleInventoryModel extends Connector {
+  static final RecycleInventoryModel _instance =
+  RecycleInventoryModel._internal();
+
+  RecycleInventoryModel._internal();
+
+  factory RecycleInventoryModel() => _instance;
+
+  /// Fetch all inventory items
+  Future<List<RecycleInventory>> fetchAllInventory() async {
+    try {
+      final response = await client
+          .from('recycle_inventory')
+          .select()
+          .order('created_at', ascending: false);
+
+      return (response as List)
+          .map((item) => RecycleInventory.fromJson(item))
+          .toList();
+    } catch (e) {
+      print('Error fetching inventory: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch inventory by ID
+  Future<RecycleInventory?> fetchById(String inventoryId) async {
+    try {
+      final response = await client
+          .from('recycle_inventory')
+          .select()
+          .eq('inventory_id', inventoryId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      return RecycleInventory.fromJson(response);
+    } catch (e) {
+      print('Error fetching inventory by id: $e');
+      rethrow;
+    }
+  }
+
+  /// Create new inventory item
+  Future<RecycleInventory?> createInventory(
+      RecycleInventory inventory) async {
+    try {
+      final response = await client
+          .from('recycle_inventory')
+          .insert(inventory.toJson())
+          .select()
+          .single();
+
+      return RecycleInventory.fromJson(response);
+    } catch (e) {
+      print('Error creating inventory: $e');
+      rethrow;
+    }
+  }
+
+  /// Update inventory item
+  Future<RecycleInventory?> updateInventory(
+      String inventoryId, Map<String, dynamic> data) async {
+    try {
+      final response = await client
+          .from('recycle_inventory')
+          .update(data)
+          .eq('inventory_id', inventoryId)
+          .select()
+          .single();
+
+      return RecycleInventory.fromJson(response);
+    } catch (e) {
+      print('Error updating inventory: $e');
+      rethrow;
+    }
+  }
+
+  /// Update stock only
+  Future<void> updateStock(
+      String inventoryId, double newWeight) async {
+    try {
+      await client
+          .from('recycle_inventory')
+          .update({
+        'total_weight_available': newWeight,
+      })
+          .eq('inventory_id', inventoryId);
+    } catch (e) {
+      print('Error updating stock: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete inventory item
+  Future<void> deleteInventory(String inventoryId) async {
+    try {
+      await client
+          .from('recycle_inventory')
+          .delete()
+          .eq('inventory_id', inventoryId);
+    } catch (e) {
+      print('Error deleting inventory: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch only active inventory
+  Future<List<RecycleInventory>> fetchActiveInventory() async {
+    try {
+      final response = await client
+          .from('recycle_inventory')
+          .select()
+          .eq('status', 'active')
+          .order('created_at', ascending: false);
+
+      return (response as List)
+          .map((item) => RecycleInventory.fromJson(item))
+          .toList();
+    } catch (e) {
+      print('Error fetching active inventory: $e');
+      rethrow;
+    }
+  }
+
+  /// Low stock items
+  Future<List<RecycleInventory>> fetchLowStock() async {
+    try {
+      final response = await client
+          .from('recycle_inventory')
+          .select()
+          .order('created_at', ascending: false);
+
+      final list = (response as List)
+          .map((item) => RecycleInventory.fromJson(item))
+          .toList();
+
+      return list.where((item) {
+        final status = item.calculatedStatus;
+        return status == InventoryStatus.lowStock;
+      }).toList();
+    } catch (e) {
+      print('Error fetching low stock inventory: $e');
+      rethrow;
+    }
+  }
+}
 @immutable
 class RecycleInventory {
   final String inventoryId;
@@ -20,6 +169,7 @@ class RecycleInventory {
   final String inventoryName;
   final double? minWeightLevel;
   final String description;
+
 
   const RecycleInventory({
     required this.inventoryId,
@@ -176,4 +326,5 @@ class RecycleInventory {
         'status: $status'
         ')';
   }
+
 }

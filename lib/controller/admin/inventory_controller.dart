@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
 import '../../services/supabase_service.dart';
 
@@ -10,6 +12,41 @@ class InventoryController {
   static DateTime? _cacheTime;
   static const _cacheDuration = Duration(minutes: 5); // Cache for 5 minutes
 
+  /// Uploads an image to Supabase Storage and returns the public URL
+  static Future<String?> uploadImage(File imageFile) async {
+    try {
+      final fileExt = imageFile.path.split('.').last;
+      final fileName = 'inventory_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      await supabase.storage.from('inventory-images').upload(
+        fileName,
+        imageFile,
+        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+      );
+
+      return supabase.storage.from('inventory-images').getPublicUrl(fileName);
+    } catch (e) {
+      print("Image upload error: $e");
+      return null;
+    }
+  }
+
+  /// Generates a unique 6-character inventory code based on the item name
+  static String generateCode(String name) {
+    final prefix = name.length >= 3
+        ? name.substring(0, 3).toUpperCase()
+        : name.toUpperCase();
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final short = timestamp.toString().substring(0, 3);
+
+    return "$prefix-$short";
+  }
+
+  // ==========================================
+  // DATABASE OPERATIONS
+  // ==========================================
+
   static Future<List<RecycleInventory>> getInventory({bool forceRefresh = false}) async {
     if (!forceRefresh && _cachedItems != null && _cacheTime != null) {
       if (DateTime.now().difference(_cacheTime!) < _cacheDuration) {
@@ -21,7 +58,7 @@ class InventoryController {
       final response = await supabase
           .from(_tableName)
           .select()
-          .order('updated_at', ascending: false); // Good practice to order it here too!
+          .order('updated_at', ascending: false);
 
       _cachedItems = response.map((json) => RecycleInventory.fromJson(json)).toList();
       _cacheTime = DateTime.now();
@@ -42,7 +79,6 @@ class InventoryController {
     data['updated_at'] = DateTime.now().toIso8601String();
 
     await supabase.from(_tableName).insert(data);
-
     _invalidateCache();
   }
 
@@ -53,9 +89,7 @@ class InventoryController {
         .select()
         .order('updated_at', ascending: false);
 
-    return (res as List)
-        .map((e) => RecycleInventory.fromJson(e))
-        .toList();
+    return (res as List).map((e) => RecycleInventory.fromJson(e)).toList();
   }
 
   /// Fetch a single specific item by its ID
@@ -72,29 +106,22 @@ class InventoryController {
 
   /// Update an existing item
   static Future<void> updateInventory(RecycleInventory item) async {
-    if (item.inventoryId == null) {
-      throw Exception("Inventory ID is null");
-    }
+    if (item.inventoryId == null) throw Exception("Inventory ID is null");
 
-    // ✨ PRO-TIP: Use toJson() here too!
     final data = item.toJson();
-    data['updated_at'] = DateTime.now().toIso8601String(); // Update the timestamp
+    data['updated_at'] = DateTime.now().toIso8601String();
 
     await supabase
         .from(_tableName)
         .update(data)
         .eq('inventory_id', item.inventoryId!);
 
-    _invalidateCache(); // Clear cache so the edit shows up instantly
+    _invalidateCache();
   }
 
   /// Delete an item entirely
   static Future<void> deleteInventory(String id) async {
-    await supabase
-        .from(_tableName)
-        .delete()
-        .eq('inventory_id', id);
-
+    await supabase.from(_tableName).delete().eq('inventory_id', id);
     _invalidateCache();
   }
 }

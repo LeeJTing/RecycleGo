@@ -16,6 +16,9 @@ import '../../../models/Recycle_category.dart';
 import '../../../models/RecyclingSubmission.dart';
 import '../../../provider/UserProvider.dart';
 import '../../../utils/async_task_runner.dart';
+import 'package:recycle_go/services/LocalStorageService.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:recycle_go/services/LocalStorageService.dart';
 
 class VerifyRecycleItem extends StatefulWidget {
   const VerifyRecycleItem({super.key});
@@ -38,7 +41,9 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   bool isLoaded = false;
   bool isCameraInitialized = false;
   bool hasAnalyzed = false;
+
   double userWallet = 0.0;
+  bool _hasMadeSubmission = false;
 
   List<RecycleCategory> _categories = [];
   Map<String, RecycleCategory> _categoryByLabel = {};
@@ -54,6 +59,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   @override
   void initState() {
     super.initState();
+    _checkQRValidity();
     _loadDynamicData();
     _loadModel();
     initCamera();
@@ -66,18 +72,83 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
     super.dispose();
   }
 
+  Future<void> _checkQRValidity() async {
+    final station = await LocalStorageService.getStation();
+
+    if (station == null) {
+      _kickOut("Please scan QR first ❌");
+      return;
+    }
+
+    try {
+      final verifiedTime = DateTime.parse(station['verified_at']);
+
+      if (DateTime.now().difference(verifiedTime).inMinutes > 10) {
+        await LocalStorageService.clearStation();
+        _kickOut("QR expired. Please scan again ⏱️");
+        return;
+      }
+
+      final isNear = await _isStillNearStation(
+        station['latitude'],
+        station['longitude'],
+      );
+
+      if (!isNear) {
+        await LocalStorageService.clearStation();
+        _kickOut("You left the station area 📍");
+        return;
+      }
+
+      _stationId = station['station_id'];
+
+    } catch (e) {
+      await LocalStorageService.clearStation();
+      _kickOut("Invalid QR data ❌");
+    }
+  }
+
+  void _kickOut(String message) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+
+      Navigator.pop(context);
+    });
+  }
+
+  Future<bool> _isStillNearStation(
+      double lat,
+      double lng,
+      ) async {
+    final pos = await Geolocator.getCurrentPosition();
+
+    double distance = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      lat,
+      lng,
+    );
+
+    return distance <= 50;
+  }
+
   Future<void> _loadDynamicData() async {
     try {
       final supabase = Supabase.instance.client;
       final List<dynamic> catData = await supabase
           .from('recycle_category')
-          .select('category_id, category_name, label, density, base_weight_grams, points_per_kg')
+          .select('category_id, category_name, label, density, base_weight, point')
           .not('label', 'is', null);
 
       _categories = catData.map((j) => RecycleCategory.fromJson(j)).toList();
       for (var cat in _categories) {
         if (cat.label != null) {
-          _categoryByLabel[cat.label!] = cat;
+          final key = cat.label!.toLowerCase().trim();
+          _categoryByLabel[key] = cat;
         }
       }
 
@@ -338,18 +409,20 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
         });
 
         stats.forEach((label, data) {
-          if (data['count'] > maxCount) {
-            maxCount = data['count'];
+          int count = data['count'] as int;
+          if (count > maxCount) {
+            maxCount = count;
             primaryCategoryLabel = label;
           }
         });
 
-        // Now normalise and get ID
         int? categoryId;
-        for (var cat in _categories) {
-          if (cat.label != null) {
-            final normalizedKey = cat.label!.toLowerCase().trim();
-            _categoryByLabel[normalizedKey] = cat;
+        if (primaryCategoryLabel != null) {
+          final normalizedLabel = primaryCategoryLabel?.toLowerCase().trim();
+          final matchedCategory = _categoryByLabel[normalizedLabel];
+
+          if (matchedCategory != null) {
+            categoryId = matchedCategory.categoryId;
           }
         }
 
@@ -379,6 +452,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
             .insert(newSubmission.toJsonForInsert());
 
         setState(() {
+          _hasMadeSubmission = true;
           userWallet += totalPointsEarned;
           retakeImage();
         });
@@ -449,7 +523,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
           children: [
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white, size: 28),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, _hasMadeSubmission),
             ),
           ],
         ),
@@ -721,7 +795,8 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
             width: double.infinity,
             height: 60,
             child: TextButton(
-              onPressed: () => Navigator.pop(context),
+              // 👇 THIS IS THE ONLY LINE TO CHANGE IN THIS FILE
+              onPressed: () => Navigator.pop(context, _hasMadeSubmission),
               style: TextButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

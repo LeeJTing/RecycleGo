@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-import 'package:recycle_go/controller/admin/category_controller.dart';
 import 'package:recycle_go/controller/admin/inventory_controller.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
-import 'package:recycle_go/models/Recycle_category.dart';
+
+import '../../../provider/CategoryProvider.dart';
 
 class AdminUpdateInventory extends StatefulWidget {
   final RecycleInventory item;
@@ -27,33 +28,27 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
 
   String _selectedStatus = 'active';
   int? _selectedCategoryId;
-  List<RecycleCategory> _categories = [];
-  bool _isLoadingCategories = true;
   bool _isSaving = false;
-
-  late final CategoryController _categoryController;
 
   @override
   void initState() {
     super.initState();
-    _categoryController = CategoryController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CategoryProvider>().fetchCategories();
+    });
 
     _nameController = TextEditingController(text: widget.item.inventoryName);
     _descController = TextEditingController(text: widget.item.description);
-    _priceController = TextEditingController(
-      text: widget.item.pricePerKg.toStringAsFixed(2),
-    );
-    _weightController = TextEditingController(
-      text: widget.item.totalWeightAvailable.toStringAsFixed(1),
-    );
-    _minWeightController = TextEditingController(
-      text: widget.item.minWeightLevel?.toStringAsFixed(1) ?? '',
-    );
+    _priceController =
+        TextEditingController(text: widget.item.pricePerKg.toStringAsFixed(2));
+    _weightController =
+        TextEditingController(text: widget.item.totalWeightAvailable.toStringAsFixed(1));
+    _minWeightController =
+        TextEditingController(text: widget.item.minWeightLevel?.toStringAsFixed(1) ?? '');
 
     _selectedStatus = widget.item.status.name;
     _selectedCategoryId = widget.item.categoryId;
-
-    _fetchCategories();
   }
 
   @override
@@ -63,25 +58,34 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
     _priceController.dispose();
     _weightController.dispose();
     _minWeightController.dispose();
-    _categoryController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchCategories() async {
-    try {
-      await _categoryController.fetchCategories();
-      setState(() {
-        _categories = _categoryController.categories;
-        _isLoadingCategories = false;
-      });
-    } catch (e) {
-      print("Error fetching categories: $e");
-      setState(() => _isLoadingCategories = false);
-    }
+  // --- ENHANCED VALIDATORS ---
+  String? _validateRequiredText(String? val) {
+    if (val == null || val.trim().isEmpty) return "This field is required";
+    return null;
+  }
+
+  String? _validateNumber(String? val) {
+    if (val == null || val.trim().isEmpty) return "Required";
+    final number = double.tryParse(val.trim());
+    if (number == null) return "Invalid number";
+    if (number < 0) return "Cannot be negative";
+    return null;
+  }
+
+  String? _validateOptionalNumber(String? val) {
+    if (val == null || val.trim().isEmpty) return null; // Optional
+    final number = double.tryParse(val.trim());
+    if (number == null) return "Invalid number";
+    if (number < 0) return "Cannot be negative";
+    return null;
   }
 
   Future<void> _updateInventory() async {
     if (!_formKey.currentState!.validate()) return;
+
     if (_selectedCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select a category")),
@@ -92,19 +96,23 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
     setState(() => _isSaving = true);
 
     try {
+      // Safe Parsing
+      final price = double.tryParse(_priceController.text.trim()) ?? widget.item.pricePerKg;
+      final weight = double.tryParse(_weightController.text.trim()) ?? widget.item.totalWeightAvailable;
+      final minWeight = double.tryParse(_minWeightController.text.trim());
+
       final updatedItem = widget.item.copyWith(
         inventoryName: _nameController.text.trim(),
         description: _descController.text.trim().isEmpty
             ? ''
             : _descController.text.trim(),
-        pricePerKg: double.parse(_priceController.text.trim()),
-        totalWeightAvailable: double.parse(_weightController.text.trim()),
-        minWeightLevel: double.tryParse(_minWeightController.text.trim()),
+        pricePerKg: price,
+        totalWeightAvailable: weight,
+        minWeightLevel: minWeight,
         status: _selectedStatus == 'active'
             ? InventoryStatus.active
             : InventoryStatus.inactive,
         categoryId: _selectedCategoryId!,
-        // Keep the same image path (no image update logic here, but you could add it)
         updatedAt: DateTime.now(),
       );
 
@@ -130,6 +138,8 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
+    final provider = context.watch<CategoryProvider>();
+    final categories = provider.categories;
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -138,7 +148,6 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
         backgroundColor: theme.surface,
         elevation: 0,
         actions: [
-          // Optional: delete button
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red),
             onPressed: () => _confirmDelete(context, theme),
@@ -154,7 +163,6 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image preview (read‑only, but you could add image update)
               _buildImagePreview(theme),
               const SizedBox(height: 24),
 
@@ -163,28 +171,27 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
                 label: "Item Name",
                 hint: "e.g. Aluminum Beverage Cans",
                 controller: _nameController,
-                validator: (val) =>
-                val == null || val.isEmpty ? "Name is required" : null,
+                validator: _validateRequiredText,
               ),
 
               _buildLabel("Category"),
-              if (_isLoadingCategories)
-                const Center(child: CircularProgressIndicator())
-              else
-                DropdownButtonFormField<int>(
-                  value: _selectedCategoryId,
-                  decoration: _inputDecoration("Select a category", theme),
-                  items: _categories.map((cat) {
-                    return DropdownMenuItem(
-                      value: cat.categoryId,
-                      child: Text(cat.categoryName),
-                    );
-                  }).toList(),
-                  onChanged: (val) =>
-                      setState(() => _selectedCategoryId = val),
-                  validator: (val) =>
-                  val == null ? "Please select a category" : null,
-                ),
+
+              provider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : DropdownButtonFormField<int>(
+                value: _selectedCategoryId,
+                decoration: _inputDecoration("Select a category", theme),
+                items: categories.map((cat) {
+                  return DropdownMenuItem(
+                    value: cat.categoryId,
+                    child: Text(cat.categoryName),
+                  );
+                }).toList(),
+                onChanged: (val) =>
+                    setState(() => _selectedCategoryId = val),
+                validator: (val) =>
+                val == null ? "Please select a category" : null,
+              ),
               const SizedBox(height: 20),
 
               Row(
@@ -197,9 +204,7 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
                       controller: _priceController,
                       isNumber: true,
                       textColor: theme.success,
-                      validator: (val) => val == null || val.isEmpty
-                          ? "Required"
-                          : null,
+                      validator: _validateNumber,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -210,9 +215,7 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
                       hint: "0.0",
                       controller: _weightController,
                       isNumber: true,
-                      validator: (val) => val == null || val.isEmpty
-                          ? "Required"
-                          : null,
+                      validator: _validateNumber,
                     ),
                   ),
                 ],
@@ -224,6 +227,7 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
                 hint: "e.g. 50.0",
                 controller: _minWeightController,
                 isNumber: true,
+                validator: _validateOptionalNumber,
               ),
 
               _buildLabel("Status"),
@@ -281,7 +285,7 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
     );
   }
 
-  // ---------- UI Helpers (same as in AdminAddInventory) ----------
+  // ---------- UI Helpers  ----------
   Widget _buildImagePreview(AppColors theme) {
     final imgPath = widget.item.imgPath;
     final hasImage = imgPath.isNotEmpty;
@@ -374,6 +378,8 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: theme.border.withOpacity(0.3)),
       ),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: theme.error)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: theme.error, width: 2)),
     );
   }
 
@@ -396,7 +402,7 @@ class _AdminUpdateInventoryState extends State<AdminUpdateInventory> {
               Navigator.pop(ctx);
               setState(() => _isSaving = true);
               try {
-                await InventoryController.deleteInventory(widget.item.inventoryId);
+                await InventoryController.deleteInventory(widget.item.inventoryId!); // Added ! to assert not null
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Deleted successfully")),

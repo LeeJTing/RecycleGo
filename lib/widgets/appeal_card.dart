@@ -7,14 +7,14 @@ class AppealCard extends StatefulWidget {
   final Appeals appeal;
   final VoidCallback onApprove;
   final VoidCallback onReject;
-  final Function(double) onWeightChanged;
+  final Function(double) onPointsChanged;
 
   const AppealCard({
     super.key,
     required this.appeal,
     required this.onApprove,
     required this.onReject,
-    required this.onWeightChanged,
+    required this.onPointsChanged,
   });
 
   @override
@@ -22,17 +22,20 @@ class AppealCard extends StatefulWidget {
 }
 
 class _AppealCardState extends State<AppealCard> {
-  late TextEditingController _weightController;
+  late TextEditingController _pointsController;
 
   @override
   void initState() {
     super.initState();
-    _weightController = TextEditingController(text: widget.appeal.weight?.toString() ?? '0');
+    // Default to pointsGiven if exists, otherwise submission pointAward, else 0
+    _pointsController = TextEditingController(
+      text: (widget.appeal.pointsGiven ?? widget.appeal.submission?.pointAward ?? 0).toString()
+    );
   }
 
   @override
   void dispose() {
-    _weightController.dispose();
+    _pointsController.dispose();
     super.dispose();
   }
 
@@ -42,6 +45,11 @@ class _AppealCardState extends State<AppealCard> {
     final dateStr = widget.appeal.createdAt != null 
         ? DateFormat('MMM dd, yyyy • HH:mm a').format(widget.appeal.createdAt!)
         : 'Unknown Date';
+    
+    final photoUrl = widget.appeal.submission?.photoUrl;
+    final userName = widget.appeal.user?.userName ?? 'Unknown User';
+    final stationName = widget.appeal.station?.stationName ?? 'Station';
+    final categoryName = widget.appeal.categoryName ?? 'Item';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -64,9 +72,9 @@ class _AppealCardState extends State<AppealCard> {
             children: [
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: widget.appeal.photoUrl != null
+                child: photoUrl != null
                     ? Image.network(
-                        widget.appeal.photoUrl!,
+                        photoUrl,
                         height: 200,
                         width: double.infinity,
                         fit: BoxFit.cover,
@@ -110,10 +118,11 @@ class _AppealCardState extends State<AppealCard> {
                   children: [
                     CircleAvatar(
                       radius: 20,
-                      backgroundImage: widget.appeal.photoUrl != null 
-                          ? NetworkImage(widget.appeal.photoUrl!) // Using photoUrl as placeholder for profile if null
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: widget.appeal.user?.profilePhoto != null 
+                          ? NetworkImage(widget.appeal.user!.getUserProfileURL()) 
                           : null,
-                      child: widget.appeal.photoUrl == null ? const Icon(Icons.person) : null,
+                      child: widget.appeal.user?.profilePhoto == null ? const Icon(Icons.person, color: Colors.grey) : null,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -121,7 +130,7 @@ class _AppealCardState extends State<AppealCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.appeal.userName ?? 'Unknown User',
+                            userName,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                           Text(
@@ -149,25 +158,26 @@ class _AppealCardState extends State<AppealCard> {
                 // Location and Category
                 Row(
                   children: [
-                    _buildInfoChip(Icons.location_on_outlined, widget.appeal.stationName ?? 'Station'),
+                    _buildInfoChip(Icons.location_on_outlined, stationName),
                     const SizedBox(width: 10),
-                    _buildInfoChip(Icons.recycling, widget.appeal.category ?? 'Item'),
+                    _buildInfoChip(Icons.recycling, categoryName),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Confirm Weight
+                // Points to Award
                 const Text(
-                  'CONFIRM WEIGHT (KG)',
+                  'POINTS TO AWARD',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
                 TextField(
-                  controller: _weightController,
+                  controller: _pointsController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     fillColor: Colors.grey[50],
                     filled: true,
+                    hintText: 'Enter points...',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: Colors.grey[200]!),
@@ -178,19 +188,20 @@ class _AppealCardState extends State<AppealCard> {
                     ),
                   ),
                   onChanged: (val) {
-                    final weight = double.tryParse(val) ?? 0;
-                    widget.onWeightChanged(weight);
+                    final points = double.tryParse(val) ?? 0;
+                    widget.onPointsChanged(points);
                     setState(() {}); // Update reward preview
                   },
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   'Appeal Reason: ${widget.appeal.appealReason}',
                   style: TextStyle(color: theme.error, fontSize: 12, fontWeight: FontWeight.w500),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'Admin can adjust weight if incorrect based on photo',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11, fontStyle: FontStyle.italic),
+                  'Original Weight: ${widget.appeal.submission?.weight?.toStringAsFixed(2) ?? '0'} kg',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
                 const SizedBox(height: 16),
 
@@ -210,8 +221,8 @@ class _AppealCardState extends State<AppealCard> {
                         style: TextStyle(color: theme.onSuccessContainer, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${((double.tryParse(_weightController.text) ?? 0) * 1000).toInt()} pts', // Example logic
-                        style: TextStyle(color: theme.onSuccessContainer, fontWeight: FontWeight.bold),
+                        '${_pointsController.text.isEmpty ? '0' : _pointsController.text} pts',
+                        style: TextStyle(color: theme.onSuccessContainer, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ],
                   ),
