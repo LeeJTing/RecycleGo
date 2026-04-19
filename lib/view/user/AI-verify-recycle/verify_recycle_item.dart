@@ -16,6 +16,9 @@ import '../../../models/Recycle_category.dart';
 import '../../../models/RecyclingSubmission.dart';
 import '../../../provider/UserProvider.dart';
 import '../../../utils/async_task_runner.dart';
+import 'package:recycle_go/services/LocalStorageService.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:recycle_go/services/LocalStorageService.dart';
 
 class VerifyRecycleItem extends StatefulWidget {
   const VerifyRecycleItem({super.key});
@@ -56,6 +59,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   @override
   void initState() {
     super.initState();
+    _checkQRValidity();
     _loadDynamicData();
     _loadModel();
     initCamera();
@@ -66,6 +70,70 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
     controller?.dispose();
     interpreter?.close();
     super.dispose();
+  }
+
+  Future<void> _checkQRValidity() async {
+    final station = await LocalStorageService.getStation();
+
+    if (station == null) {
+      _kickOut("Please scan QR first ❌");
+      return;
+    }
+
+    try {
+      final verifiedTime = DateTime.parse(station['verified_at']);
+
+      if (DateTime.now().difference(verifiedTime).inMinutes > 10) {
+        await LocalStorageService.clearStation();
+        _kickOut("QR expired. Please scan again ⏱️");
+        return;
+      }
+
+      final isNear = await _isStillNearStation(
+        station['latitude'],
+        station['longitude'],
+      );
+
+      if (!isNear) {
+        await LocalStorageService.clearStation();
+        _kickOut("You left the station area 📍");
+        return;
+      }
+
+      _stationId = station['station_id'];
+
+    } catch (e) {
+      await LocalStorageService.clearStation();
+      _kickOut("Invalid QR data ❌");
+    }
+  }
+
+  void _kickOut(String message) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+
+      Navigator.pop(context);
+    });
+  }
+
+  Future<bool> _isStillNearStation(
+      double lat,
+      double lng,
+      ) async {
+    final pos = await Geolocator.getCurrentPosition();
+
+    double distance = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      lat,
+      lng,
+    );
+
+    return distance <= 50;
   }
 
   Future<void> _loadDynamicData() async {

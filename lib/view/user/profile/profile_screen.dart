@@ -129,7 +129,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           
                   FutureBuilder<Map<String, dynamic>>(
                     future: Future.wait([
-                      //ctrl.getTotalRecycledItems(user.userId!),
+                      ctrl.getTotalRecycledItems(user.userId!),
                       ctrl.getAchievements(user.userId!),
                     ]).then((results) => {
                       'totalItems': results[0] as int,

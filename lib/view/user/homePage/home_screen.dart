@@ -14,7 +14,6 @@ import 'package:recycle_go/view/recycle/map_screen.dart';
 import 'package:recycle_go/view/user/profile/profile_screen.dart';
 import 'package:recycle_go/view/voucher/voucher_main_page.dart';
 import 'package:recycle_go/view/user/homePage/widgets/purchase_card.dart';
-import 'package:recycle_go/view/user/appeal/widgets/appeal_status_card.dart';
 
 import '../../../app/TextDesign.dart';
 import '../../../models/RecyclingSubmission.dart';
@@ -72,7 +71,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 }
 
-class _HomeContent extends StatefulWidget {
+class _HomeContent extends StatelessWidget {
   const _HomeContent();
 
   @override
@@ -157,7 +156,9 @@ class _HomeContentState extends State<_HomeContent> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: _fetchAppeals,
+        onRefresh: () async {
+          // If needed, refresh user data via provider
+        },
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(

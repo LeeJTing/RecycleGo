@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 configurations.all {
@@ -38,6 +39,7 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+
     defaultConfig {
         applicationId = "com.tarumt.recyclego.recycle_go"
         minSdk = flutter.minSdkVersion
@@ -53,10 +55,11 @@ android {
     }
 }
 
-dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
-}
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
