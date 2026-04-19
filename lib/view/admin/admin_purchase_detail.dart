@@ -4,7 +4,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Connector.dart';
 
-import '../../../models/RecyclePurchases.dart';
+import '../../models/RecyclePurchases.dart';
 
 class AdminPurchaseDetail extends StatefulWidget {
   final RecyclePurchases purchase;

@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-import 'package:recycle_go/provider/CategoryProvider.dart';
-import '../../../app/routes.dart';
-import '../../../controller/admin/category_controller.dart';
-import '../../../controller/admin/inventory_controller.dart';
-import '../../../models/RecycleInventory.dart';
+import '../../app/routes.dart';
+import '../../controller/admin/category_controller.dart';
+import '../../controller/admin/inventory_controller.dart';
+import '../../models/RecycleInventory.dart';
 
 class AdminInventory extends StatefulWidget {
   const AdminInventory({super.key});
@@ -20,7 +19,6 @@ class _AdminInventoryState extends State<AdminInventory> {
   bool _isLoading = true;
   String _searchQuery = "";
   String _selectedInventory = "All";
-  String _selectedCategory = "All";
 
   @override
   void initState() {
@@ -418,8 +416,8 @@ class _AdminInventoryState extends State<AdminInventory> {
   }
 
   void _showFilterSheet(BuildContext context, AppColors theme) {
-    // 1. Read the provider correctly
-    final categoryProvider = context.read<CategoryProvider>();
+
+    final categoryController = context.read<CategoryController>();
 
     showModalBottomSheet(
       context: context,
@@ -428,49 +426,33 @@ class _AdminInventoryState extends State<AdminInventory> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-        // 2. Build the list dynamically using the provider's data
-        final filterOptions = [
+
+        final categories = [
           "All",
-          // Map through the provider's list of categories
-          ...categoryProvider.categories.map((c) => c.categoryName),
+          ...categoryController.categories.map((c) => c.categoryName),
         ];
 
         return Padding(
           padding: const EdgeInsets.all(24),
-          child: Column( // Optional: Good practice to wrap in a column for bottom sheets
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                  "Filter by Category",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold) // Use your TextDesign here
-              ),
-              const SizedBox(height: 16),
-              Flexible( // Use Flexible to prevent overflow if the list gets too long
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: filterOptions.length,
-                  itemBuilder: (context, index) {
-                    final cat = filterOptions[index];
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
 
-                    // Assuming _selectedCategory is your state variable (you had _selectedInventory)
-                    bool isSelected = _selectedCategory == cat;
+              final cat = categories[index];
+              bool isSelected = _selectedInventory == cat;
 
-                    return ListTile(
-                      title: Text(cat),
-                      trailing: isSelected
-                          ? Icon(Icons.check_circle, color: theme.primary)
-                          : null,
-                      onTap: () {
-                        // Update the state in the parent widget
-                        setState(() => _selectedCategory = cat);
-                        // Close the bottom sheet using the specific context
-                        Navigator.pop(sheetContext);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+              return ListTile(
+                title: Text(cat),
+                trailing: isSelected
+                    ? Icon(Icons.check_circle, color: theme.primary)
+                    : null,
+                onTap: () {
+                  setState(() => _selectedInventory = cat);
+                  Navigator.pop(sheetContext);
+                },
+              );
+            },
           ),
         );
       },

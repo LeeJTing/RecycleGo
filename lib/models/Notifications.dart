@@ -53,35 +53,6 @@ class NotificationsModel extends Connector {
   NotificationsModel._internal();
   factory NotificationsModel() => _instance;
 
-  /// Gets a real-time stream of notifications for a specific user
-  Stream<List<Notifications>> getNotificationStream(String userId) {
-    return client
-        .from('notifications')
-        .stream(primaryKey: ['notification_id'])
-        .eq('user_id', userId)
-        .order('created_at', ascending: false)
-        .map((maps) => maps.map((json) => Notifications.fromJson(json)).toList());
-  }
-
-  /// Gets a real-time stream of notifications for a specific admin
-  Stream<List<Notifications>> getAdminNotificationStream(String adminId) {
-    return client
-        .from('notifications')
-        .stream(primaryKey: ['notification_id'])
-        .eq('admin_id', adminId)
-        .order('created_at', ascending: false)
-        .map((maps) => maps.map((json) => Notifications.fromJson(json)).toList());
-  }
-
-  Future<void> insertNotification(Notifications notification) async {
-    try {
-      await client.from('notifications').insert(notification.toJson());
-    } catch (e) {
-      debugPrint('Error inserting notification: $e');
-      rethrow;
-    }
-  }
-
   Future<int> getUnreadCount(String userId) async {
     try {
       final response = await client

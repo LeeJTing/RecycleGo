@@ -8,6 +8,7 @@ class TaskRunner {
     String successMessage = "Success!",
     bool showSuccessDialog = true,
   }) async {
+    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -17,6 +18,9 @@ class TaskRunner {
     try {
       late T result;
 
+      // 🔹 Run the task AND a 2-second delay at the exact same time.
+      // This guarantees the loading screen shows for AT LEAST 2 seconds,
+      // preventing "flickering" if the task finishes instantly.
       await Future.wait([
         task().then((value) => result = value),
         Future.delayed(const Duration(seconds: 1)),

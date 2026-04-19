@@ -2,12 +2,6 @@ import 'package:recycle_go/models/Connector.dart';
 
 // Entity
 class RecyclePurchases {
-  // --- ALLOWED STATUS VALUES ---
-  static const List<String> allowedPaymentStatuses = ['success', 'pending', 'failed'];
-
-  // FIXED: Strictly only these three statuses now. No 'in_transit'.
-  static const List<String> allowedPickupStatuses = ['pending', 'completed', 'cancelled'];
-
   final String? purchaseId; // UUID - Primary Key
   final String userId; // UUID - FK to users table
   final double totalPrice; // Purchase amount
@@ -18,7 +12,6 @@ class RecyclePurchases {
   final String? pickupLocationId; // UUID - FK to recycle_station
   final String? pickupLocationName; // Station name
   final String? pickupAddress; // Full address of pickup location
-  final String? pickupStatus; // e.g., 'pending', 'completed', 'cancelled'
 
   RecyclePurchases({
     this.purchaseId,
@@ -31,31 +24,23 @@ class RecyclePurchases {
     this.pickupLocationId,
     this.pickupLocationName,
     this.pickupAddress,
-    this.pickupStatus,
-  }) :
-  // This strictly enforces your DB check constraint in Flutter!
-        assert(
-        allowedPaymentStatuses.contains(paymentStatus.toLowerCase()),
-        'paymentStatus must be one of: $allowedPaymentStatuses',
-        ),
-        assert(
-        pickupStatus == null || allowedPickupStatuses.contains(pickupStatus.toLowerCase()),
-        'pickupStatus must be null or one of: $allowedPickupStatuses',
-        );
+  });
 
   factory RecyclePurchases.fromJson(Map<String, dynamic> json) {
     return RecyclePurchases(
       purchaseId: json['purchase_id']?.toString(),
       userId: json['user_id']?.toString() ?? '',
-      totalPrice: double.tryParse(json['total_price']?.toString() ?? '0') ?? 0.0,
-      paymentStatus: json['payment_status']?.toString().toLowerCase() ?? 'pending',
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      totalPrice:
+          double.tryParse(json['total_price']?.toString() ?? '0') ?? 0.0,
+      paymentStatus: json['payment_status']?.toString() ?? 'pending',
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
       itemName: json['item_name']?.toString(),
       quantity: double.tryParse(json['quantity']?.toString() ?? '0'),
       pickupLocationId: json['pickup_location_id']?.toString(),
       pickupLocationName: json['pickup_location_name']?.toString(),
       pickupAddress: json['pickup_address']?.toString(),
-      pickupStatus: json['pickup_status']?.toString().toLowerCase(),
     );
   }
 
@@ -63,32 +48,35 @@ class RecyclePurchases {
     final map = <String, dynamic>{
       'user_id': userId,
       'total_price': totalPrice,
-      'payment_status': paymentStatus.toLowerCase(),
+      'payment_status': paymentStatus,
     };
 
     if (purchaseId != null && purchaseId!.isNotEmpty) {
       map['purchase_id'] = purchaseId;
     }
+
     if (createdAt != null) {
       map['created_at'] = createdAt!.toIso8601String();
     }
+
     if (itemName != null && itemName!.isNotEmpty) {
       map['item_name'] = itemName;
     }
+
     if (quantity != null) {
       map['quantity'] = quantity;
     }
+
     if (pickupLocationId != null && pickupLocationId!.isNotEmpty) {
       map['pickup_location_id'] = pickupLocationId;
     }
+
     if (pickupLocationName != null && pickupLocationName!.isNotEmpty) {
       map['pickup_location_name'] = pickupLocationName;
     }
+
     if (pickupAddress != null && pickupAddress!.isNotEmpty) {
       map['pickup_address'] = pickupAddress;
-    }
-    if (pickupStatus != null && pickupStatus!.isNotEmpty) {
-      map['pickup_status'] = pickupStatus?.toLowerCase();
     }
 
     return map;
@@ -100,12 +88,12 @@ class RecyclePurchases {
     double? totalPrice,
     String? paymentStatus,
     DateTime? createdAt,
+    String? bankAccount,
     String? itemName,
     double? quantity,
     String? pickupLocationId,
     String? pickupLocationName,
     String? pickupAddress,
-    String? pickupStatus,
   }) {
     return RecyclePurchases(
       purchaseId: purchaseId ?? this.purchaseId,
@@ -118,14 +106,14 @@ class RecyclePurchases {
       pickupLocationId: pickupLocationId ?? this.pickupLocationId,
       pickupLocationName: pickupLocationName ?? this.pickupLocationName,
       pickupAddress: pickupAddress ?? this.pickupAddress,
-      pickupStatus: pickupStatus ?? this.pickupStatus,
     );
   }
 }
 
 // Supabase connector
 class RecyclePurchasesModel extends Connector {
-  static final RecyclePurchasesModel _instance = RecyclePurchasesModel._internal();
+  static final RecyclePurchasesModel _instance =
+      RecyclePurchasesModel._internal();
 
   RecyclePurchasesModel._internal();
 
@@ -140,7 +128,9 @@ class RecyclePurchasesModel extends Connector {
           .eq('user_id', userId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((item) => RecyclePurchases.fromJson(item)).toList();
+      return (response as List)
+          .map((item) => RecyclePurchases.fromJson(item))
+          .toList();
     } catch (e) {
       print('Error fetching user purchases: $e');
       rethrow;
@@ -182,38 +172,15 @@ class RecyclePurchasesModel extends Connector {
     }
   }
 
-  /// Update purchase payment status securely
+  /// Update purchase payment status
   Future<void> updatePaymentStatus(String purchaseId, String newStatus) async {
-    final status = newStatus.toLowerCase();
-    if (!RecyclePurchases.allowedPaymentStatuses.contains(status)) {
-      throw Exception('Invalid payment status. Must be one of ${RecyclePurchases.allowedPaymentStatuses}');
-    }
-
     try {
       await client
           .from('recyclepurchases')
-          .update({'payment_status': status})
+          .update({'payment_status': newStatus})
           .eq('purchase_id', purchaseId);
     } catch (e) {
       print('Error updating payment status: $e');
-      rethrow;
-    }
-  }
-
-  /// Update pickup status securely
-  Future<void> updatePickupStatus(String purchaseId, String newStatus) async {
-    final status = newStatus.toLowerCase();
-    if (!RecyclePurchases.allowedPickupStatuses.contains(status)) {
-      throw Exception('Invalid pickup status. Must be one of ${RecyclePurchases.allowedPickupStatuses}');
-    }
-
-    try {
-      await client
-          .from('recyclepurchases')
-          .update({'pickup_status': status})
-          .eq('purchase_id', purchaseId);
-    } catch (e) {
-      print('Error updating pickup status: $e');
       rethrow;
     }
   }
@@ -239,7 +206,9 @@ class RecyclePurchasesModel extends Connector {
           .select()
           .order('created_at', ascending: false);
 
-      return (response as List).map((item) => RecyclePurchases.fromJson(item)).toList();
+      return (response as List)
+          .map((item) => RecyclePurchases.fromJson(item))
+          .toList();
     } catch (e) {
       print('Error fetching all purchases: $e');
       rethrow;

@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-import 'package:recycle_go/utils/validators.dart';
-import '../../../controller/admin/category_controller.dart';
-import '../../../models/Recycle_category.dart';
-import '../../../provider/CategoryProvider.dart';
+import 'package:recycle_go/controller/admin/category_controller.dart';
+import 'package:recycle_go/models/Recycle_category.dart';
 
 class AdminAddCategory extends StatefulWidget {
   const AdminAddCategory({super.key});
@@ -16,28 +13,49 @@ class AdminAddCategory extends StatefulWidget {
 }
 
 class _AdminAddCategoryState extends State<AdminAddCategory> {
-  final CategoryController _controller = CategoryController();
   final _formKey = GlobalKey<FormState>();
+  final categoryController = TextEditingController();
+  final nameController = TextEditingController();
+  final descController = TextEditingController();
+  final baseWeightController = TextEditingController();
+  final pointController = TextEditingController();
 
-  // Controllers matching your SQL Table
-  final _nameController = TextEditingController();
-  final _labelController = TextEditingController();
-  final _descController = TextEditingController();
-  final _pointController = TextEditingController();
-  final _weightController = TextEditingController(text: "1.0");
-  final _densityController = TextEditingController();
-
+  RecycleCategory? selectedCategory;
   bool _isSaving = false;
+
+  List<RecycleCategory> _categories = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _labelController.dispose();
-    _descController.dispose();
-    _pointController.dispose();
-    _weightController.dispose();
-    _densityController.dispose();
+    baseWeightController.dispose();
+    pointController.dispose();
+    nameController.dispose();
+    descController.dispose();
+    categoryController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchCategories() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      //_categories = await CategoryController.getCategories();
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -47,182 +65,195 @@ class _AdminAddCategoryState extends State<AdminAddCategory> {
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
-        title: Text("New Recycling Category", style: TextDesign.appBarTitle()),
-        backgroundColor: theme.onPrimary,
+        title: Text("Add New Category", style: TextDesign.appBarTitle()),
         centerTitle: true,
         elevation: 0,
+        backgroundColor: theme.surface,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: theme.onSurface),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionHeader("Identification", theme),
-                  const SizedBox(height: 16),
+      body: _isSaving
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Category label
+              _buildLabel("Category"),
+              const SizedBox(height: 12),
 
-                  _buildTextField(
-                    label: "CATEGORY NAME",
-                    hint: "e.g., Plastic Bottles",
-                    controller: _nameController,
-                    theme: theme,
-                    validator: Validators.requiredText,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    label: "UNIQUE LABEL (System ID)",
-                    hint: "e.g., PET_001",
-                    controller: _labelController,
-                    theme: theme,
-                    validator: Validators.requiredText,
-                  ),
+              // Category selection
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator())
+              else
+                _buildLabel("Category Name"),
 
-                  const SizedBox(height: 32),
-                  _buildSectionHeader("Measurement & Value", theme),
-                  const SizedBox(height: 16),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          label: "POINTS/KG",
-                          hint: "5.0",
-                          controller: _pointController,
-                          keyboardType: TextInputType.number,
-                          theme: theme,
-                          validator: Validators.requiredNumber,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTextField(
-                          label: "DENSITY",
-                          hint: "Optional",
-                          controller: _densityController,
-                          keyboardType: TextInputType.number,
-                          theme: theme,
-                          validator: Validators.optionalNumber,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
-                  _buildSectionHeader("Description", theme),
-                  const SizedBox(height: 16),
-
-                  _buildTextField(
-                    label: "NOTES",
-                    hint: "Describe collection rules...",
-                    controller: _descController,
-                    maxLines: 3,
-                    theme: theme,
-                  ),
-
-                  const SizedBox(height: 48),
-
-                  _buildSubmitButton(theme),
-                ],
+              TextFormField(
+                controller: categoryController,
+                style: TextDesign.normalText(),
+                keyboardType: TextInputType.text,
+                decoration: _inputDecoration("e.g. Plastic, Metal, Paper", theme),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Please enter category name";
+                  }
+                  if (value.trim().length < 2) {
+                    return "Name must be at least 2 characters";
+                  }
+                  return null;
+                },
               ),
-            ),
+
+              // Item Name
+              _buildLabel("Item Name"),
+              TextFormField(
+                controller: nameController,
+                style: TextDesign.normalText(),
+                keyboardType: TextInputType.text,
+                decoration: _inputDecoration("e.g. Aluminum Beverage Cans", theme),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Please enter item name";
+                  }
+                  if (value.trim().length < 2) {
+                    return "Name must be at least 2 characters";
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              _buildLabel("Point"),
+              TextFormField(
+                controller: pointController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TextDesign.mediumText().copyWith(color: theme.primary),
+                decoration: _inputDecoration("0.0", theme),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Enter point";
+                  }
+
+                  final parsed = double.tryParse(value.trim());
+                  if (parsed == null) return "Invalid number";
+                  if (parsed < 0) return "Cannot be negative";
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // Description
+              _buildLabel("Description"),
+              TextFormField(
+                controller: descController,
+                maxLines: 3,
+                style: TextDesign.smallText(color: theme.onSurface),
+                decoration: _inputDecoration("Briefly describe the item properties...", theme),
+              ),
+
+              const SizedBox(height: 40),
+
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primary,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text("Add Category", style: TextDesign.buttonText()),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
-          if (_isSaving) const Center(child: CircularProgressIndicator()),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, AppColors theme) {
-    return Text(title, style: TextDesign.sectionHeader(color: theme.primary));
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    required AppColors theme,
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextDesign.label()),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          style: TextDesign.normalText(),
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextDesign.hintText(),
-            filled: true,
-            fillColor: theme.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.border),
-            ),
-          ),
-        ),
-      ],
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4.0, bottom: 8.0, top: 16.0),
+      child: Text(text, style: TextDesign.label()),
     );
   }
 
-  Widget _buildSubmitButton(AppColors theme) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _submit,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: theme.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Text("ACTIVATE CATEGORY", style: TextDesign.buttonText()),
+  InputDecoration _inputDecoration(String hint, AppColors theme) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextDesign.hintText(),
+      filled: true,
+      fillColor: theme.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: theme.border.withOpacity(0.3)),
       ),
     );
   }
 
-  Future<void> _submit() async {
+  Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final categoryName = categoryController.text.trim();
+    final name = nameController.text.trim(); // (Note: this isn't mapped to RecycleCategory currently)
+    final desc = descController.text.trim().isEmpty ? null : descController.text.trim();
+
+    final baseWeight = double.tryParse(baseWeightController.text) ?? 1.0;
+
+    final point = double.tryParse(pointController.text);
+
+    if (point == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter a valid point value")),
+      );
+      return;
+    }
 
     setState(() => _isSaving = true);
 
-    try {
-      // 1. Build the base object from the text fields
-      final newCategory = RecycleCategory(
-        categoryId: 0,
-        // 0 because Supabase will auto-generate the real ID
-        categoryName: _nameController.text.trim(),
-        label: _labelController.text.trim().toUpperCase(),
-        description: _descController.text.trim(),
-        point: double.tryParse(_pointController.text.trim()) ?? 0.0,
-        baseWeight: double.tryParse(_weightController.text.trim()) ?? 1.0,
-        density: double.tryParse(_densityController.text.trim()),
-        categoryStatus: 'active'
-        // Notice we don't even need to mention status here!
-      );
+    final newCategory = RecycleCategory(
+      categoryId: 0, // auto-generated by DB
+      categoryName: categoryName,
+      description: desc,
+      baseWeight: baseWeight,
+      point: point,
+    );
 
-      // 2. Pass it to your Provider (which will use copyWith to add the status)
-      await context.read<CategoryProvider>().addCategory(newCategory);
+    try {
+      //await CategoryController.addCategory(newCategory);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Category Added!")));
+          const SnackBar(content: Text('Category added successfully!')),
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error: $e")));
+          SnackBar(content: Text('Failed to add category: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

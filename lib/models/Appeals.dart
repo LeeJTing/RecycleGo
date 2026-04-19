@@ -1,27 +1,24 @@
 import 'package:recycle_go/models/Connector.dart';
 import 'package:flutter/foundation.dart';
-import 'package:recycle_go/models/Users.dart';
-import 'package:recycle_go/models/Admins.dart';
-import 'package:recycle_go/models/RecyclingSubmission.dart';
-import 'package:recycle_go/models/RecycleStations.dart';
 
 class Appeals {
   final String? appealId;
   final String submissionId;
   final String appealReason;
-  final double? pointsGiven;
+  final int? pointsGiven;
   final String appealStatus;
   final String? adminComment;
-  final String? adminId;
   final DateTime? createdAt;
-  final DateTime? reviewedAt;
   
-  // Nested Objects
-  final Users? user;
-  final RecycleSubmission? submission;
-  final RecycleStation? station;
-  final String? categoryName;
-  final Admins? reviewer;
+  // Join fields
+  final String? userName; 
+  final String? userEmail;
+  final String? photoUrl;
+  final String? stationId;
+  final String? stationName;
+  final String? category;
+  final double? weight;
+  final double? submissionPoints;
 
   Appeals({
     this.appealId,
@@ -30,59 +27,52 @@ class Appeals {
     this.pointsGiven,
     required this.appealStatus,
     this.adminComment,
-    this.adminId,
     this.createdAt,
-    this.reviewedAt,
-    this.user,
-    this.submission,
-    this.station,
-    this.categoryName,
-    this.reviewer,
+    this.userName,
+    this.userEmail,
+    this.photoUrl,
+    this.stationId,
+    this.stationName,
+    this.category,
+    this.weight,
+    this.submissionPoints,
   });
 
   factory Appeals.fromJson(Map<String, dynamic> json) {
-    // Supabase nested selects often return objects or lists of objects
-    // depending on the relationship.
-    
-    // 1. Get the submission data
-    var subData = json['recyclingsubmission'];
-    if (subData is List && subData.isNotEmpty) {
-      subData = subData[0];
-    }
-    
-    // 2. Extract nested objects from submission data
-    final userJson = subData?['users'];
-    final stationJson = subData?['recyclestation'];
-    
-    // Handle category name from different possible structures
-    var categoryData = subData?['recycle_category'];
-    if (categoryData is List && categoryData.isNotEmpty) {
-      categoryData = categoryData[0];
-    }
-    final String? categoryName = categoryData?['category_name'];
+    final sub = json['recyclingsubmission'];
+    final user = sub?['users'];
+    final station = sub?['recyclestation'];
+    final photos = sub?['submissionphotos'] as List?;
+    final items = sub?['detecteditems'] as List?;
 
-    // Handle admin (reviewer)
-    var adminJson = json['admins'];
-    if (adminJson is List && adminJson.isNotEmpty) {
-      adminJson = adminJson[0];
+    double totalWeight = 0;
+    double totalPoints = 0;
+    String? category;
+    
+    if (items != null && items.isNotEmpty) {
+      category = items[0]['item_type'];
+      for (var item in items) {
+        totalWeight += (item['detected_weight_kg'] as num?)?.toDouble() ?? 0;
+        totalPoints += (item['reward_points'] as num?)?.toDouble() ?? 0;
+      }
     }
 
     return Appeals(
       appealId: json['appeal_id'],
       submissionId: json['submission_id'],
       appealReason: json['appeal_reason'] ?? '',
-      pointsGiven: (json['points_given'] as num?)?.toDouble(),
+      pointsGiven: json['points_given'],
       appealStatus: json['appeal_status'],
       adminComment: json['admin_comment'],
-      adminId: json['admin_id'],
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      reviewedAt: json['reviewed_at'] != null ? DateTime.parse(json['reviewed_at']) : null,
-      
-      user: userJson != null ? Users.fromJson(userJson) : null,
-      submission: subData != null ? RecycleSubmission.fromJson(subData) : null,
-      station: stationJson != null ? RecycleStation.fromJson(stationJson) : null,
-      categoryName: categoryName,
-      reviewer: adminJson != null ? Admins.fromJson(adminJson) : null,
+      userName: user?['user_name'],
+      userEmail: user?['email'],
+      photoUrl: (photos != null && photos.isNotEmpty) ? photos[0]['photo_url'] : null,
+      stationId: sub?['station_id'],
+      stationName: station?['station_name'],
+      category: category,
+      weight: totalWeight,
+      submissionPoints: totalPoints,
     );
   }
 
@@ -93,8 +83,6 @@ class Appeals {
       'points_given': pointsGiven,
       'appeal_status': appealStatus,
       'admin_comment': adminComment,
-      'admin_id': adminId,
-      'reviewed_at': reviewedAt?.toIso8601String().split('T').first,
     };
   }
 
@@ -102,17 +90,18 @@ class Appeals {
     String? appealId,
     String? submissionId,
     String? appealReason,
-    double? pointsGiven,
+    int? pointsGiven,
     String? appealStatus,
     String? adminComment,
-    String? adminId,
     DateTime? createdAt,
-    DateTime? reviewedAt,
-    Users? user,
-    RecycleSubmission? submission,
-    RecycleStation? station,
-    String? categoryName,
-    Admins? reviewer,
+    String? userName,
+    String? userEmail,
+    String? photoUrl,
+    String? stationId,
+    String? stationName,
+    String? category,
+    double? weight,
+    double? submissionPoints,
   }) {
     return Appeals(
       appealId: appealId ?? this.appealId,
@@ -121,14 +110,15 @@ class Appeals {
       pointsGiven: pointsGiven ?? this.pointsGiven,
       appealStatus: appealStatus ?? this.appealStatus,
       adminComment: adminComment ?? this.adminComment,
-      adminId: adminId ?? this.adminId,
       createdAt: createdAt ?? this.createdAt,
-      reviewedAt: reviewedAt ?? this.reviewedAt,
-      user: user ?? this.user,
-      submission: submission ?? this.submission,
-      station: station ?? this.station,
-      categoryName: categoryName ?? this.categoryName,
-      reviewer: reviewer ?? this.reviewer,
+      userName: userName ?? this.userName,
+      userEmail: userEmail ?? this.userEmail,
+      photoUrl: photoUrl ?? this.photoUrl,
+      stationId: stationId ?? this.stationId,
+      stationName: stationName ?? this.stationName,
+      category: category ?? this.category,
+      weight: weight ?? this.weight,
+      submissionPoints: submissionPoints ?? this.submissionPoints,
     );
   }
 }
@@ -142,38 +132,37 @@ class AppealsModel extends Connector {
     try {
       final response = await client
           .from('appeals')
-          .select('*, recyclingsubmission!inner(*, users(*), recyclestation(*), recycle_category(category_name)), admins(*)')
+          .select('*, recyclingsubmission!inner(user_id, station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url), detecteditems(detected_weight_kg, reward_points, item_type))')
           .eq('recyclingsubmission.user_id', userId)
           .order('created_at', ascending: false);
 
       return (response as List).map((json) => Appeals.fromJson(json)).toList();
     } catch (e) {
       debugPrint("Error in getUserAppeals: $e");
-      return [];
+      final response = await client
+          .from('appeals')
+          .select('*, recyclingsubmission!inner(user_id, station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url))')
+          .eq('recyclingsubmission.user_id', userId)
+          .order('created_at', ascending: false);
+      return (response as List).map((json) => Appeals.fromJson(json)).toList();
     }
   }
 
   Future<List<Appeals>> getAllAppeals() async {
     try {
-      // Ensure we are selecting all necessary fields for nested parsing
       final response = await client
           .from('appeals')
-          .select('''
-            *,
-            admins(*),
-            recyclingsubmission!inner(
-              *,
-              users(*),
-              recyclestation(*),
-              recycle_category(category_name)
-            )
-          ''')
+          .select('*, recyclingsubmission!inner(station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url), detecteditems(detected_weight_kg, reward_points, item_type))')
           .order('created_at', ascending: false);
 
       return (response as List).map((json) => Appeals.fromJson(json)).toList();
     } catch (e) {
       debugPrint("Error in getAllAppeals: $e");
-      return [];
+      final response = await client
+          .from('appeals')
+          .select('*, recyclingsubmission!inner(station_id, users!inner(user_name, email), recyclestation!inner(station_name), submissionphotos(photo_url))')
+          .order('created_at', ascending: false);
+      return (response as List).map((json) => Appeals.fromJson(json)).toList();
     }
   }
 
@@ -184,8 +173,6 @@ class AppealsModel extends Connector {
           'appeal_status': appeal.appealStatus,
           'points_given': appeal.pointsGiven,
           'admin_comment': appeal.adminComment,
-          'admin_id': appeal.adminId,
-          'reviewed_at': DateTime.now().toIso8601String().split('T')[0], // date only
         })
         .eq('appeal_id', appeal.appealId!);
   }

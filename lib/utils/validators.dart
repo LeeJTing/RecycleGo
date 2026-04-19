@@ -42,10 +42,10 @@ class Validators {
   /// If phone is empty, it's considered valid (as it's optional).
   static bool isValidPhoneNumber(String phone, String countryCode) {
     if (phone.isEmpty) return true;
-
+    
     // Remove any non-digit characters
     String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-
+    
     // Handle leading zero if present (common in Malaysia +60)
     if (countryCode == '+60' && cleanPhone.startsWith('0')) {
       cleanPhone = cleanPhone.substring(1);
@@ -68,26 +68,4 @@ class Validators {
         return cleanPhone.length >= 8 && cleanPhone.length <= 15;
     }
   }
-
-  static String? requiredText(String? val) {
-    if (val == null || val.trim().isEmpty) return "This field is required";
-    return null;
-  }
-
-  static String? requiredNumber(String? val) {
-    if (val == null || val.trim().isEmpty) return "Required";
-    final number = double.tryParse(val.trim());
-    if (number == null) return "Invalid number format";
-    if (number < 0) return "Cannot be negative";
-    return null;
-  }
-
-  static String? optionalNumber(String? val) {
-    if (val == null || val.trim().isEmpty) return null;
-    final number = double.tryParse(val.trim());
-    if (number == null) return "Invalid number format";
-    if (number < 0) return "Cannot be negative";
-    return null;
-  }
-
 }

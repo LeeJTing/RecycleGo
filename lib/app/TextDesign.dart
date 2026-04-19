@@ -95,18 +95,4 @@ class TextDesign {
     color: color ?? theme.onSurface.withOpacity(0.5),
     letterSpacing: 1.1, // Spaced out for a modern "Label" look
   );
-
-  static TextStyle sectionHeader({Color? color, double fontSize = 18}) => TextStyle(
-    fontSize: fontSize,
-    fontWeight: FontWeight.bold,
-    color: color ?? theme.primary,
-    letterSpacing: 0.5,
-  );
-
-  static TextStyle bodyCopy({Color? color, double fontSize = 15}) => TextStyle(
-    fontSize: fontSize,
-    fontWeight: FontWeight.w400,
-    color: color ?? theme.onSurface.withOpacity(0.9),
-    height: 1.5,
-  );
 }

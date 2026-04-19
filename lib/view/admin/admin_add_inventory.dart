@@ -2,15 +2,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Recycle_category.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
+import 'package:recycle_go/controller/admin/category_controller.dart';
 import 'package:recycle_go/controller/admin/inventory_controller.dart';
-import '../../../provider/CategoryProvider.dart';
+import 'package:uuid/uuid.dart';
 
 class AdminAddInventory extends StatefulWidget {
   const AdminAddInventory({super.key});
@@ -22,23 +22,30 @@ class AdminAddInventory extends StatefulWidget {
 class _AdminAddInventoryState extends State<AdminAddInventory> {
   final _formKey = GlobalKey<FormState>();
 
+  // Text Controllers
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
   final _weightController = TextEditingController();
   final _minWeightController = TextEditingController();
 
+  // State Variables
   String _selectedStatus = 'active';
   int? _selectedCategoryId;
+
+  List<RecycleCategory> _categories = [];
+  bool _isLoadingCategories = true;
   bool _isSaving = false;
+
   XFile? _selectedImage;
+
+  late final CategoryController _categoryController;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CategoryProvider>().fetchCategories();
-    });
+    _categoryController = CategoryController();
+    _fetchCategories();
   }
 
   @override
@@ -51,31 +58,22 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     super.dispose();
   }
 
-  String? _validateRequiredText(String? val) {
-    if (val == null || val.trim().isEmpty) return "This field is required";
-    return null;
-  }
-
-  String? _validateNumber(String? val) {
-    if (val == null || val.trim().isEmpty) return "Required";
-    final number = double.tryParse(val.trim());
-    if (number == null) return "Invalid number";
-    if (number < 0) return "Cannot be negative";
-    return null;
-  }
-
-  String? _validateOptionalNumber(String? val) {
-    if (val == null || val.trim().isEmpty) return null;
-    final number = double.tryParse(val.trim());
-    if (number == null) return "Invalid number";
-    if (number < 0) return "Cannot be negative";
-    return null;
+  Future<void> _fetchCategories() async {
+    try {
+      await _categoryController.fetchCategories();
+      setState(() {
+        _categories = _categoryController.categories;
+        _isLoadingCategories = false;
+      });
+    } catch (e) {
+      print("Error fetching categories: $e");
+      setState(() => _isLoadingCategories = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
-    final categoryProvider = context.watch<CategoryProvider>();
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -96,30 +94,30 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
               _buildImagePlaceholder(theme),
               const SizedBox(height: 32),
 
+              // ✨ REUSABLE INPUTS ✨
               _buildInputField(
                 theme: theme,
                 label: "Item Name",
                 hint: "e.g. Aluminum Beverage Cans",
                 controller: _nameController,
-                validator: _validateRequiredText,
+                validator: (val) => val == null || val.isEmpty ? "Name is required" : null,
               ),
 
+              // Category Dropdown
               _buildLabel("Category"),
-              if (categoryProvider.isLoading)
+              if (_isLoadingCategories)
                 const Center(child: CircularProgressIndicator())
               else
                 DropdownButtonFormField<int>(
                   value: _selectedCategoryId,
                   decoration: _inputDecoration("Select a category", theme),
-                  items: categoryProvider.categories.map((cat) => DropdownMenuItem(
-                      value: cat.categoryId,
-                      child: Text(cat.categoryName)
-                  )).toList(),
+                  items: _categories.map((cat) => DropdownMenuItem(value: cat.categoryId, child: Text(cat.categoryName))).toList(),
                   onChanged: (val) => setState(() => _selectedCategoryId = val),
                   validator: (val) => val == null ? "Please select a category" : null,
                 ),
               const SizedBox(height: 20),
 
+              // Two-Column Layout
               Row(
                 children: [
                   Expanded(
@@ -130,7 +128,7 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
                       controller: _priceController,
                       isNumber: true,
                       textColor: theme.success,
-                      validator: _validateNumber,
+                      validator: (val) => val == null || val.isEmpty ? "Required" : null,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -141,7 +139,7 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
                       hint: "0.0",
                       controller: _weightController,
                       isNumber: true,
-                      validator: _validateNumber,
+                      validator: (val) => val == null || val.isEmpty ? "Required" : null,
                     ),
                   ),
                 ],
@@ -153,9 +151,9 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
                 hint: "e.g. 50.0",
                 controller: _minWeightController,
                 isNumber: true,
-                validator: _validateOptionalNumber,
               ),
 
+              // Status Dropdown
               _buildLabel("Status"),
               DropdownButtonFormField<String>(
                 value: _selectedStatus,
@@ -177,6 +175,7 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
               ),
               const SizedBox(height: 40),
 
+              // Submit Button
               SizedBox(
                 width: double.infinity, height: 55,
                 child: ElevatedButton(
@@ -196,9 +195,10 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
   }
 
   // ==========================================
-  // REUSABLE UI WIDGETS
+  // ✨ REUSABLE UI WIDGETS ✨
   // ==========================================
 
+  // The new Master Input Builder!
   Widget _buildInputField({
     required AppColors theme,
     required String label,
@@ -245,8 +245,6 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: theme.border.withOpacity(0.3))),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: theme.error)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: theme.error, width: 2)),
     );
   }
 
@@ -280,7 +278,7 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
   }
 
   // ==========================================
-  // LOGIC
+  // LOGIC & SUPABASE FUNCTIONS
   // ==========================================
 
   Future<void> _pickImage() async {
@@ -293,11 +291,43 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     }
   }
 
+  Future<String?> _uploadImage(File imageFile) async {
+    try {
+      final fileExt = imageFile.path.split('.').last;
+      final fileName = 'inventory_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final supabase = Supabase.instance.client;
+
+      // Added FileOptions for safety
+      await supabase.storage.from('inventory-images').upload(
+        fileName,
+        imageFile,
+        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+      );
+
+      return supabase.storage.from('inventory-images').getPublicUrl(fileName);
+    } catch (e) {
+      print("Image upload error: $e");
+      return null;
+    }
+  }
+
+  String _generateCode(String name) {
+    final prefix = name.length >= 3
+        ? name.substring(0, 3).toUpperCase()
+        : name.toUpperCase();
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final short = timestamp.toString().substring(0, 3);
+
+    return "$prefix-$short";
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-
     if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a category")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a category")),
+      );
       return;
     }
 
@@ -305,42 +335,39 @@ class _AdminAddInventoryState extends State<AdminAddInventory> {
     String? imageUrl;
 
     try {
-      // ✨ Use the Controller to handle the upload!
       if (_selectedImage != null) {
-        imageUrl = await InventoryController.uploadImage(File(_selectedImage!.path));
+        imageUrl = await _uploadImage(File(_selectedImage!.path));
         if (imageUrl == null) throw Exception("Image upload failed.");
       }
 
-      final price = double.tryParse(_priceController.text.trim()) ?? 0.0;
-      final weight = double.tryParse(_weightController.text.trim()) ?? 0.0;
-      final minWeight = double.tryParse(_minWeightController.text.trim());
-
-      // ✨ Use the Controller to generate the code!
-      final inventoryCode = InventoryController.generateCode(_nameController.text.trim());
-
+      final inventoryCode = _generateCode(_nameController.text.trim());
+      final inventoryId = const Uuid().v4();
       final newItem = RecycleInventory(
-        inventoryId: const Uuid().v4(),
+        inventoryId: inventoryId,
         inventoryCode: inventoryCode,
         inventoryName: _nameController.text.trim(),
-        pricePerKg: price,
-        totalWeightAvailable: weight,
+        pricePerKg: double.parse(_priceController.text.trim()),
+        totalWeightAvailable: double.parse(_weightController.text.trim()),
         status: _selectedStatus == 'active' ? InventoryStatus.active : InventoryStatus.inactive,
         categoryId: _selectedCategoryId!,
         imgPath: imageUrl ?? '',
         description: _descController.text.trim().isEmpty ? '' : _descController.text.trim(),
-        minWeightLevel: minWeight,
+        minWeightLevel: double.tryParse(_minWeightController.text.trim()),
       );
 
-      // ✨ Controller handles the database insertion
       await InventoryController.addInventory(newItem);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Inventory added successfully!")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Inventory added successfully!")),
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

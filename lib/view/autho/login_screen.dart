@@ -209,6 +209,26 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                   const SizedBox(height: 30),
                   
                   Row(
+                    children: [
+                      Expanded(child: Divider(color: theme.border, thickness: 1)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('OR CONTINUE WITH', style: TextDesign.label(fontSize: 10, color: theme.onHint)),
+                      ),
+                      Expanded(child: Divider(color: theme.border, thickness: 1)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  SocialAuthButton(
+                    text: 'Google',
+                    assetIcon: '${imagePath}google_logo.png',
+                    onPressed: () => ctrl.signInWithGoogle(context),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
