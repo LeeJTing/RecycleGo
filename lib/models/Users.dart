@@ -115,27 +115,6 @@ class UsersModel extends Connector {
     return null;
   }
 
-  Future<void> addUserPoints(String userId, double pointsToAdd) async {
-    // 1. Get current points
-    final response = await client
-        .from('users')
-        .select('total_points')
-        .eq('user_id', userId)
-        .single();
-
-    int currentPoints = response['total_points'] ?? 0;
-
-    // 2. Add new points
-    int updatedPoints = currentPoints + pointsToAdd.round();
-
-    // 3. Update database
-    await client
-        .from('users')
-        .update({'total_points': updatedPoints})
-        .eq('user_id', userId);
-  }
-
-
   Future<bool?> userIsActive(String email) async {
     final response = await client
         .from('users')
