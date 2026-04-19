@@ -15,14 +15,15 @@ class QrScanScreen extends StatefulWidget {
   const QrScanScreen({super.key});
 
   @override
-  State<QrScanScreen> createState() => _QrScanScreenState();
+  State<QrScanScreen> createState() => QrScanScreenState();
 }
 
-class _QrScanScreenState extends State<QrScanScreen>
-    with SingleTickerProviderStateMixin {
+class QrScanScreenState extends State<QrScanScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final MobileScannerController _cameraController = MobileScannerController();
   bool _torchOn = false;
   bool _scanned = false;
+  bool _hasPermission = true;
 
   // Scan-frame animation
   late AnimationController _animController;
@@ -31,6 +32,7 @@ class _QrScanScreenState extends State<QrScanScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -39,13 +41,79 @@ class _QrScanScreenState extends State<QrScanScreen>
     _scanLine = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
+
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      await _cameraController.start();
+
+      // Give it a moment to actually start and detect any permission issues
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (mounted) {
+        setState(() => _hasPermission = true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _hasPermission = false);
+      }
+    }
+  }
+
+  void _requestPermission() {
+    // Reset to false first to show we're trying
+    setState(() => _hasPermission = false);
+    // Give a brief moment for UI to update
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _initializeCamera();
+    });
+  }
+
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _cameraController.start();
+      _started = true;
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cameraController.dispose();
     _animController.dispose();
     super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    _cameraController.stop();
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    setState(() {
+      _scanned = false;
+      _torchOn = false;
+    });
+    _initializeCamera();
+  }
+
+  /// Public method to refresh camera when Scan tab is tapped
+  void refreshCamera() {
+    setState(() {
+      _scanned = false;
+      _torchOn = false;
+      _hasPermission = true;
+    });
+    _initializeCamera();
   }
 
   Future<bool> _isNearStation(double lat, double lng) async {
@@ -86,7 +154,7 @@ class _QrScanScreenState extends State<QrScanScreen>
                 _cameraController.start();
               },
               child: const Text("Try Again"),
-            )
+            ),
           ],
         ),
       ),
@@ -94,7 +162,12 @@ class _QrScanScreenState extends State<QrScanScreen>
   }
 
   void _onDetect(BarcodeCapture capture) async {
-    if (_scanned) return;
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _scanned = false);
+        _cameraController.start();
+      }
+    });
 
     final barcode = capture.barcodes.firstOrNull;
     final qrValue = barcode?.rawValue;
@@ -105,8 +178,6 @@ class _QrScanScreenState extends State<QrScanScreen>
 
     setState(() => _scanned = true);
     _cameraController.stop();
-
-    print("SCANNED => $qrValue");
 
     try {
       final client = Supabase.instance.client;
@@ -126,10 +197,7 @@ class _QrScanScreenState extends State<QrScanScreen>
       }
 
       // ✅ 2. 再检查 GPS
-      final isNear = await _isNearStation(
-        res['latitude'],
-        res['longitude'],
-      );
+      final isNear = await _isNearStation(res['latitude'], res['longitude']);
 
       if (!isNear) {
         setState(() => _scanned = false);
@@ -140,7 +208,6 @@ class _QrScanScreenState extends State<QrScanScreen>
 
       // ✅ 3. 成功
       _showSuccessSheet(res);
-
     } catch (e) {
       _showError("Scan failed: $e");
     }
@@ -156,6 +223,8 @@ class _QrScanScreenState extends State<QrScanScreen>
         onContinue: () async {
           Navigator.pop(context);
 
+          _cameraController.stop();
+
           // ✅ 加这个：记录验证时间
           station['verified_at'] = DateTime.now().toIso8601String();
 
@@ -163,11 +232,16 @@ class _QrScanScreenState extends State<QrScanScreen>
           await LocalStorageService.saveStation(station);
 
           // ✅ 跳去队友页面 + 传 data
-          Navigator.pushNamed(
+          await Navigator.pushNamed(
             context,
             Routes.scanRecycleItem,
             arguments: station,
           );
+
+          if (!mounted) return;
+
+          setState(() => _scanned = false);
+          await _cameraController.start();
         },
         onRetry: () {
           Navigator.pop(context);
@@ -182,150 +256,221 @@ class _QrScanScreenState extends State<QrScanScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // ── Camera feed ─────────────────────────────────────────────
-          MobileScanner(
-            controller: _cameraController,
-            onDetect: _onDetect,
-          ),
+      body: !_hasPermission
+          ? _buildPermissionDenied()
+          : Stack(
+              children: [
+                // ── Camera feed ─────────────────────────────────────────────
+                MobileScanner(
+                  controller: _cameraController,
+                  onDetect: _onDetect,
+                ),
 
-          // ── Dark overlay with cut-out ────────────────────────────────
-          _ScanOverlay(scanLineAnim: _scanLine),
+                // ── Dark overlay with cut-out ────────────────────────────────
+                _ScanOverlay(scanLineAnim: _scanLine),
 
-          // ── Top bar ──────────────────────────────────────────────────
-          SafeArea(
-            child: Padding(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1DB954),
-                          shape: BoxShape.circle,
+                // ── Top bar ──────────────────────────────────────────────────
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF1DB954),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.eco,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'ECOLEDGER',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
                         ),
-                        child: const Icon(Icons.eco,
-                            color: Colors.white, size: 16),
+                        const Spacer(),
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.white24,
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Instruction label ────────────────────────────────────────
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 70,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'ECOLEDGER',
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'ALIGN QR CODE ON THE RECYCLE BIN',
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 1,
                         ),
                       ),
-                    ],
-                  ),
-                  const Spacer(),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.white24,
-                    child: const Icon(Icons.person,
-                        color: Colors.white, size: 18),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Instruction label ────────────────────────────────────────
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 70,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'ALIGN QR CODE ON THE RECYCLE BIN',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
 
-          // ── Bottom controls ──────────────────────────────────────────
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Control row
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 40, vertical: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // ── Bottom controls ──────────────────────────────────────────
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Torch
-                      _ControlButton(
-                        icon: _torchOn
-                            ? Icons.flash_on
-                            : Icons.flash_off,
-                        onTap: () {
-                          _cameraController.toggleTorch();
-                          setState(() => _torchOn = !_torchOn);
-                        },
+                      // Control row
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 20,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Torch
+                            _ControlButton(
+                              icon: _torchOn ? Icons.flash_on : Icons.flash_off,
+                              onTap: () {
+                                _cameraController.toggleTorch();
+                                setState(() => _torchOn = !_torchOn);
+                              },
+                            ),
+
+                            // Manual entry
+                            _ManualEntryButton(
+                              onTap: () => _showManualEntryDialog(),
+                            ),
+
+                            // Close
+                            _ControlButton(
+                              icon: Icons.close,
+                              onTap: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
                       ),
 
-                      // Manual entry
-                      _ManualEntryButton(
-                        onTap: () => _showManualEntryDialog(),
+                      // Bottom nav hint
+                      Container(
+                        color: Colors.white.withOpacity(0.05),
+                        padding: EdgeInsets.fromLTRB(
+                          0,
+                          8,
+                          0,
+                          MediaQuery.of(context).padding.bottom + 8,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: const [
+                            _NavHint(icon: Icons.map_outlined, label: 'MAP'),
+                            _NavHint(
+                              icon: Icons.qr_code_scanner,
+                              label: 'SCAN',
+                              active: true,
+                            ),
+                            _NavHint(
+                              icon: Icons.store_outlined,
+                              label: 'STATIONS',
+                            ),
+                            _NavHint(
+                              icon: Icons.bar_chart_outlined,
+                              label: 'IMPACT',
+                            ),
+                          ],
+                        ),
                       ),
-
-                      // Close
-                      _ControlButton(
-                        icon: Icons.close,
-                        onTap: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Bottom nav hint
-                Container(
-                  color: Colors.white.withOpacity(0.05),
-                  padding: EdgeInsets.fromLTRB(
-                      0, 8, 0, MediaQuery.of(context).padding.bottom + 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
-                      _NavHint(icon: Icons.map_outlined, label: 'MAP'),
-                      _NavHint(
-                          icon: Icons.qr_code_scanner,
-                          label: 'SCAN',
-                          active: true),
-                      _NavHint(
-                          icon: Icons.store_outlined, label: 'STATIONS'),
-                      _NavHint(
-                          icon: Icons.bar_chart_outlined, label: 'IMPACT'),
                     ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+    );
+  }
+
+  Widget _buildPermissionDenied() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.camera_alt_outlined,
+              size: 80,
+              color: Colors.red.shade400,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Camera Not Available',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Unable to access camera. Please check your permissions and try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _requestPermission,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1DB954),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -335,10 +480,11 @@ class _QrScanScreenState extends State<QrScanScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Enter Station ID',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Enter Station ID',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -379,7 +525,6 @@ class _QrScanScreenState extends State<QrScanScreen>
 
                 // ✅ 成功 → 传整 row
                 _showSuccessSheet(res);
-
               } catch (e) {
                 _showError("Failed: $e");
               }
@@ -387,10 +532,10 @@ class _QrScanScreenState extends State<QrScanScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1DB954),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Confirm',
-                style: TextStyle(color: Colors.white)),
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -418,8 +563,7 @@ class _ScanOverlay extends StatelessWidget {
         return CustomPaint(
           size: Size(size.width, size.height),
           painter: _OverlayPainter(
-            frameRect: Rect.fromLTWH(
-                frameLeft, frameTop, frameSize, frameSize),
+            frameRect: Rect.fromLTWH(frameLeft, frameTop, frameSize, frameSize),
             scanProgress: scanLineAnim.value,
           ),
         );
@@ -440,8 +584,7 @@ class _OverlayPainter extends CustomPainter {
     final overlay = Paint()..color = Colors.black.withOpacity(0.55);
     final path = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..addRRect(RRect.fromRectAndRadius(
-          frameRect, const Radius.circular(20)))
+      ..addRRect(RRect.fromRectAndRadius(frameRect, const Radius.circular(20)))
       ..fillType = PathFillType.evenOdd;
     canvas.drawPath(path, overlay);
 
@@ -461,32 +604,36 @@ class _OverlayPainter extends CustomPainter {
 
     // Top-left
     canvas.drawPath(
-        Path()
-          ..moveTo(l, t + c)
-          ..arcToPoint(Offset(l + c, t), radius: r)
-          ..lineTo(l + c, t),
-        corner);
+      Path()
+        ..moveTo(l, t + c)
+        ..arcToPoint(Offset(l + c, t), radius: r)
+        ..lineTo(l + c, t),
+      corner,
+    );
     // Top-right
     canvas.drawPath(
-        Path()
-          ..moveTo(rr - c, t)
-          ..arcToPoint(Offset(rr, t + c), radius: r)
-          ..lineTo(rr, t + c),
-        corner);
+      Path()
+        ..moveTo(rr - c, t)
+        ..arcToPoint(Offset(rr, t + c), radius: r)
+        ..lineTo(rr, t + c),
+      corner,
+    );
     // Bottom-left
     canvas.drawPath(
-        Path()
-          ..moveTo(l, b - c)
-          ..arcToPoint(Offset(l + c, b), radius: r)
-          ..lineTo(l + c, b),
-        corner);
+      Path()
+        ..moveTo(l, b - c)
+        ..arcToPoint(Offset(l + c, b), radius: r)
+        ..lineTo(l + c, b),
+      corner,
+    );
     // Bottom-right
     canvas.drawPath(
-        Path()
-          ..moveTo(rr - c, b)
-          ..arcToPoint(Offset(rr, b - c), radius: r)
-          ..lineTo(rr, b - c),
-        corner);
+      Path()
+        ..moveTo(rr - c, b)
+        ..arcToPoint(Offset(rr, b - c), radius: r)
+        ..lineTo(rr, b - c),
+      corner,
+    );
 
     // Animated scan line
     final scanY = frameRect.top + frameRect.height * scanProgress;
@@ -497,8 +644,7 @@ class _OverlayPainter extends CustomPainter {
           const Color(0xFF1DB954).withOpacity(0.8),
           Colors.transparent,
         ],
-      ).createShader(Rect.fromLTWH(
-          frameRect.left, scanY, frameRect.width, 3));
+      ).createShader(Rect.fromLTWH(frameRect.left, scanY, frameRect.width, 3));
     canvas.drawLine(
       Offset(frameRect.left + 8, scanY),
       Offset(frameRect.right - 8, scanY),
@@ -545,8 +691,11 @@ class _ScanSuccessSheet extends StatelessWidget {
               color: const Color(0xFFEAF7EE),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_circle_outline,
-                color: Color(0xFF1DB954), size: 36),
+            child: const Icon(
+              Icons.check_circle_outline,
+              color: Color(0xFF1DB954),
+              size: 36,
+            ),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -564,8 +713,7 @@ class _ScanSuccessSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFFEAF7EE),
               borderRadius: BorderRadius.circular(8),
@@ -588,11 +736,14 @@ class _ScanSuccessSheet extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFDDD)),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Retry',
-                      style: TextStyle(color: Color(0xFF555))),
+                  child: const Text(
+                    'Retry',
+                    style: TextStyle(color: Color(0xFF555)),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -604,13 +755,16 @@ class _ScanSuccessSheet extends StatelessWidget {
                     backgroundColor: const Color(0xFF1DB954),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: const Text(
                     'Start Recycling',
                     style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -648,7 +802,6 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-
 class _ManualEntryButton extends StatelessWidget {
   final VoidCallback onTap;
   const _ManualEntryButton({required this.onTap});
@@ -665,8 +818,7 @@ class _ManualEntryButton extends StatelessWidget {
         ),
         child: const Row(
           children: [
-            Icon(Icons.keyboard_outlined,
-                color: Colors.white, size: 18),
+            Icon(Icons.keyboard_outlined, color: Colors.white, size: 18),
             SizedBox(width: 8),
             Text(
               'MANUAL ENTRY',
@@ -688,19 +840,22 @@ class _NavHint extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
-  const _NavHint(
-      {required this.icon, required this.label, this.active = false});
+  const _NavHint({
+    required this.icon,
+    required this.label,
+    this.active = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon,
-            color: active
-                ? const Color(0xFF1DB954)
-                : Colors.white54,
-            size: 22),
+        Icon(
+          icon,
+          color: active ? const Color(0xFF1DB954) : Colors.white54,
+          size: 22,
+        ),
         const SizedBox(height: 3),
         Text(
           label,

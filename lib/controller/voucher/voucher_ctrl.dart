@@ -84,4 +84,17 @@ class VoucherCtrl {
       throw Exception('Failed to delete voucher: $e');
     }
   }
+
+  // Auto-inactivate expired vouchers
+  Future<List<String>> autoInactivateExpiredVouchers() async {
+    try {
+      final inactivatedIds = await _vouchersModel
+          .autoInactivateExpiredVouchers();
+      // Refresh local list after inactivation
+      await fetchVouchers();
+      return inactivatedIds;
+    } catch (e) {
+      throw Exception('Failed to auto-inactivate vouchers: $e');
+    }
+  }
 }

@@ -203,6 +203,7 @@ class RecycleSubmissionModel extends Connector {
     return (response as List)
         .map((e) => RecycleSubmission.fromJson(e))
         .toList();
+  }
 
   Future<void> createSubmission(RecycleSubmission submission) async {
     await client.from('recyclingsubmission').insert(submission.toJsonForInsert());

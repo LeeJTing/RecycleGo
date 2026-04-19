@@ -22,7 +22,7 @@ class OtpModel extends Connector {
     try {
       // Hash the input code to compare with stored hash
       final String hashedCode = Hashing.hashString(code);
-      
+
       final response = await client
           .from('otp')
           .select()
