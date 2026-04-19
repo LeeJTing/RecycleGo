@@ -24,9 +24,9 @@ class ProfileCtrl {
     return await _achievementModel.getUserAchievements(userId);
   }
 
-  // Future<int> getTotalRecycledItems(String userId) async {
-  //   return await _submissionModel.getTotalItemsByUserId(userId);
-  // }
+  Future<int> getTotalRecycledItems(String userId) async {
+    return await _submissionModel.getTotalItemsByUserId(userId);
+  }
 
   void signOut(BuildContext context) {
     LoginCtrl().signOut(context);

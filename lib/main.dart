@@ -40,12 +40,75 @@ import 'package:recycle_go/view/user/notifications/notification_list_screen.dart
 import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/admin_notification_screen.dart';
 import 'package:app_links/app_links.dart';
-
+import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'controller/admin/category_controller.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/services/notification_services.dart';
+
+final FlutterLocalNotificationsPlugin notificationsPlugin =
+FlutterLocalNotificationsPlugin();
+
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+
+  final notification = message.notification;
+
+  if (notification != null) {
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    await plugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      notification.title,
+      notification.body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'station_channel',
+          'Station Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   await SupabaseService.initialize();
+  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+
+  const AndroidInitializationSettings androidSettings =
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initSettings =
+  InitializationSettings(android: androidSettings);
+
+  final permission = await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+  print("Permission: ${permission.authorizationStatus}");
+  if (permission.authorizationStatus == AuthorizationStatus.denied) {
+    print("If the user refuses the notification permission, local notifications will not pop up");
+  }
+  await notificationsPlugin.initialize(initSettings);
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'station_channel',
+    'Station Notifications',
+    description: 'Notify when station is created',
+    importance: Importance.max,
+  );
+
+  await notificationsPlugin
+      .resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
 
   runApp(
     MultiProvider(
@@ -73,9 +136,49 @@ class _MainAppState extends State<MainApp> {
 
   final Set<String> _handledTokens = {};
 
+  void _initFCM() async {
+    await saveFcmToken();
+
+    await FirebaseMessaging.instance.subscribeToTopic("stations");
+
+    // 前台
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      final notification = message.notification;
+
+      if (notification != null) {
+        notificationsPlugin.show(
+          DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          notification.title,
+          notification.body,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'station_channel',
+              'Station Notifications',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+        );
+      }
+    });
+
+    // 点击通知（后台）
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _navigatorKey.currentState?.pushNamed(Routes.map);
+    });
+
+    // 点击通知（关闭状态）
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
+        _navigatorKey.currentState?.pushNamed(Routes.map);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    _initFCM();
     // Initialize deep links after the first frame to ensure Navigator is attached
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initDeepLinks();
@@ -294,6 +397,7 @@ class _MainAppState extends State<MainApp> {
         
         Routes.scanRecycleItem: (context) => const VerifyRecycleItem(),
         Routes.adminFullRequestReview: (context) => const AdminSubmissionFullReview(),
+        Routes.adminProfile: (context) => const AdminProfileScreen(),
 
         Routes.adminAddCategory: (context)=> const AdminAddCategory(),
         Routes.adminUpdateCategory: (context)  {
