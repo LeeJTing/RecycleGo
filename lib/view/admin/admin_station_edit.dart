@@ -123,7 +123,9 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
     if (widget.station != null) {
       _status = widget.station!.stationStatus;
-      _capacitySlider = widget.station!.stationCapacity.clamp(1000, 50000);
+      _capacitySlider = widget.station!.stationCapacity
+          .clamp(1000, 50000)
+          .toDouble();
       _selectedMats.addAll(widget.station!.supportedMaterials);
       _imageUrl = widget.station!.imageUrl;
     }
@@ -713,12 +715,31 @@ class _StationEditScreenState extends State<StationEditScreen> {
                               final v = double.tryParse(value);
                               if (v == null) return;
 
-                              // 👉 限制范围（很重要）
-                              if (v < 1000 || v > 50000) return;
+                              final clamped = v.clamp(1000, 50000).toDouble();
 
                               setState(() {
-                                _capacitySlider = v;
+                                _capacitySlider = clamped;
                               });
+                            },
+                            // ✅ 用户“输入完成”才修正
+                            onEditingComplete: () {
+                              final v = double.tryParse(_capacityCtrl.text);
+                              if (v == null) return;
+
+                              final clamped = v.clamp(1000, 50000).toDouble();
+
+                              setState(() {
+                                _capacitySlider = clamped;
+
+                                _capacityCtrl.value = TextEditingValue(
+                                  text: clamped.toStringAsFixed(0),
+                                  selection: TextSelection.collapsed(
+                                    offset: clamped.toStringAsFixed(0).length,
+                                  ),
+                                );
+                              });
+
+                              FocusScope.of(context).unfocus(); // 收起键盘（可选）
                             },
                           ),
                           SliderTheme(
@@ -739,7 +760,12 @@ class _StationEditScreenState extends State<StationEditScreen> {
                               onChanged: (v) {
                                 setState(() {
                                   _capacitySlider = v;
-                                  _capacityCtrl.text = v.toStringAsFixed(0);
+                                  _capacityCtrl.value = TextEditingValue(
+                                    text: v.toStringAsFixed(0),
+                                    selection: TextSelection.collapsed(
+                                      offset: v.toStringAsFixed(0).length,
+                                    ),
+                                  );
                                 });
                               },
                             ),
