@@ -1,8 +1,5 @@
+//qr_scan_screen
 import 'package:flutter/material.dart';
-// Add to pubspec.yaml:
-//   mobile_scanner: ^5.0.0   (or latest)
-//   geolocator: ^12.0.0
-//   permission_handler: ^11.0.0
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
@@ -117,6 +114,20 @@ class QrScanScreenState extends State<QrScanScreen>
   }
 
   Future<bool> _isNearStation(double lat, double lng) async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
+
     final pos = await Geolocator.getCurrentPosition();
 
     double distance = Geolocator.distanceBetween(
@@ -126,7 +137,7 @@ class QrScanScreenState extends State<QrScanScreen>
       lng,
     );
 
-    return distance <= 50; // 50 meters
+    return distance <= 50;
   }
 
   void _showError(String msg) {
@@ -162,19 +173,12 @@ class QrScanScreenState extends State<QrScanScreen>
   }
 
   void _onDetect(BarcodeCapture capture) async {
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _scanned = false);
-        _cameraController.start();
-      }
-    });
+    if (_scanned) return;
 
     final barcode = capture.barcodes.firstOrNull;
     final qrValue = barcode?.rawValue;
 
     if (qrValue == null) return;
-
-    final hash = md5.convert(utf8.encode(qrValue)).toString();
 
     setState(() => _scanned = true);
     _cameraController.stop();
@@ -269,57 +273,7 @@ class QrScanScreenState extends State<QrScanScreen>
                 // ── Dark overlay with cut-out ────────────────────────────────
                 _ScanOverlay(scanLineAnim: _scanLine),
 
-                // ── Top bar ──────────────────────────────────────────────────
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF1DB954),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.eco,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'ECOLEDGER',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.white24,
-                          child: const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
+                const SizedBox(height: 30),
                 // ── Instruction label ────────────────────────────────────────
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 70,
@@ -383,36 +337,6 @@ class QrScanScreenState extends State<QrScanScreen>
                             _ControlButton(
                               icon: Icons.close,
                               onTap: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Bottom nav hint
-                      Container(
-                        color: Colors.white.withOpacity(0.05),
-                        padding: EdgeInsets.fromLTRB(
-                          0,
-                          8,
-                          0,
-                          MediaQuery.of(context).padding.bottom + 8,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: const [
-                            _NavHint(icon: Icons.map_outlined, label: 'MAP'),
-                            _NavHint(
-                              icon: Icons.qr_code_scanner,
-                              label: 'SCAN',
-                              active: true,
-                            ),
-                            _NavHint(
-                              icon: Icons.store_outlined,
-                              label: 'STATIONS',
-                            ),
-                            _NavHint(
-                              icon: Icons.bar_chart_outlined,
-                              label: 'IMPACT',
                             ),
                           ],
                         ),
@@ -524,6 +448,16 @@ class QrScanScreenState extends State<QrScanScreen>
                 }
 
                 // ✅ 成功 → 传整 row
+                final isNear = await _isNearStation(
+                  res['latitude'],
+                  res['longitude'],
+                );
+
+                if (!isNear) {
+                  _showError("You are too far from this station 📍");
+                  return;
+                }
+
                 _showSuccessSheet(res);
               } catch (e) {
                 _showError("Failed: $e");
