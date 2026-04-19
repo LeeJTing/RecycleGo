@@ -4,6 +4,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/controller/redeemed_voucher/redeemed_voucher_ctrl.dart';
 import 'package:recycle_go/view/voucher/voucher_use_confirmation_screen.dart';
+import 'package:recycle_go/view/voucher/qr_code_helpers.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -12,24 +13,39 @@ class QrScannerScreen extends StatefulWidget {
   State<QrScannerScreen> createState() => _QrScannerScreenState();
 }
 
-class _QrScannerScreenState extends State<QrScannerScreen> {
+class _QrScannerScreenState extends State<QrScannerScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final MobileScannerController controller = MobileScannerController();
   bool _hasPermission = true;
   bool _isScanning = true;
+  bool _started = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeScanner();
   }
 
   Future<void> _initializeScanner() async {
     try {
       await controller.start();
+      if (mounted) {
+        setState(() => _hasPermission = true);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _hasPermission = false);
       }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      controller.start();
+      _started = true;
     }
   }
 
@@ -39,10 +55,26 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     try {
       setState(() => _isScanning = false);
 
-      final voucherCode = barcode.barcodes.first.displayValue ?? '';
+      final qrData = barcode.barcodes.first.displayValue ?? '';
+
+      if (qrData.isEmpty) {
+        _showError('Invalid QR code');
+        setState(() => _isScanning = true);
+        return;
+      }
+
+      // Parse QR data using QRCodeHelpers
+      String voucherCode;
+      try {
+        final parsedData = QRCodeHelpers.parseQRData(qrData);
+        voucherCode = parsedData['voucherCode'] ?? '';
+      } catch (e) {
+        // If parsing fails, assume the QR data is just the voucher code
+        voucherCode = qrData;
+      }
 
       if (voucherCode.isEmpty) {
-        _showError('Invalid QR code');
+        _showError('Invalid voucher code in QR');
         setState(() => _isScanning = true);
         return;
       }
@@ -86,8 +118,80 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     _initializeScanner();
   }
 
+  void _showManualEntryDialog() {
+    final codeController = TextEditingController();
+    final theme = AppThemes.color;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Enter Voucher Code',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: TextField(
+          controller: codeController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Enter voucher code',
+            filled: true,
+            fillColor: const Color(0xFFF4F7F4),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (codeController.text.isNotEmpty) {
+                setState(() => _isScanning = false);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => VoucherUseConfirmationScreen(
+                      voucherCode: codeController.text,
+                      onSuccess: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                );
+                setState(() => _isScanning = true);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    setState(() {
+      _isScanning = true;
+      _hasPermission = true;
+    });
+    _initializeScanner();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     controller.dispose();
     super.dispose();
   }
@@ -164,17 +268,25 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     return Stack(
       children: [
         // Scanner View
-        MobileScanner(controller: controller, onDetect: _handleQRCodeDetected),
+        MobileScanner(
+          controller: controller,
+          onDetect: _handleQRCodeDetected,
+          errorBuilder: (context, error, child) {
+            return Center(child: Text('Error: ${error.errorCode}'));
+          },
+        ),
 
-        // Overlay with scanning frame
+        // Dark overlay with semi-transparent corners and scanning frame
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.white24, width: 0),
+              border: Border.all(color: Colors.transparent, width: 0),
             ),
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Dark overlay outside scan area
+                Container(color: Colors.black.withOpacity(0.5)),
                 // Transparent center with border
                 Container(
                   decoration: BoxDecoration(
@@ -257,7 +369,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ),
         ),
 
-        // Bottom overlay with instructions
+        // Bottom overlay with instructions and capture button
         Positioned(
           bottom: 0,
           left: 0,
@@ -281,8 +393,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     color: Colors.white,
                     fontSize: 14,
                   ),
-                ),
-                const SizedBox(height: 12),
+                ),                const SizedBox(height: 8),
+                Text(
+                  'The camera will automatically detect the QR code',
+                  textAlign: TextAlign.center,
+                  style: TextDesign.smallText(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -299,6 +418,23 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _isScanning ? _showManualEntryDialog : null,
+                  icon: const Icon(Icons.keyboard),
+                  label: const Text('Manual Entry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    disabledBackgroundColor: Colors.grey,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ],
             ),
