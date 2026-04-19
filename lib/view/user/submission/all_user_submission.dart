@@ -20,7 +20,12 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
 
   String _searchQuery = "";
   String _selectedFilter = "All";
-  final List<String> _filterOptions = ["All", "Pending", "Approved", "Rejected"];
+  final List<String> _filterOptions = [
+    "All",
+    "Pending",
+    "Approved",
+    "Rejected"
+  ];
 
   List<Map<String, dynamic>> _mySubmissions = [];
   bool _isLoading = true;
@@ -41,7 +46,9 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
     });
 
     try {
-      final user = context.read<UserProvider>().user;
+      final user = context
+          .read<UserProvider>()
+          .user;
       final userId = user?.userId;
 
       if (userId == null) {
@@ -77,7 +84,8 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
     return _mySubmissions.where((sub) {
       final subId = sub['submission_id']?.toString() ?? "";
       final userId = sub['user_id']?.toString() ?? "";
-      final status = sub['status']?.toString().toLowerCase().trim() ?? "pending";
+      final status = sub['status']?.toString().toLowerCase().trim() ??
+          "pending";
 
       // 1. Search Filter
       final query = _searchQuery.toLowerCase();
@@ -134,15 +142,18 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
             child: _isLoading
                 ? Center(child: CircularProgressIndicator(color: theme.primary))
                 : _errorMessage != null
-                ? Center(child: Text(_errorMessage!, style: TextDesign.normalText(color: theme.error)))
+                ? Center(child: Text(_errorMessage!,
+                style: TextDesign.normalText(color: theme.error)))
                 : displayData.isEmpty
-                ? Center(child: Text("No submissions found.", style: TextDesign.normalText(color: theme.hint)))
+                ? Center(child: Text("No submissions found.",
+                style: TextDesign.normalText(color: theme.hint)))
                 : RefreshIndicator(
               onRefresh: _fetchMySubmissions,
               color: theme.primary,
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 8),
                 itemCount: displayData.length,
                 itemBuilder: (context, index) {
                   // ✨ Use your custom card builder
@@ -167,7 +178,9 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
           color: theme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))
+            BoxShadow(color: Colors.black.withOpacity(0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 4))
           ],
           border: Border.all(color: theme.border.withOpacity(0.5)),
         ),
@@ -199,19 +212,22 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
               onTap: () => setState(() => _selectedFilter = filter),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected ? theme.primary : theme.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? theme.primary : theme.border.withOpacity(0.5),
+                    color: isSelected ? theme.primary : theme.border
+                        .withOpacity(0.5),
                   ),
                 ),
                 child: Text(
                   filter,
                   style: TextStyle(
                     color: isSelected ? Colors.white : theme.onSurface,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight
+                        .normal,
                     fontSize: 13,
                   ),
                 ),
@@ -223,16 +239,23 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
     );
   }
 
-  Widget _buildSubmissionCard(Map<String, dynamic> submission, AppColors theme) {
-    final status = submission['status']?.toString().toLowerCase().trim() ?? 'pending';
+  Widget _buildSubmissionCard(Map<String, dynamic> submission,
+      AppColors theme) {
+    final status = submission['status']?.toString().toLowerCase().trim() ??
+        'pending';
     final weight = submission['weight']?.toString() ?? '0.0';
     final points = submission['point_award']?.toString() ?? '0';
     final subId = submission['submission_id']?.toString();
+
     final isRejected = status == 'rejected' || status == 'reject';
+    final isApproved = status == 'approved';
+
+    // ✨ NEW: Both Rejected and Approved items can now be appealed!
+    final canAppeal = isRejected || isApproved;
 
     // Determine status colors
     Color statusColor;
-    if (status == "approved") {
+    if (isApproved) {
       statusColor = theme.success;
     } else if (isRejected) {
       statusColor = theme.error;
@@ -245,28 +268,63 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
       decoration: BoxDecoration(
         color: isRejected ? theme.error.withOpacity(0.05) : theme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isRejected ? theme.error.withOpacity(0.3) : theme.border.withOpacity(0.5)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
+        border: Border.all(
+            color: isRejected ? theme.error.withOpacity(0.3) : theme.border
+                .withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 4))
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            if (isRejected && subId != null) {
+            // --- 1. PENDING CONSTRAINT ---
+            if (status == 'pending') {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: const Text(
+                        "You cannot appeal an item that is still under review."),
+                    backgroundColor: theme.warning
+                ),
+              );
+              return;
+            }
+
+            // --- 2. THE 7-DAY APPEAL CONSTRAINT ---
+            if (canAppeal && subId != null) {
+              final submittedAtStr = submission['submitted_at']?.toString();
+
+              if (submittedAtStr != null) {
+                final submittedAt = DateTime.tryParse(submittedAtStr);
+                if (submittedAt != null) {
+                  final daysPassed = DateTime
+                      .now()
+                      .difference(submittedAt)
+                      .inDays;
+
+                  if (daysPassed > 7) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: const Text(
+                              "Appeals must be submitted within 7 days of the original submission."),
+                          backgroundColor: theme.error
+                      ),
+                    );
+                    return; // Stop them from going to the appeal page!
+                  }
+                }
+              }
+
+              // --- 3. ALL CONSTRAINTS PASSED -> ROUTE TO APPEAL PAGE ---
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => AppealPage(submissionId: subId),
                 ),
-              );
-            } else if (status == 'pending') {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: const Text("This submission is currently under review."), backgroundColor: theme.warning),
-              );
-            } else if (status == 'approved') {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: const Text("This submission was successfully approved!"), backgroundColor: theme.success),
               );
             }
           },
@@ -284,7 +342,8 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    status == 'approved' ? Icons.check_circle : isRejected ? Icons.error_outline : Icons.access_time,
+                    isApproved ? Icons.check_circle : isRejected ? Icons
+                        .error_outline : Icons.access_time,
                     color: statusColor,
                     size: 24,
                   ),
@@ -298,12 +357,14 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
                     children: [
                       Text(
                         "$weight kg",
-                        style: TextDesign.normalText().copyWith(fontWeight: FontWeight.bold),
+                        style: TextDesign.normalText().copyWith(
+                            fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         isRejected ? "Needs Review" : "Awarded: $points pts",
-                        style: TextDesign.smallText(color: isRejected ? theme.error : theme.hint),
+                        style: TextDesign.smallText(
+                            color: isRejected ? theme.error : theme.hint),
                       ),
                     ],
                   ),
@@ -314,17 +375,21 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         status.toUpperCase(),
-                        style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                        style: TextStyle(color: statusColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11),
                       ),
                     ),
-                    if (isRejected) ...[
+                    // ✨ Show the arrow for BOTH Approved and Rejected items now!
+                    if (canAppeal) ...[
                       const SizedBox(width: 8),
                       Icon(Icons.chevron_right, size: 20, color: theme.hint),
                     ]
