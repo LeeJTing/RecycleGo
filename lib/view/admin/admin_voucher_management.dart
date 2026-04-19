@@ -5,7 +5,9 @@ import 'package:recycle_go/models/Vouchers.dart';
 import 'package:recycle_go/controller/voucher/voucher_ctrl.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 import 'package:recycle_go/widgets/voucher_card.dart';
+import 'package:recycle_go/services/supabase_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_add_voucher.dart';
 import 'admin_edit_voucher.dart';
 import 'voucher_details/admin_voucher_details.dart';
@@ -60,6 +62,23 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
   Future<void> _loadVouchers() async {
     setState(() => _isLoading = true);
     try {
+      // Auto-inactivate expired vouchers first
+      final inactivatedIds = await voucherCtrl.autoInactivateExpiredVouchers();
+
+      // Show snackbar if any vouchers were auto-inactivated
+      if (inactivatedIds.isNotEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${inactivatedIds.length} expired voucher(s) automatically inactivated',
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // Fetch all vouchers
       await voucherCtrl.fetchVouchers();
     } catch (e) {
       // Handle error silently
@@ -364,8 +383,58 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                                   ),
                                   TextButton(
                                     onPressed: () async {
-                                      Navigator.pop(context);
                                       try {
+                                        // Check if voucher has redeemed records BEFORE closing dialog
+                                        int redeemedCount = 0;
+                                        try {
+                                          redeemedCount =
+                                              await SupabaseService().client
+                                                  .from('redeemedvouchers')
+                                                  .count(CountOption.exact)
+                                                  .eq(
+                                                    'voucher_id',
+                                                    voucher.voucherId ?? '',
+                                                  );
+                                        } catch (countError) {
+                                          Navigator.pop(context);
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Error checking redeemed vouchers: $countError',
+                                                ),
+                                                backgroundColor: theme.error,
+                                              ),
+                                            );
+                                          }
+                                          return;
+                                        }
+
+                                        if (redeemedCount > 0) {
+                                          // Cannot delete - show warning snackbar
+                                          Navigator.pop(context);
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Cannot delete: This voucher has been redeemed by $redeemedCount user(s). Consider inactivating instead.',
+                                                ),
+                                                backgroundColor: Colors.orange,
+                                                duration: const Duration(
+                                                  seconds: 4,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          return;
+                                        }
+
+                                        // OK to delete
+                                        Navigator.pop(context);
                                         await voucherCtrl.deleteVoucher(
                                           voucher.voucherId ?? '',
                                         );
@@ -382,6 +451,7 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                                           );
                                         }
                                       } catch (e) {
+                                        Navigator.pop(context);
                                         if (mounted) {
                                           ScaffoldMessenger.of(
                                             context,
@@ -390,6 +460,7 @@ class _AdminVoucherManagementState extends State<AdminVoucherManagement> {
                                               content: Text(
                                                 'Error: ${e.toString()}',
                                               ),
+                                              backgroundColor: theme.error,
                                             ),
                                           );
                                         }

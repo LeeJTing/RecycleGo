@@ -808,61 +808,8 @@ class _MapScreenState extends State<MapScreen> {
             child: Column(
               children: [
                 // Header row
+                SizedBox(height: 10),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1DB954),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.eco,
-                            color: Colors.white, size: 18),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'ECOLEDGER',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0D3B1F),
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const Spacer(),
-                      Stack(
-                        children: [
-                          const CircleAvatar(
-                            radius: 20,
-                            backgroundColor: Color(0xFFDDEEDD),
-                            child: Icon(Icons.person,
-                                color: Color(0xFF0D3B1F), size: 22),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1DB954),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: Colors.white, width: 1.5),
-                              ),
-                              child: const Icon(Icons.check,
-                                  color: Colors.white, size: 8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
                     decoration: BoxDecoration(

@@ -62,11 +62,13 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       }
 
       final plasticRaw   = data['plastic_storage'];
+      final paperRaw = data['paper_storage'];
       final glassRaw     = data['glasses_storage'];
       final cardboardRaw = data['cardboard_storage'];
       final metalRaw     = data['metal_storage'];
 
       final plastic   = (plasticRaw as num?)?.toDouble();
+      final paper = (paperRaw as num?)?.toDouble();
       final glass     = (glassRaw as num?)?.toDouble();
       final cardboard = (cardboardRaw as num?)?.toDouble();
       final metal     = (metalRaw as num?)?.toDouble();
@@ -75,6 +77,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
           (plastic ?? 0) +
               (glass ?? 0) +
               (cardboard ?? 0) +
+              (paper ?? 0) +
               (metal ?? 0);
 
       maxCap = (data['station_capacity'] as num?)?.toDouble() ?? 1000.0;
@@ -86,13 +89,15 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       const glassFactor = 0.5;
       const cardboardFactor = 3.0;
       const metalFactor = 9.0;
+      const paperFactor = 2.5;
 
       // ✅ 计算 CO2
       final co2 =
           ((plastic ?? 0) * plasticFactor) +
               ((glass ?? 0) * glassFactor) +
               ((cardboard ?? 0) * cardboardFactor) +
-              ((metal ?? 0) * metalFactor);
+              ((metal ?? 0) * metalFactor) +
+              ((paper ?? 0) * paperFactor);
 
       // ✅ 一次 setState
       setState(() {
@@ -102,6 +107,12 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
             'icon': Icons.recycling,
             'level': plastic ?? 0,
             'hasMaterial': plasticRaw != null,
+          },
+          {
+            'label': 'Paper',
+            'icon': Icons.article_outlined, // 或 Icons.description
+            'level': paper ?? 0,
+            'hasMaterial': paperRaw != null,
           },
           {
             'label': 'Glass',
@@ -142,8 +153,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
       backgroundColor: const Color(0xFFF4F7F4),
       body: Column(
         children: [
-          _TopBar(stationName: widget.station.stationName ?? 'Station'),
-
+          const SizedBox(height: 10),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 100),
@@ -212,63 +222,6 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
 // Sub-widgets
 // ─────────────────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
-  final String stationName;
-  const _TopBar({required this.stationName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              // Logo
-              Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1DB954),
-                      shape: BoxShape.circle,
-                    ),
-                    child:
-                    const Icon(Icons.eco, color: Colors.white, size: 16),
-                  ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'ECOLEDGER',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0D3B1F),
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: const Color(0xFFEAF7EE),
-                  child: const Icon(Icons.person,
-                      color: Color(0xFF0D3B1F), size: 18),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _StationHeaderCard extends StatelessWidget {
   final RecycleStation station;
   final double distanceKm;
@@ -301,6 +254,7 @@ class _StationHeaderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 15),
           // Station ID + Active badge
           Row(
             children: [
