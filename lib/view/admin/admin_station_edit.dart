@@ -7,6 +7,14 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/services/storage_service.dart';
+import 'dart:ui' as ui;
+import 'package:path_provider/path_provider.dart';
+import 'dart:typed_data';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
+import 'package:recycle_go/services/notification_services.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -25,6 +33,25 @@ class StationEditScreen extends StatefulWidget {
 class _StationEditScreenState extends State<StationEditScreen> {
   final _formKey = GlobalKey<FormState>();
   bool get _isEdit => widget.station != null;
+  late final TextEditingController _capacityCtrl;
+
+  Future<File> generateQrImage(String data) async {
+    final painter = QrPainter(
+      data: data,
+      version: QrVersions.auto,
+      gapless: true,
+    );
+
+    final picData = await painter.toImageData(300);
+    final buffer = picData!.buffer.asUint8List();
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/qr.png');
+
+    await file.writeAsBytes(buffer);
+
+    return file;
+  }
 
   // QR
   late final _qrCtrl = TextEditingController(
@@ -82,9 +109,16 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
   @override
   void initState() {
+    _qrCtrl.addListener(() {
+      setState(() {});
+    });
+
     super.initState();
     _latCtrl.addListener(() => setState(() {}));
-    _lngCtrl.addListener(() => setState(() {}));
+
+    _capacityCtrl = TextEditingController(
+      text: _capacitySlider.toStringAsFixed(0),
+    );
 
     if (widget.station != null) {
       _status = widget.station!.stationStatus;
@@ -97,33 +131,61 @@ class _StationEditScreenState extends State<StationEditScreen> {
   @override
   void dispose() {
     for (final c in [
-      _nameCtrl, _addressCtrl, _latCtrl, _lngCtrl, _descCtrl,
-      _plasticCtrl, _paperCtrl, _glassCtrl, _cardboardCtrl, _metalCtrl,
-    ]) { c.dispose(); }
+      _nameCtrl,
+      _addressCtrl,
+      _latCtrl,
+      _lngCtrl,
+      _descCtrl,
+      _plasticCtrl,
+      _paperCtrl,
+      _glassCtrl,
+      _cardboardCtrl,
+      _metalCtrl,
+      _capacityCtrl,
+      _qrCtrl,
+    ]) {
+      c.dispose();
+    }
+
     super.dispose();
-    _qrCtrl.dispose();
   }
 
   // ── Save ───────────────────────────────────────────────────────────
   void _save() async {
+    final storage = StorageService();
 
     String? finalImageUrl = _imageUrl;
 
-    Future<void> uploadImage({
-      required String bucketName,
-      required String path,
-      required File file,
-    }) async {
-      final client = Supabase.instance.client;
+    // ✅ 先决定最终 QR value
+    final uuid = Uuid();
+    final finalQrValue = _qrCtrl.text.trim().isEmpty
+        ? 'ECO-${uuid.v4()}'
+        : _qrCtrl.text.trim();
 
-      await client.storage.from(bucketName).upload(
-        path,
-        file,
-        fileOptions: const FileOptions(
-          cacheControl: '3600',
-          upsert: true,
-        ),
+    final hash = md5.convert(utf8.encode(finalQrValue)).toString();
+
+    String? qrImageUrl = widget.station?.qrImageUrl;
+
+    final isQrChanged = widget.station == null ||
+        finalQrValue != widget.station!.qrCodeValue ||
+        widget.station?.qrImageUrl == null;
+
+    if (isQrChanged) {
+      final qrFile = await generateQrImage(finalQrValue);
+
+      // ✅ 固定路径（关键）
+      final path = 'qr/$hash.png';
+
+      await storage.uploadImage(
+        bucketName: 'station-images',
+        path: path,
+        file: qrFile,
       );
+
+      // ✅ CDN cache bust
+      qrImageUrl = storage
+          .getPublicUrl('station-images', path) +
+          '?v=${DateTime.now().millisecondsSinceEpoch}';
     }
 
     if (_selectedImage != null) {
@@ -161,8 +223,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
           final uri = Uri.parse(oldImageUrl);
           final segments = uri.pathSegments;
 
-          final index = segments.indexOf('station-images');
-          final oldPath = segments.sublist(index + 1).join('/');
+          final oldPath = uri.path.replaceFirst(
+            '/storage/v1/object/public/station-images/',
+            '',
+          );
 
           await client.storage
               .from('station-images')
@@ -233,6 +297,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
           : _descCtrl.text.trim(),
       imageUrl: finalImageUrl,
       stationStatus: _status,
+      qrImageUrl: qrImageUrl,
 
       plasticStorage: _selectedMats.contains(RecycleMaterialType.plastic)
           ? (double.tryParse(_plasticCtrl.text) ?? 0)
@@ -254,9 +319,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
           ? (double.tryParse(_metalCtrl.text) ?? 0)
           : null,
 
-      qrCodeValue: _qrCtrl.text.trim().isEmpty
-          ? 'ECO-${DateTime.now().millisecondsSinceEpoch}'
-          : _qrCtrl.text.trim(),
+      qrCodeValue: finalQrValue,
 
       createdAt: _isEdit
           ? widget.station!.createdAt
@@ -271,11 +334,18 @@ class _StationEditScreenState extends State<StationEditScreen> {
       RecycleStation? result;
 
       if (_isEdit) {
-        // ✅ UPDATE
+        // ❌ 修改 → 不通知
         result = await model.updateStation(station);
       } else {
-        // ✅ INSERT
+        // ✅ 新建 → 才通知
         result = await model.insertStation(station);
+
+        if (result != null) {
+          await showStationCreatedNotification(
+            station.stationName.isNotEmpty ? station.stationName : "New Station",
+            station.address.isNotEmpty ? station.address : "Location not specified",
+          );
+        }
       }
 
       if (result != null) {
@@ -298,11 +368,9 @@ class _StationEditScreenState extends State<StationEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgGrey,
-      bottomNavigationBar: _BottomNav(selected: 1),
+      bottomNavigationBar: null,
       body: SafeArea(
         child: Column(children: [
-          // ── Top bar ────────────────────────────────────────────────
-          _TopBar(isEdit: _isEdit),
           // ── Scrollable form ────────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
@@ -426,7 +494,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                           child: Text(
                             'STATION IMAGE',
                             style: TextStyle(
-                              color: Color(0xFF888),
+                              color: Color(0xFF888888),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -483,6 +551,38 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+
+                    if (_qrCtrl.text.isNotEmpty)
+                      Center(
+                        child: Column(
+                          children: [
+                            const Text(
+                              "QR CODE",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF888888),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE0E0E0)),
+                              ),
+                              child: QrImageView(
+                                data: _qrCtrl.text,
+                                size: 150,
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                     const SizedBox(height: 16),
 
@@ -511,21 +611,36 @@ class _StationEditScreenState extends State<StationEditScreen> {
                             alignment: Alignment.centerLeft,
                             child: Text('STORAGE CAPACITY (KG)',
                                 style: TextStyle(
-                                    color: Color(0xFF888), fontSize: 10,
+                                    color: Color(0xFF888888), fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.5)),
                           ),
                           const SizedBox(height: 10),
                           ..._selectedMats.map((m) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _FormField(
-                              label: m.label,
-                              ctrl: _ctrlFor(m),
-                              hint: '0',
-                              keyboardType: TextInputType.number,
-                              suffix: 'kg',
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  m.label,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF444444),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+
+                                _FormField(
+                                  label: '', // ❗ 不用内部 label
+                                  ctrl: _ctrlFor(m),
+                                  hint: '0',
+                                  keyboardType: TextInputType.number,
+                                  suffix: 'kg',
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))
+                                  ],
+                                ),
                               ],
                             ),
                           )),
@@ -544,7 +659,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         children: [
                           const Text('INITIAL CAPACITY',
                               style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 10,
+                                  color: Color(0xFF888888), fontSize: 10,
                                   fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                           const SizedBox(height: 6),
                           RichText(
@@ -559,9 +674,39 @@ class _StationEditScreenState extends State<StationEditScreen> {
                                 text: 'KG',
                                 style: TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w600,
-                                    color: Color(0xFF888)),
+                                    color: Color(0xFF888888)),
                               ),
                             ]),
+                          ),
+                          const SizedBox(height: 10),
+
+                          TextField(
+                            controller: _capacityCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: InputDecoration(
+                              hintText: 'Enter capacity (kg)',
+                              suffixText: 'KG',
+                              filled: true,
+                              fillColor: _inputFill,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            onChanged: (value) {
+                              final v = double.tryParse(value);
+                              if (v == null) return;
+
+                              // 👉 限制范围（很重要）
+                              if (v < 1000 || v > 50000) return;
+
+                              setState(() {
+                                _capacitySlider = v;
+                              });
+                            },
                           ),
                           SliderTheme(
                             data: SliderThemeData(
@@ -578,17 +723,21 @@ class _StationEditScreenState extends State<StationEditScreen> {
                               max: 50000,
                               divisions: 98,
                               value: _capacitySlider,
-                              onChanged: (v) =>
-                                  setState(() => _capacitySlider = v),
+                              onChanged: (v) {
+                                setState(() {
+                                  _capacitySlider = v;
+                                  _capacityCtrl.text = v.toStringAsFixed(0);
+                                });
+                              },
                             ),
                           ),
                           const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('1K', style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 11)),
+                                  color: Color(0xFF888888), fontSize: 11)),
                               Text('50K', style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 11)),
+                                  color: Color(0xFF888888), fontSize: 11)),
                             ],
                           ),
                         ],
@@ -606,7 +755,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         children: [
                           const Text('OPERATIONAL STATUS',
                               style: TextStyle(
-                                  color: Color(0xFF888), fontSize: 10,
+                                  color: Color(0xFF888888), fontSize: 10,
                                   fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                           const SizedBox(height: 10),
                           ...StationStatus.values.map((s) => _StatusOption(
@@ -649,43 +798,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
 // ─────────────────────────────────────────────────────────────────────
 // Sub-widgets
 // ─────────────────────────────────────────────────────────────────────
-
-class _TopBar extends StatelessWidget {
-  final bool isEdit;
-  const _TopBar({required this.isEdit});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: Row(children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: const Icon(Icons.arrow_back_ios_new,
-              size: 18, color: _darkGreen),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          width: 24, height: 24,
-          decoration: const BoxDecoration(color: _green, shape: BoxShape.circle),
-          child: const Icon(Icons.eco, color: Colors.white, size: 14),
-        ),
-        const SizedBox(width: 8),
-        const Text('STATION REGISTRY',
-            style: TextStyle(
-                fontWeight: FontWeight.w800, fontSize: 14,
-                letterSpacing: 1.2, color: _darkGreen)),
-        const Spacer(),
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: const Color(0xFFEAF7EE),
-          child: const Icon(Icons.person, color: _darkGreen, size: 16),
-        ),
-      ]),
-    );
-  }
-}
 
 class _Breadcrumb extends StatelessWidget {
   final bool isEdit;
@@ -812,7 +924,7 @@ class _FormField extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: const TextStyle(
-              color: Color(0xFF888), fontSize: 10,
+              color: Color(0xFF888888), fontSize: 10,
               fontWeight: FontWeight.w600, letterSpacing: 0.5)),
       const SizedBox(height: 6),
       TextFormField(
@@ -845,7 +957,7 @@ class _FormField extends StatelessWidget {
               : null,
           suffixText: suffix,
           suffixStyle: const TextStyle(
-              color: Color(0xFF888), fontSize: 13),
+              color: Color(0xFF888888), fontSize: 13),
           contentPadding: const EdgeInsets.symmetric(
               horizontal: 14, vertical: 13),
         ),
@@ -898,11 +1010,11 @@ class _MaterialGrid extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(item.icon,
-                    color: on ? _green : const Color(0xFFAAAAAA), size: 22),
+                    color: on ? _green : const Color(0xFF888888), size: 22),
                 const SizedBox(height: 6),
                 Text(item.label,
                     style: TextStyle(
-                        color: on ? _darkGreen : const Color(0xFFAAAAAA),
+                        color: on ? _darkGreen : const Color(0xFF666666),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5)),

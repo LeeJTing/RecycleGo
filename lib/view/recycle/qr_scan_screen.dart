@@ -4,6 +4,12 @@ import 'package:flutter/material.dart';
 //   geolocator: ^12.0.0
 //   permission_handler: ^11.0.0
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/app/routes.dart';
+import 'package:recycle_go/services/LocalStorageService.dart';
 
 class QrScanScreen extends StatefulWidget {
   const QrScanScreen({super.key});
@@ -42,31 +48,126 @@ class _QrScanScreenState extends State<QrScanScreen>
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<bool> _isNearStation(double lat, double lng) async {
+    final pos = await Geolocator.getCurrentPosition();
+
+    double distance = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      lat,
+      lng,
+    );
+
+    return distance <= 50; // 50 meters
+  }
+
+  void _showError(String msg) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 40),
+            const SizedBox(height: 10),
+            Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() => _scanned = false);
+                _cameraController.start();
+              },
+              child: const Text("Try Again"),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onDetect(BarcodeCapture capture) async {
     if (_scanned) return;
+
     final barcode = capture.barcodes.firstOrNull;
-    if (barcode?.rawValue == null) return;
+    final qrValue = barcode?.rawValue;
+
+    if (qrValue == null) return;
+
+    final hash = md5.convert(utf8.encode(qrValue)).toString();
 
     setState(() => _scanned = true);
     _cameraController.stop();
 
-    // TODO: validate GPS proximity before proceeding
-    // final position = await Geolocator.getCurrentPosition();
-    // if (!_isWithinRange(position, stationLat, stationLng)) { ... }
+    print("SCANNED => $qrValue");
 
-    _showSuccessSheet(barcode!.rawValue!);
+    try {
+      final client = Supabase.instance.client;
+
+      // ✅ 1. 先查数据库
+      final res = await client
+          .from('recyclestation')
+          .select()
+          .eq('qr_code_value', qrValue)
+          .maybeSingle();
+
+      if (res == null) {
+        setState(() => _scanned = false);
+        _cameraController.start();
+        _showError("Invalid QR Code ❌");
+        return;
+      }
+
+      // ✅ 2. 再检查 GPS
+      final isNear = await _isNearStation(
+        res['latitude'],
+        res['longitude'],
+      );
+
+      if (!isNear) {
+        setState(() => _scanned = false);
+        _cameraController.start();
+        _showError("You are too far from this station 📍");
+        return;
+      }
+
+      // ✅ 3. 成功
+      _showSuccessSheet(res);
+
+    } catch (e) {
+      _showError("Scan failed: $e");
+    }
   }
 
-  void _showSuccessSheet(String qrValue) {
+  void _showSuccessSheet(Map<String, dynamic> station) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isDismissible: false,
       builder: (_) => _ScanSuccessSheet(
-        stationId: qrValue,
-        onContinue: () {
-          Navigator.pop(context); // close sheet
-          Navigator.pop(context); // back to station detail
+        station: station,
+        onContinue: () async {
+          Navigator.pop(context);
+
+          // ✅ 加这个：记录验证时间
+          station['verified_at'] = DateTime.now().toIso8601String();
+
+          // ✅ 存 local
+          await LocalStorageService.saveStation(station);
+
+          // ✅ 跳去队友页面 + 传 data
+          Navigator.pushNamed(
+            context,
+            Routes.scanRecycleItem,
+            arguments: station,
+          );
         },
         onRetry: () {
           Navigator.pop(context);
@@ -257,10 +358,30 @@ class _QrScanScreenState extends State<QrScanScreen>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              if (controller.text.isNotEmpty) {
-                _showSuccessSheet(controller.text);
+
+              if (controller.text.isEmpty) return;
+
+              final client = Supabase.instance.client;
+
+              try {
+                final res = await client
+                    .from('recyclestation')
+                    .select()
+                    .eq('qr_code_value', controller.text)
+                    .maybeSingle();
+
+                if (res == null) {
+                  _showError("Invalid Station ID ❌");
+                  return;
+                }
+
+                // ✅ 成功 → 传整 row
+                _showSuccessSheet(res);
+
+              } catch (e) {
+                _showError("Failed: $e");
               }
             },
             style: ElevatedButton.styleFrom(
@@ -394,12 +515,12 @@ class _OverlayPainter extends CustomPainter {
 // Success / result bottom sheet
 // ─────────────────────────────────────────────────────────────────────
 class _ScanSuccessSheet extends StatelessWidget {
-  final String stationId;
+  final Map<String, dynamic> station;
   final VoidCallback onContinue;
   final VoidCallback onRetry;
 
   const _ScanSuccessSheet({
-    required this.stationId,
+    required this.station,
     required this.onContinue,
     required this.onRetry,
   });
@@ -438,7 +559,7 @@ class _ScanSuccessSheet extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Station ID: $stationId',
+            'Station ID: ${station['qr_code_value']}',
             style: const TextStyle(color: Color(0xFF888), fontSize: 13),
           ),
           const SizedBox(height: 8),
@@ -507,6 +628,7 @@ class _ScanSuccessSheet extends StatelessWidget {
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+
   const _ControlButton({required this.icon, required this.onTap});
 
   @override
@@ -525,6 +647,7 @@ class _ControlButton extends StatelessWidget {
     );
   }
 }
+
 
 class _ManualEntryButton extends StatelessWidget {
   final VoidCallback onTap;

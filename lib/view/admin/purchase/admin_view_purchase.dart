@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
-import 'package:recycle_go/view/admin/admin_purchase_update.dart';
-import '../../models/RecyclePurchases.dart';
+import '../../../app/routes.dart';
+import '../../../models/RecyclePurchases.dart';
+import 'admin_purchase_detail.dart';
+import 'admin_purchase_update.dart';
 
 class AdminViewPurchase extends StatefulWidget {
   const AdminViewPurchase({super.key});
@@ -58,14 +59,16 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
       // 1. Filter by Status Tab
       bool matchesStatus = true;
       if (_selectedStatus != "All Requests") {
-        matchesStatus = item.paymentStatus.toLowerCase() == _selectedStatus.toLowerCase();
+        matchesStatus =
+            item.paymentStatus.toLowerCase() == _selectedStatus.toLowerCase();
       }
 
       // 2. Filter by Search Bar (checking User ID or Purchase ID)
       bool matchesSearch = true;
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
-        matchesSearch = (item.purchaseId?.toLowerCase().contains(query) ?? false) ||
+        matchesSearch =
+            (item.purchaseId?.toLowerCase().contains(query) ?? false) ||
             (item.userId.toLowerCase().contains(query));
       }
 
@@ -75,10 +78,14 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
 
   String _getButtonLabel(String status) {
     switch (status.toLowerCase()) {
-      case 'success': return "View Details";
-      case 'pending': return "Update Status";
-      case 'failed': return "View Reason";
-      default: return "Review";
+      case 'success':
+        return "View Details";
+      case 'pending':
+        return "Update Status";
+      case 'failed':
+        return "View Reason";
+      default:
+        return "Review";
     }
   }
 
@@ -87,34 +94,56 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
     final theme = AppThemes.color;
     final displayData = _filteredData;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSearchBar(theme),
-        const SizedBox(height: 10),
-        _buildFilterRow(theme),
-        const SizedBox(height: 16),
-
-        // --- DATA DISPLAY WITH LOADING & ERROR STATES ---
-        Expanded(
-          child: _isLoading
-              ? Center(child: CircularProgressIndicator(color: theme.primary))
-              : _errorMessage != null
-              ? Center(child: Text("Error: $_errorMessage", style: TextStyle(color: theme.error)))
-              : displayData.isEmpty
-              ? Center(child: Text("No records found", style: TextDesign.normalText()))
-              : RefreshIndicator(
-            onRefresh: _fetchData,
-            color: theme.primary,
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 24),
-              itemCount: displayData.length,
-              itemBuilder: (context, index) => _buildHistoryCard(displayData[index], theme),
-            ),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        backgroundColor: theme.surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios, color: theme.onSurface),
+          onPressed: () => Navigator.pop(context),
         ),
-      ],
+        title: Text("Purchase Details", style: TextDesign.appBarTitle()),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSearchBar(theme),
+          const SizedBox(height: 10),
+          _buildFilterRow(theme),
+          const SizedBox(height: 16),
+
+          Expanded(
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator(color: theme.primary))
+                : _errorMessage != null
+                ? Center(
+                    child: Text(
+                      "Error: $_errorMessage",
+                      style: TextStyle(color: theme.error),
+                    ),
+                  )
+                : displayData.isEmpty
+                ? Center(
+                    child: Text(
+                      "No records found",
+                      style: TextDesign.normalText(),
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _fetchData,
+                    color: theme.primary,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 24),
+                      itemCount: displayData.length,
+                      itemBuilder: (context, index) =>
+                          _buildHistoryCard(displayData[index], theme),
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -126,11 +155,18 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
         decoration: BoxDecoration(
           color: theme.surface,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: theme.onBackground.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: theme.onBackground.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: TextField(
           textAlignVertical: TextAlignVertical.center,
-          onChanged: (val) => setState(() => _searchQuery = val), // Trigger search
+          onChanged: (val) =>
+              setState(() => _searchQuery = val), // Trigger search
           decoration: InputDecoration(
             hintText: "Search by Buyer or Request ID...",
             hintStyle: TextDesign.hintText(),
@@ -159,12 +195,20 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedStatus = label),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: isActive ? theme.primary : theme.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(label, style: TextDesign.badgeText(color: isActive ? Colors.white : theme.onSurface)),
+                child: Text(
+                  label,
+                  style: TextDesign.badgeText(
+                    color: isActive ? Colors.white : theme.onSurface,
+                  ),
+                ),
               ),
             ),
           );
@@ -179,13 +223,18 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
     final isSuccess = status == 'success';
 
     // Status Colors
-    Color mainColor = isSuccess ? theme.success : (isFailed ? theme.error : theme.warning);
-    Color bgColor = isSuccess ? theme.successContainer : (isFailed ? theme.error.withOpacity(0.1) : theme.warningContainer);
+    Color mainColor = isSuccess
+        ? theme.success
+        : (isFailed ? theme.error : theme.warning);
+    Color bgColor = isSuccess
+        ? theme.successContainer
+        : (isFailed ? theme.error.withOpacity(0.1) : theme.warningContainer);
 
     // Secure Date formatting
     String dateStr = "Unknown Date";
     if (purchase.createdAt != null) {
-      dateStr = "${purchase.createdAt!.year}-${purchase.createdAt!.month.toString().padLeft(2, '0')}-${purchase.createdAt!.day.toString().padLeft(2, '0')}";
+      dateStr =
+          "${purchase.createdAt!.year}-${purchase.createdAt!.month.toString().padLeft(2, '0')}-${purchase.createdAt!.day.toString().padLeft(2, '0')}";
     }
 
     return Container(
@@ -195,7 +244,13 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
         color: theme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: theme.border.withOpacity(0.5)),
-        boxShadow: [BoxShadow(color: theme.onBackground.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+            color: theme.onBackground.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,22 +264,37 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      width: 50, height: 50,
+                      width: 50,
+                      height: 50,
                       color: theme.surfaceVariant,
-                      child: Icon(Icons.inventory_2_outlined, color: theme.primary, size: 24),
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        color: theme.primary,
+                        size: 24,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("ID: ${purchase.purchaseId?.substring(0, 8) ?? 'N/A'}", style: TextDesign.label()),
+                      Text(
+                        "ID: ${purchase.purchaseId?.substring(0, 8) ?? 'N/A'}",
+                        style: TextDesign.label(),
+                      ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.calendar_today, color: theme.hint, size: 12),
+                          Icon(
+                            Icons.calendar_today,
+                            color: theme.hint,
+                            size: 12,
+                          ),
                           const SizedBox(width: 4),
-                          Text(dateStr, style: TextDesign.smallText(fontSize: 11)),
+                          Text(
+                            dateStr,
+                            style: TextDesign.smallText(fontSize: 11),
+                          ),
                         ],
                       ),
                     ],
@@ -232,24 +302,42 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
-                child: Text(status.toUpperCase(), style: TextDesign.badgeText(color: mainColor)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  status.toUpperCase(),
+                  style: TextDesign.badgeText(color: mainColor),
+                ),
               ),
             ],
           ),
 
           const SizedBox(height: 16),
-          Text(purchase.itemName ?? "Unspecified Item", style: TextDesign.headingThree()),
+          Text(
+            purchase.itemName ?? "Unspecified Item",
+            style: TextDesign.headingThree(),
+          ),
           const SizedBox(height: 4),
-          Text(purchase.pickupLocationName ?? "No location specified", style: TextDesign.smallText(color: theme.hint)),
+          Text(
+            purchase.pickupLocationName ?? "No location specified",
+            style: TextDesign.smallText(color: theme.hint),
+          ),
 
           const SizedBox(height: 16),
 
           // DATA GRID
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: theme.surfaceVariant.withOpacity(0.5), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+              color: theme.surfaceVariant.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -259,7 +347,10 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                       Text("QUANTITY", style: TextDesign.label()),
                       const SizedBox(height: 4),
                       // Display the quantity from the new model
-                      Text("${purchase.quantity ?? 0.0} kg", style: TextDesign.mediumText(fontSize: 18)),
+                      Text(
+                        "${purchase.quantity ?? 0.0} kg",
+                        style: TextDesign.mediumText(fontSize: 18),
+                      ),
                     ],
                   ),
                 ),
@@ -272,8 +363,12 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                       children: [
                         Text("TOTAL PRICE", style: TextDesign.label()),
                         const SizedBox(height: 4),
-                        Text("RM ${purchase.totalPrice.toStringAsFixed(2)}",
-                            style: TextDesign.priceText(color: isFailed ? theme.hint : theme.success)),
+                        Text(
+                          "RM ${purchase.totalPrice.toStringAsFixed(2)}",
+                          style: TextDesign.priceText(
+                            color: isFailed ? theme.hint : theme.success,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -293,21 +388,26 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                   child: OutlinedButton(
                     onPressed: () {
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AdminPurchaseDetail(
-                              purchase: purchase,
-                              items: const [], // Assuming items are now directly inside the purchase object
-                            ),
-                          )
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AdminPurchaseDetail(
+                            purchase: purchase,
+                            items: const [], // Detail screen will fetch its own items!
+                          ),
+                        ),
                       );
                     },
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: theme.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: Text("Details", style: TextDesign.mediumText(fontSize: 14)),
+                    child: Text(
+                      "Details",
+                      style: TextDesign.mediumText(fontSize: 14),
+                    ),
                   ),
                 ),
 
@@ -321,27 +421,33 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => AdminPurchaseUpdate(
+                        builder: (context) => AdminPurchaseDetail(
                           purchase: purchase,
-                          items: const [],
+                          items: const [], // Update screen will fetch its own items!
                         ),
                       ),
                     ).then((value) {
-                      // Refresh list when returning from update screen!
-                      if (value == true) _fetchData();
+                      // This forces the dashboard to refresh when you come back from updating!
+                      if (value == true) {
+                        _fetchData();
+                      }
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isFailed ? theme.error.withOpacity(0.1) : theme.primary,
+                    backgroundColor: isFailed
+                        ? theme.error.withOpacity(0.1)
+                        : theme.primary,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child: Text(
-                      _getButtonLabel(status),
-                      style: isFailed
-                          ? TextDesign.badgeText(color: theme.error)
-                          : TextDesign.buttonText()
+                    _getButtonLabel(status),
+                    style: isFailed
+                        ? TextDesign.badgeText(color: theme.error)
+                        : TextDesign.buttonText(),
                   ),
                 ),
               ),

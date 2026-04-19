@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/models/Connector.dart';
 
-import '../../models/RecyclePurchases.dart';
+import '../../../models/RecyclePurchases.dart';
 
 class AdminPurchaseUpdate extends StatefulWidget {
   final RecyclePurchases purchase;
@@ -18,58 +17,20 @@ class AdminPurchaseUpdate extends StatefulWidget {
 
 class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
   late String paymentStatus;
+  late String pickupStatus;
 
   bool _isSaving = false;
-  bool _isLoadingItems = true;
-
-  List<Map<String, dynamic>> _fetchedItems = [];
-  List<TextEditingController> weightControllers = [];
 
   @override
   void initState() {
     super.initState();
-    // 1. Set initial real payment status
+    // Set initial real statuses directly from the model
     paymentStatus = widget.purchase.paymentStatus;
+    // Default to 'pending' if pickupStatus is null in the database
+    pickupStatus = widget.purchase.pickupStatus ?? 'pending';
 
-    // 2. Fetch real items from the database!
-    _fetchItems();
-  }
-
-  // --- DYNAMIC DATABASE FETCH ---
-  Future<void> _fetchItems() async {
-    try {
-      if (widget.purchase.purchaseId == null) return;
-
-      final supabase = Supabase.instance.client;
-
-      // Fetch items from purchaseinventory and join the name from recycleinventory
-      final response = await supabase
-          .from('purchaseinventory')
-          .select('*, recycleinventory(inventory_name)')
-          .eq('purchase_id', widget.purchase.purchaseId!);
-
-      final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(response);
-
-      setState(() {
-        _fetchedItems = data;
-        // Create a controller for each fetched item so it can be edited
-        for (var item in _fetchedItems) {
-          weightControllers.add(TextEditingController(text: item['quantity_kg'].toString()));
-        }
-        _isLoadingItems = false;
-      });
-    } catch (e) {
-      print("Error fetching items: $e");
-      setState(() => _isLoadingItems = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    for (var controller in weightControllers) {
-      controller.dispose();
-    }
-    super.dispose();
+    // NOTE: We completely removed the _fetchItems() logic because the
+    // itemName, quantity, and totalPrice are now stored directly in the purchase object!
   }
 
   @override
@@ -79,8 +40,10 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
     return Scaffold(
       backgroundColor: theme.background,
       appBar: AppBar(
-        title: Text("Modify Request", style: TextDesign.appBarTitle()),
+        title: Text("Modify Status", style: TextDesign.appBarTitle()),
         centerTitle: true,
+        backgroundColor: theme.surface,
+        elevation: 0,
       ),
       body: Column(
         children: [
@@ -94,29 +57,22 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
                   // --- 1. PAYMENT STATUS ---
                   _buildSectionLabel("Payment Status", Icons.account_balance_wallet_outlined),
                   const SizedBox(height: 12),
-                  // Matched to your DB ENUM array: 'success', 'pending', 'failed'
                   _buildStatusSelector(["pending", "success", "failed"], paymentStatus, (val) => setState(() => paymentStatus = val), theme),
 
                   const SizedBox(height: 32),
 
-                  // --- 2. ITEM UPDATES ---
-                  _buildSectionLabel("Adjust Item Weights", Icons.scale_outlined),
+                  // --- 2. PICKUP STATUS ---
+                  _buildSectionLabel("Pickup Status", Icons.local_shipping_outlined),
                   const SizedBox(height: 12),
+                  _buildStatusSelector(["pending", "completed", "cancelled"], pickupStatus, (val) => setState(() => pickupStatus = val), theme),
 
-                  // Handle loading and empty states!
-                  if (_isLoadingItems)
-                    Center(child: CircularProgressIndicator(color: theme.primary))
-                  else if (_fetchedItems.isEmpty)
-                    Text("No items found for this purchase.", style: TextDesign.smallText(color: theme.hint))
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _fetchedItems.length,
-                      itemBuilder: (context, index) {
-                        return _buildEditableItemTile(index, theme);
-                      },
-                    ),
+                  const SizedBox(height: 32),
+
+                  // --- 3. PURCHASE DETAILS (User Submitted) ---
+                  _buildSectionLabel("Request Details", Icons.inventory_2_outlined),
+                  const SizedBox(height: 12),
+                  _buildPurchaseSummaryCard(widget.purchase, theme),
+
                 ],
               ),
             ),
@@ -127,47 +83,65 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
     );
   }
 
-  Widget _buildEditableItemTile(int index, AppColors theme) {
-    final item = _fetchedItems[index];
-    // Extract name from the joined table
-    final itemName = item['recycleinventory']?['inventory_name'] ?? "Item ${item['inventory_id'].toString().substring(0, 5)}";
-
+  // --- NEW: SUMMARY CARD ---
+  Widget _buildPurchaseSummaryCard(RecyclePurchases purchase, AppColors theme) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: theme.border.withOpacity(0.5)),
+        boxShadow: [BoxShadow(color: theme.onBackground.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.eco_outlined, color: theme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(itemName, style: TextDesign.label()),
-                Text("RM ${item['price_per_kg']} / kg", style: TextDesign.smallText()),
-              ],
-            ),
-          ),
-          // WEIGHT INPUT FIELD
-          SizedBox(
-            width: 100,
-            child: TextField(
-              controller: weightControllers[index],
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              textAlign: TextAlign.right,
-              style: TextDesign.mediumText().copyWith(fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                suffixText: " kg",
-                suffixStyle: TextDesign.label(),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          Text(purchase.itemName ?? "Unspecified Item", style: TextDesign.headingThree()),
+          const SizedBox(height: 8),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.location_on_outlined, size: 18, color: theme.hint),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  purchase.pickupLocationName ?? purchase.pickupAddress ?? "No location specified",
+                  style: TextDesign.smallText(color: theme.hint),
+                ),
               ),
-            ),
+            ],
+          ),
+
+          const Divider(height: 24),
+
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("QUANTITY", style: TextDesign.label()),
+                    const SizedBox(height: 4),
+                    Text("${purchase.quantity ?? 0.0} kg", style: TextDesign.mediumText(fontSize: 18)),
+                  ],
+                ),
+              ),
+              Container(width: 1, height: 30, color: theme.border),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("TOTAL PRICE", style: TextDesign.label()),
+                      const SizedBox(height: 4),
+                      Text("RM ${purchase.totalPrice.toStringAsFixed(2)}", style: TextDesign.priceText()),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -243,7 +217,7 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveUpdates, // Disable button if loading
+              onPressed: _isSaving ? null : _saveUpdates,
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -251,7 +225,7 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
               ),
               child: _isSaving
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text("Update Request", style: TextDesign.buttonText()),
+                  : Text("Update Status", style: TextDesign.buttonText()),
             ),
           ),
         ],
@@ -264,44 +238,22 @@ class _AdminPurchaseUpdateState extends State<AdminPurchaseUpdate> {
     setState(() => _isSaving = true);
 
     try {
-      final supabase = Supabase.instance.client;
-
-      // 1. Save the Payment Status to `recyclepurchases`
       if (widget.purchase.purchaseId != null) {
+        // 1. Update Payment Status
         await RecyclePurchasesModel().updatePaymentStatus(
             widget.purchase.purchaseId!,
             paymentStatus
         );
-      }
 
-      // 2. Save the updated weights and subtotal for each item to `purchaseinventory`
-      double newGrandTotal = 0.0;
-
-      for (int i = 0; i < _fetchedItems.length; i++) {
-        final item = _fetchedItems[i];
-        final newWeight = double.tryParse(weightControllers[i].text) ?? 0.0;
-        final pricePerKg = double.tryParse(item['price_per_kg'].toString()) ?? 0.0;
-
-        // Auto-calculate the new subtotal based on the new weight
-        final newSubtotal = newWeight * pricePerKg;
-        newGrandTotal += newSubtotal;
-
-        await supabase.from('purchaseinventory').update({
-          'quantity_kg': newWeight,
-          'subtotal_price': newSubtotal,
-        }).eq('purchase_id', widget.purchase.purchaseId!)
-            .eq('inventory_id', item['inventory_id']);
-      }
-
-      // 3. Update the overall grand total price in `recyclepurchases`
-      if (widget.purchase.purchaseId != null) {
-        await supabase.from('recyclepurchases').update({
-          'total_price': newGrandTotal,
-        }).eq('purchase_id', widget.purchase.purchaseId!);
+        // 2. Update Pickup Status
+        await RecyclePurchasesModel().updatePickupStatus(
+            widget.purchase.purchaseId!,
+            pickupStatus
+        );
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Purchase Updated successfully!")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Statuses Updated successfully!")));
         Navigator.pop(context, true); // Go back and tell the previous screen to refresh
       }
     } catch (e) {

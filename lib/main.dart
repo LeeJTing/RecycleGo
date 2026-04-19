@@ -6,20 +6,23 @@ import 'package:recycle_go/l10n/app_localization.dart';
 import 'package:recycle_go/models/RecycleInventory.dart';
 import 'package:recycle_go/models/RecyclePurchases.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
+import 'package:recycle_go/provider/CategoryProvider.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
 import 'package:recycle_go/services/supabase_service.dart';
-import 'package:recycle_go/view/admin/admin_add_inventory.dart';
+import 'package:recycle_go/view/admin/inventory/admin_add_inventory.dart';
 import 'package:recycle_go/view/admin/admin_full_request_review.dart';
-import 'package:recycle_go/view/admin/admin_inventory.dart';
-import 'package:recycle_go/view/admin/admin_view_purchase.dart';
+import 'package:recycle_go/view/admin/inventory/admin_inventory.dart';
+import 'package:recycle_go/view/admin/purchase/admin_view_purchase.dart';
+import 'package:recycle_go/view/admin/category/admin_add_category.dart';
+import 'package:recycle_go/view/admin/category/admin_update_category.dart';
 import 'package:recycle_go/view/admin/userManagement/user_management_screen.dart';
 import 'package:recycle_go/view/autho/forgot_password_screen.dart';
 import 'package:recycle_go/view/autho/login_screen.dart';
 import 'package:recycle_go/view/admin/admin_home.dart';
-import 'package:recycle_go/view/admin/admin_purchase_detail.dart';
-import 'package:recycle_go/view/admin/admin_purchase_update.dart';
-import 'package:recycle_go/view/admin/admin_view_inventory.dart';
-import 'package:recycle_go/view/admin/admin_update_inventory.dart';
+import 'package:recycle_go/view/admin/purchase/admin_purchase_detail.dart';
+import 'package:recycle_go/view/admin/purchase/admin_purchase_update.dart';
+import 'package:recycle_go/view/admin/inventory/admin_view_inventory.dart';
+import 'package:recycle_go/view/admin/inventory/admin_update_inventory.dart';
 import 'package:recycle_go/view/autho/register_screen.dart';
 import 'package:recycle_go/view/autho/reset_password_screen.dart';
 import 'package:recycle_go/view/user/AI-verify-recycle/verify_recycle_item.dart';
@@ -37,20 +40,82 @@ import 'package:recycle_go/view/user/notifications/notification_list_screen.dart
 import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/admin_notification_screen.dart';
 import 'package:app_links/app_links.dart';
-
+import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'controller/admin/category_controller.dart';
-import 'controller/admin/inventory_controller.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:recycle_go/services/notification_services.dart';
+
+final FlutterLocalNotificationsPlugin notificationsPlugin =
+FlutterLocalNotificationsPlugin();
+
+Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+
+  final notification = message.notification;
+
+  if (notification != null) {
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    await plugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      notification.title,
+      notification.body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'station_channel',
+          'Station Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   await SupabaseService.initialize();
+  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+
+  const AndroidInitializationSettings androidSettings =
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initSettings =
+  InitializationSettings(android: androidSettings);
+
+  final permission = await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+  print("Permission: ${permission.authorizationStatus}");
+  if (permission.authorizationStatus == AuthorizationStatus.denied) {
+    print("If the user refuses the notification permission, local notifications will not pop up");
+  }
+  await notificationsPlugin.initialize(initSettings);
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'station_channel',
+    'Station Notifications',
+    description: 'Notify when station is created',
+    importance: Importance.max,
+  );
+
+  await notificationsPlugin
+      .resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => AdminProvider()),
-        ChangeNotifierProvider(create: (_) => CategoryController()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider()),
       ],
       child: const MainApp(),
     ),
@@ -71,9 +136,49 @@ class _MainAppState extends State<MainApp> {
 
   final Set<String> _handledTokens = {};
 
+  void _initFCM() async {
+    await saveFcmToken();
+
+    await FirebaseMessaging.instance.subscribeToTopic("stations");
+
+    // 前台
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      final notification = message.notification;
+
+      if (notification != null) {
+        notificationsPlugin.show(
+          DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          notification.title,
+          notification.body,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'station_channel',
+              'Station Notifications',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+        );
+      }
+    });
+
+    // 点击通知（后台）
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _navigatorKey.currentState?.pushNamed(Routes.map);
+    });
+
+    // 点击通知（关闭状态）
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
+        _navigatorKey.currentState?.pushNamed(Routes.map);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    _initFCM();
     // Initialize deep links after the first frame to ensure Navigator is attached
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initDeepLinks();
@@ -245,21 +350,21 @@ class _MainAppState extends State<MainApp> {
         Routes.adminHome: (context) => const AdminHome(),
         Routes.adminPurchaseView: (context) => const AdminViewPurchase(),
         Routes.adminPurchaseDetail: (context) {
-          // Catch the arguments passed from the navigator
-          final args = ModalRoute.of(context)!.settings.arguments as AdminPurchaseDetail;
+          final purchase =
+          ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
 
           return AdminPurchaseDetail(
-            purchase: args.purchase,
-            items: args.items,
+            purchase: purchase,
+            items: [],  // Assuming items are empty for now
           );
         },
         Routes.adminPurchaseUpdate: (context) {
-          // Catch the arguments passed from the navigator
-          final args = ModalRoute.of(context)!.settings.arguments as AdminPurchaseUpdate;
+          final purchase =
+          ModalRoute.of(context)!.settings.arguments as RecyclePurchases;
 
           return AdminPurchaseUpdate(
-            purchase: args.purchase,
-            items: args.items,
+            purchase: purchase,
+            items: [],
           );
         },
         Routes.adminInventory: (context) => const AdminInventory(),
@@ -286,29 +391,21 @@ class _MainAppState extends State<MainApp> {
         // Management Routes
         Routes.adminUserManagement: (context) => const UserManagementScreen(),
         Routes.adminManagement: (context) => const AdminManagementScreen(),
-        Routes.adminAppealReview: (context) => Scaffold(
-          appBar: AppBar(title: const Text("Appeal Review")),
-          body: const Center(child: Text("Appeal Review Screen")),
-        ),
+        Routes.adminAppealReview: (context) => const AppealReviewScreen(),
         Routes.userNotification: (context) => const NotificationListScreen(),
         Routes.adminNotification: (context) => const AdminNotificationScreen(),
-        Routes.adminPurchaseDetail: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseDetail;
-          return AdminPurchaseDetail(
-            purchase: args.purchase,
-            items: args.items,
-          );
-        },
-        Routes.adminPurchaseUpdate: (context) {
-          final args = ModalRoute.of(context)?.settings.arguments as AdminPurchaseUpdate;
-          return AdminPurchaseUpdate(
-            purchase: args.purchase,
-            items: args.items,
-          );
-        },
+        
         Routes.scanRecycleItem: (context) => const VerifyRecycleItem(),
         Routes.adminFullRequestReview: (context) => const AdminSubmissionFullReview(),
+        Routes.adminProfile: (context) => const AdminProfileScreen(),
 
+        Routes.adminAddCategory: (context)=> const AdminAddCategory(),
+        Routes.adminUpdateCategory: (context)  {
+          final args = ModalRoute.of(context)?.settings.arguments as AdminUpdateCategory;
+          return AdminUpdateCategory(
+            category: args.category,
+          );
+        },
       },
     );
   }

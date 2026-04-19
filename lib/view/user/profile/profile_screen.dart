@@ -5,6 +5,7 @@ import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/controller/profile/profile_ctrl.dart';
 import 'package:recycle_go/models/Achievements.dart';
+import 'package:recycle_go/models/Appeals.dart';
 import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/models/UserSettings.dart';
 import 'package:recycle_go/provider/UserProvider.dart';
@@ -13,6 +14,7 @@ import 'package:recycle_go/view/user/profile/widgets/profile_summary.dart';
 import 'package:recycle_go/view/user/profile/widgets/achievements_section.dart';
 import 'package:recycle_go/view/user/profile/change_password_screen.dart';
 import 'package:recycle_go/view/user/profile/settings_screen.dart';
+import 'package:recycle_go/view/user/appeal/widgets/appeal_status_card.dart';
 import 'package:recycle_go/utils/async_task_runner.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -24,6 +26,35 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileCtrl ctrl = ProfileCtrl();
+  List<Appeals> _appeals = [];
+  bool _isLoadingAppeals = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAppeals();
+  }
+
+  Future<void> _fetchAppeals() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (userProvider.user?.userId == null) return;
+
+    try {
+      final appeals = await AppealsModel().getUserAppeals(
+        userProvider.user!.userId!,
+      );
+      if (mounted) {
+        setState(() {
+          _appeals = appeals;
+          _isLoadingAppeals = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAppeals = false);
+      }
+    }
+  }
 
   void _navigateToEditProfile(Users user) {
     Navigator.pushNamed(
@@ -77,95 +108,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                ProfileInfo(
-                  name: user.userName,
-                  photoUrl: user.profilePhoto,
-                  createdAt: user.createdAt,
-                  email: user.email,
-                  phone: user.phone,
-                  countryCode: user.countryCallingCode,
-                  onPickImage: (source) => ctrl.pickAndUploadImage(context, source),
-                  onEditProfile: () => _navigateToEditProfile(user),
-                ),
-                const SizedBox(height: 32),
+          return RefreshIndicator(
+            onRefresh: _fetchAppeals,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  ProfileInfo(
+                    name: user.userName,
+                    photoUrl: user.profilePhoto,
+                    createdAt: user.createdAt,
+                    email: user.email,
+                    phone: user.phone,
+                    countryCode: user.countryCallingCode,
+                    onPickImage: (source) => ctrl.pickAndUploadImage(context, source),
+                    onEditProfile: () => _navigateToEditProfile(user),
+                  ),
+                  const SizedBox(height: 32),
+          
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: Future.wait([
+                      ctrl.getTotalRecycledItems(user.userId!),
+                      ctrl.getAchievements(user.userId!),
+                    ]).then((results) => {
+                      'totalItems': results[0] as int,
+                      'achievements': results[1] as List<Achievement>,
+                    }),
+                    builder: (context, snapshot) {
+                      final totalItems = snapshot.data?['totalItems'] ?? 0;
+                      final achievements = snapshot.data?['achievements'] ?? <Achievement>[];
+          
+                      return Column(
+                        children: [
+                          ProfileSummary(
+                            totalPoints: user.totalPoints,
+                            totalItems: totalItems,
+                          ),
+                          const SizedBox(height: 32),
+                          AchievementsSection(achievements: achievements),
+                        ],
+                      );
+                    },
+                  ),
 
-                FutureBuilder<Map<String, dynamic>>(
-                  future: Future.wait([
-                    //ctrl.getTotalRecycledItems(user.userId!),
-                    ctrl.getAchievements(user.userId!),
-                  ]).then((results) => {
-                    'totalItems': results[0] as int,
-                    'achievements': results[1] as List<Achievement>,
-                  }),
-                  builder: (context, snapshot) {
-                    final totalItems = snapshot.data?['totalItems'] ?? 0;
-                    final achievements = snapshot.data?['achievements'] ?? <Achievement>[];
+                  if (!_isLoadingAppeals && _appeals.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    AppealStatusCard(
+                      appeals: _appeals,
+                      userId: user.userId!,
+                    ),
+                  ],
 
-                    return Column(
-                      children: [
-                        ProfileSummary(
-                          totalPoints: user.totalPoints,
-                          totalItems: totalItems,
+                  const SizedBox(height: 16),
+
+                  _buildMenuButton(
+                    icon: Icons.settings_outlined,
+                    label: 'Settings',
+                    onTap: () => _navigateToSettings(user.userId!),
+                    theme: theme,
+                    size: size,
+                  ),
+          
+                  const SizedBox(height: 16),
+          
+                  _buildMenuButton(
+                    icon: Icons.lock_outline,
+                    label: 'Change Password',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChangePasswordScreen(
+                            currentHashedPassword: user.hashedPassword ?? "",
+                            onPasswordChanged: (hashedPassword) async {
+                              await ctrl.updateProfile(
+                                context,
+                                user.copyWith(hashedPassword: hashedPassword)
+                              );
+                            },
+                          ),
                         ),
-                        const SizedBox(height: 32),
-                        AchievementsSection(achievements: achievements),
-                      ],
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 32),
-
-                _buildMenuButton(
-                  icon: Icons.settings_outlined,
-                  label: 'Settings',
-                  onTap: () => _navigateToSettings(user.userId!),
-                  theme: theme,
-                  size: size,
-                ),
-
-                const SizedBox(height: 16),
-
-                _buildMenuButton(
-                  icon: Icons.lock_outline,
-                  label: 'Change Password',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChangePasswordScreen(
-                          currentHashedPassword: user.hashedPassword ?? "",
-                          onPasswordChanged: (hashedPassword) async {
-                            await ctrl.updateProfile(
-                              context,
-                              user.copyWith(hashedPassword: hashedPassword)
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                  theme: theme,
-                  size: size,
-                ),
-
-                const SizedBox(height: 16),
-
-                _buildMenuButton(
-                  icon: Icons.logout_rounded,
-                  label: 'Sign Out',
-                  onTap: () => ctrl.signOut(context),
-                  theme: theme,
-                  size: size,
-                  isDestructive: true,
-                ),
-                const SizedBox(height: 40),
-              ],
+                      );
+                    },
+                    theme: theme,
+                    size: size,
+                  ),
+          
+                  const SizedBox(height: 16),
+          
+                  _buildMenuButton(
+                    icon: Icons.logout_rounded,
+                    label: 'Sign Out',
+                    onTap: () => ctrl.signOut(context),
+                    theme: theme,
+                    size: size,
+                    isDestructive: true,
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           );
         },
