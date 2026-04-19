@@ -9,58 +9,48 @@ class DashboardController extends Connector {
 
   Future<Map<String, dynamic>> fetchDashboardStats() async {
     try {
-      print("📊 --- DASHBOARD FETCH START ---");
-
-      // 1. ACTIVE USERS
+      // 1. Get Total Active Users
+      // Matches your 'users' table and 'account_status' column
       final userResponse = await client
           .from('users')
           .select('user_id')
-          .ilike('account_status', 'active'); // ilike ignores upper/lowercase
+          .eq('account_status', 'active');
 
-      final int totalActiveUsers = (userResponse as List).length;
-      print("👥 Active Users Found: $totalActiveUsers");
+      final int totalActiveUsers = userResponse.length;
 
-      // 2. WEIGHT RECYCLED
-      // ⚠️ Make sure 'recyclingsubmission' matches your actual Supabase table name!
+      // 2. Get Total Weight Recycled
+      // Matches your 'recycle_submissions' table and 'weight' column
       final weightResponse = await client
-          .from('recyclingsubmission')
+          .from('recycle_submissions')
           .select('weight')
-          .ilike('status', 'approved'); // ilike ignores upper/lowercase
+          .eq('status', 'approved');
 
-      final weightList = weightResponse as List;
-      print("⚖️ Approved Submissions Found: ${weightList.length}");
-
-      double totalWeight = weightList.fold(0.0, (sum, item) {
+      double totalWeight = weightResponse.fold(0.0, (sum, item) {
         return sum + ((item['weight'] as num?)?.toDouble() ?? 0.0);
       });
 
-      // 3. TOTAL REVENUE
+      // 3. Get Total Revenue
+      // Matches your 'recyclepurchases' table and 'total_price' column
       final revenueResponse = await client
           .from('recyclepurchases')
           .select('total_price')
-          .ilike('payment_status', 'success'); // ilike ignores upper/lowercase
+          .eq('payment_status', 'success');
 
-      final revenueList = revenueResponse as List;
-      print("💰 Successful Purchases Found: ${revenueList.length}");
-
-      double totalRevenue = revenueList.fold(0.0, (sum, item) {
+      double totalRevenue = revenueResponse.fold(0.0, (sum, item) {
         return sum + ((item['total_price'] as num?)?.toDouble() ?? 0.0);
       });
 
-      // 4. POINTS LIABILITY
+      // 4. Get Points Liability
+      // Matches your 'users' table and 'total_points' column
       final pointsResponse = await client
           .from('users')
           .select('total_points');
 
-      final pointsList = pointsResponse as List;
-      print("🎁 Total User Wallets Found: ${pointsList.length}");
-
-      int pointsLiability = pointsList.fold(0, (sum, item) {
+      int pointsLiability = pointsResponse.fold(0, (sum, item) {
         return sum + ((item['total_points'] as num?)?.toInt() ?? 0);
       });
 
-      print("📊 --- DASHBOARD FETCH COMPLETE ---");
-
+      // Return the map exactly as the UI expects it
       return {
         'totalActiveUsers': totalActiveUsers,
         'totalWeightRecycled': totalWeight,
@@ -69,7 +59,7 @@ class DashboardController extends Connector {
       };
 
     } catch (e) {
-      print('❌ Error fetching dashboard stats: $e');
+      print('Error fetching dashboard stats: $e');
       rethrow;
     }
   }

@@ -265,22 +265,7 @@ class _HomeContentState extends State<_HomeContent> {
                 ),
 
               const SizedBox(height: 24),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // final userId = context.read<UserProvider>().user?.userId;
-                    // Navigator.push(context, MaterialPageRoute(builder: (_) => AppealPage(userId: userId!, submissionId: '',)));
-                  },
-                  icon: const Icon(Icons.assignment_outlined, size: 18),
-                  label: const Text("Apply Appeal"),
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
+
               const NearbyBinCard(),
               const SizedBox(height: 24),
               const PurchaseCard(),
