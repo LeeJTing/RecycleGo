@@ -43,28 +43,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true); // ✅ add this
-
     try {
+      // Call the controller we just built!
       final stats = await DashboardController().fetchDashboardStats();
 
+      // Once the data arrives, update the variables and redraw the screen
       if (mounted) {
         setState(() {
           _totalActiveUsers = stats['totalActiveUsers'];
           _totalWeightRecycled = stats['totalWeightRecycled'];
           _totalRevenue = stats['totalRevenue'];
           _pointsLiability = stats['pointsLiability'];
-          _isLoading = false;
+
+          _isLoading = false; // Turn off the loading spinner
         });
       }
     } catch (e) {
-      print("DASHBOARD ERROR: $e"); // <-- Look at your console output!
       if (mounted) {
         setState(() => _isLoading = false);
-        // Show the error on the screen so you know what broke
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Dashboard Error: $e'),
-              backgroundColor: Colors.red),
+            SnackBar(content: Text("Failed to load dashboard data: $e"))
         );
       }
     }
@@ -118,10 +116,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
-
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
 
     // Notice there is NO Scaffold here! The AdminHome provides the Scaffold.
     return RefreshIndicator(
