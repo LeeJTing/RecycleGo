@@ -5,16 +5,19 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/assets.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
-import 'package:recycle_go/view/admin/admin_inventory.dart';
+import 'package:recycle_go/view/admin/inventory/admin_inventory.dart';
 import 'package:recycle_go/view/admin/admin_voucher_management.dart';
 import 'package:recycle_go/view/admin/appealReview/appeal_review_screen.dart';
 import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/models/Notifications.dart';
+import 'package:recycle_go/view/admin/admin_station_registry.dart';
+import 'package:recycle_go/view/admin/MoreScreen.dart';
 
 // IMPORTANT: Import your dashboard file!
 import 'package:recycle_go/view/admin/admin_dashboard.dart';
+import 'appealReview/appeal_review_screen.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -141,15 +144,9 @@ class _AdminHomeState extends State<AdminHome> {
             ),
 
             SalomonBottomBarItem(
-              icon: const Icon(Icons.confirmation_number_outlined),
-              activeIcon: const Icon(Icons.confirmation_number),
-              title: const Text("Voucher"),
-            ),
-
-            SalomonBottomBarItem(
-              icon: const Icon(Icons.person_outline),
-              activeIcon: const Icon(Icons.person),
-              title: const Text("Profile"),
+              icon: const Icon(Icons.menu),
+              activeIcon: const Icon(Icons.menu_open),
+              title: const Text("More"),
             ),
           ],
         ),
@@ -254,7 +251,7 @@ class _AdminHomeState extends State<AdminHome> {
         Padding(
           padding: const EdgeInsets.only(right: 10),
           child: IconButton(
-            onPressed: () => setState(() => _currentIndex = 4),
+            onPressed: () => setState(() => _currentIndex = 5),
             icon: Consumer<AdminProvider>(
               builder: (context, adminProvider, _) {
                 final url = adminProvider.getProfileImageUrl();

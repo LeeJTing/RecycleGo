@@ -13,6 +13,8 @@ import 'dart:typed_data';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
+import 'package:recycle_go/services/notification_services.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -155,8 +157,9 @@ class _StationEditScreenState extends State<StationEditScreen> {
     String? finalImageUrl = _imageUrl;
 
     // ✅ 先决定最终 QR value
+    final uuid = Uuid();
     final finalQrValue = _qrCtrl.text.trim().isEmpty
-        ? 'ECO-${DateTime.now().millisecondsSinceEpoch}'
+        ? 'ECO-${uuid.v4()}'
         : _qrCtrl.text.trim();
 
     final hash = md5.convert(utf8.encode(finalQrValue)).toString();
@@ -220,10 +223,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
           final uri = Uri.parse(oldImageUrl);
           final segments = uri.pathSegments;
 
-          final oldPath = uri.pathSegments
-              .skipWhile((e) => e != 'station-images')
-              .skip(1)
-              .join('/');
+          final oldPath = uri.path.replaceFirst(
+            '/storage/v1/object/public/station-images/',
+            '',
+          );
 
           await client.storage
               .from('station-images')
@@ -331,11 +334,18 @@ class _StationEditScreenState extends State<StationEditScreen> {
       RecycleStation? result;
 
       if (_isEdit) {
-        // ✅ UPDATE
+        // ❌ 修改 → 不通知
         result = await model.updateStation(station);
       } else {
-        // ✅ INSERT
+        // ✅ 新建 → 才通知
         result = await model.insertStation(station);
+
+        if (result != null) {
+          await showStationCreatedNotification(
+            station.stationName.isNotEmpty ? station.stationName : "New Station",
+            station.address.isNotEmpty ? station.address : "Location not specified",
+          );
+        }
       }
 
       if (result != null) {
@@ -358,11 +368,9 @@ class _StationEditScreenState extends State<StationEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgGrey,
-      bottomNavigationBar: _BottomNav(selected: 1),
+      bottomNavigationBar: null,
       body: SafeArea(
         child: Column(children: [
-          // ── Top bar ────────────────────────────────────────────────
-          _TopBar(isEdit: _isEdit),
           // ── Scrollable form ────────────────────────────────────────
           Expanded(
             child: SingleChildScrollView(
@@ -790,43 +798,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
 // ─────────────────────────────────────────────────────────────────────
 // Sub-widgets
 // ─────────────────────────────────────────────────────────────────────
-
-class _TopBar extends StatelessWidget {
-  final bool isEdit;
-  const _TopBar({required this.isEdit});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: Row(children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: const Icon(Icons.arrow_back_ios_new,
-              size: 18, color: _darkGreen),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          width: 24, height: 24,
-          decoration: const BoxDecoration(color: _green, shape: BoxShape.circle),
-          child: const Icon(Icons.eco, color: Colors.white, size: 14),
-        ),
-        const SizedBox(width: 8),
-        const Text('STATION REGISTRY',
-            style: TextStyle(
-                fontWeight: FontWeight.w800, fontSize: 14,
-                letterSpacing: 1.2, color: _darkGreen)),
-        const Spacer(),
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: const Color(0xFFEAF7EE),
-          child: const Icon(Icons.person, color: _darkGreen, size: 16),
-        ),
-      ]),
-    );
-  }
-}
 
 class _Breadcrumb extends StatelessWidget {
   final bool isEdit;

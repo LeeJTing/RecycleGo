@@ -4,6 +4,9 @@ import 'package:recycle_go/models/RecycleStations.dart';
 import 'package:recycle_go/view/admin/admin_station_edit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:recycle_go/provider/AdminProvider.dart';
+import 'package:recycle_go/app/routes.dart';
 
 const _green     = Color(0xFF1DB954);
 const _darkGreen = Color(0xFF0D3B1F);
@@ -158,10 +161,9 @@ class _StationRegistryScreenState extends State<StationRegistryScreen> {
         backgroundColor: _green,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-      bottomNavigationBar: _BottomNav(selected: 1),
+      bottomNavigationBar: null,
       body: SafeArea(
         child: Column(children: [
-          _TopBar(),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 100),
@@ -284,9 +286,17 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(children: [
         Container(
-          width: 26, height: 26,
-          decoration: const BoxDecoration(color: _green, shape: BoxShape.circle),
-          child: const Icon(Icons.eco, color: Colors.white, size: 15),
+          width: 38, height: 38,
+          decoration: null,
+          child: Padding(
+            padding: const EdgeInsets.all(4), // 🔥 让logo不要贴边
+            child: Image.asset(
+              'assets/images/logo.webp',
+              width: 38,
+              height: 38,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
         const SizedBox(width: 8),
         const Text('STATION REGISTRY',
@@ -300,9 +310,32 @@ class _TopBar extends StatelessWidget {
             color: const Color(0xFFEAF7EE),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Text('AU',
-              style: TextStyle(
-                  color: _green, fontWeight: FontWeight.w700, fontSize: 12)),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              Navigator.pushNamed(context, Routes.adminProfile);
+            },
+            child: Consumer<AdminProvider>(
+              builder: (context, adminProvider, _) {
+                final url = adminProvider.getProfileImageUrl();
+
+                return CircleAvatar(
+                  radius: 14,
+                  backgroundColor: _green.withOpacity(0.1),
+                  child: ClipOval(
+                    child: Image.network(
+                      url,
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.person, size: 16, color: _green),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ]),
     );
