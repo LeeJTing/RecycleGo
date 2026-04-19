@@ -36,6 +36,25 @@ class _StationEditScreenState extends State<StationEditScreen> {
   bool get _isEdit => widget.station != null;
   late final TextEditingController _capacityCtrl;
 
+  Future<bool> _isQrDuplicate(String qrValue) async {
+    final client = Supabase.instance.client;
+
+    final res = await client
+        .from('recyclestation')
+        .select('station_id')
+        .eq('qr_code_value', qrValue)
+        .maybeSingle();
+
+    if (res == null) return false;
+
+    // ✅ 如果是 edit，要排除自己
+    if (_isEdit && res['station_id'] == widget.station!.stationId) {
+      return false;
+    }
+
+    return true;
+  }
+
   Future<File> generateQrImage(String data) async {
     final painter = QrPainter(
       data: data,
@@ -164,6 +183,15 @@ class _StationEditScreenState extends State<StationEditScreen> {
     final finalQrValue = _qrCtrl.text.trim().isEmpty
         ? 'ECO-${uuid.v4()}'
         : _qrCtrl.text.trim();
+
+    final isDuplicate = await _isQrDuplicate(finalQrValue);
+
+    if (isDuplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('QR Code already exists ❌')),
+      );
+      return;
+    }
 
     final hash = md5.convert(utf8.encode(finalQrValue)).toString();
 

@@ -231,7 +231,7 @@ class QrScanScreenState extends State<QrScanScreen>
       backgroundColor: Colors.black,
       body: Stack(children: [
         MobileScanner(
-          key: ValueKey(_cameraController), // ⭐ 核心
+          key: ValueKey(_cameraController),
           controller: _cameraController,
           onDetect: _onDetect,
         ),
@@ -275,8 +275,11 @@ class QrScanScreenState extends State<QrScanScreen>
                 ),
                 _ManualEntryButton(onTap: _showManualEntryDialog),
                 _ControlButton(
-                    icon: Icons.close,
-                    onTap: () => Navigator.pop(context)),
+                  icon: Icons.close,
+                  onTap: () {
+                    Navigator.pushReplacementNamed(context, Routes.map);
+                  },
+                ),
               ],
             ),
           ),
