@@ -245,4 +245,44 @@ class RecyclePurchasesModel extends Connector {
       rethrow;
     }
   }
+
+  Future<bool> updatePurchaseStatus({
+    required String purchaseId,
+    required String paymentStatus,
+    required String pickupStatus,
+  }) async {
+    final payment = paymentStatus.toLowerCase();
+    final pickup = pickupStatus.toLowerCase();
+
+    // ✅ Validate payment status
+    if (!RecyclePurchases.allowedPaymentStatuses.contains(payment)) {
+      throw Exception(
+          'Invalid payment status. Must be one of ${RecyclePurchases.allowedPaymentStatuses}');
+    }
+
+    if (!RecyclePurchases.allowedPickupStatuses.contains(pickup)) {
+      throw Exception(
+          'Invalid pickup status. Must be one of ${RecyclePurchases.allowedPickupStatuses}');
+    }
+
+    try {
+      final response = await client
+          .from('recyclepurchases')
+          .update({
+        'payment_status': payment,
+        'pickup_status': pickup,
+      })
+          .eq('purchase_id', purchaseId)
+          .select();
+
+      if (response.isEmpty) {
+        throw Exception("Update failed: No record found.");
+      }
+
+      return true;
+    } catch (e) {
+      print('Error updating purchase status: $e');
+      rethrow;
+    }
+  }
 }

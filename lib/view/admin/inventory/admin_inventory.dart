@@ -251,10 +251,10 @@ class _AdminInventoryState extends State<AdminInventory> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12), // Slightly tighter margin
       decoration: BoxDecoration(
         color: theme.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16), // Slightly smaller radius to match compact feel
         border: Border.all(color: theme.border.withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
@@ -265,22 +265,22 @@ class _AdminInventoryState extends State<AdminInventory> {
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.pushNamed(
           context,
           Routes.adminViewInventory,
           arguments: item,
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12), // Reduced padding for a more compact card
           child: Row(
             children: [
               // IMAGE
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  width: 90,
-                  height: 100,
+                  width: 80, // Slightly smaller image
+                  height: 90,
                   color: theme.surfaceVariant,
                   child: item.imgPath.isNotEmpty
                       ? (item.imgPath.startsWith('http')
@@ -290,7 +290,7 @@ class _AdminInventoryState extends State<AdminInventory> {
                     errorBuilder: (_, __, ___) => Icon(
                       Icons.inventory_2_outlined,
                       color: theme.primary,
-                      size: 36,
+                      size: 30,
                     ),
                   )
                       : Image.asset(
@@ -299,45 +299,48 @@ class _AdminInventoryState extends State<AdminInventory> {
                     errorBuilder: (_, __, ___) => Icon(
                       Icons.inventory_2_outlined,
                       color: theme.primary,
-                      size: 36,
+                      size: 30,
                     ),
                   ))
                       : Icon(
                     Icons.inventory_2_outlined,
                     color: theme.primary,
-                    size: 36,
+                    size: 30,
                   ),
                 ),
               ),
 
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
 
               // CONTENT
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ✨ Smaller, compact title text (Changed from mediumText to fontSize: 14)
                     Text(
                       item.inventoryName.trim(),
-                      style: TextDesign.mediumText().copyWith(
+                      style: TextStyle(
+                        color: theme.onSurface,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
 
                     // BADGES
                     Wrap(
-                      spacing: 8,
+                      spacing: 6,
                       runSpacing: 4,
                       children: [
                         // STOCK BADGE
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                            horizontal: 6,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: stockColor.withOpacity(0.1),
@@ -347,7 +350,7 @@ class _AdminInventoryState extends State<AdminInventory> {
                             stockText,
                             style: TextStyle(
                               color: stockColor,
-                              fontSize: 10,
+                              fontSize: 9, // Smaller badge text
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -356,8 +359,8 @@ class _AdminInventoryState extends State<AdminInventory> {
                         // STATUS BADGE
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                            horizontal: 6,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: statusColor.withOpacity(0.1),
@@ -367,7 +370,7 @@ class _AdminInventoryState extends State<AdminInventory> {
                             item.status.name.toUpperCase(),
                             style: TextStyle(
                               color: statusColor,
-                              fontSize: 10,
+                              fontSize: 9, // Smaller badge text
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -375,40 +378,29 @@ class _AdminInventoryState extends State<AdminInventory> {
                       ],
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildInfoColumn(
-                          "Stock",
-                          "${weight.toStringAsFixed(1)} kg",
-                          theme,
-                        ),
-                        _buildInfoColumn(
-                          "Price",
-                          "RM ${price.toStringAsFixed(2)}",
-                          theme,
-                        ),
-                        _buildInfoColumn(
-                          "Min",
-                          "${minWeight.toStringAsFixed(1)} kg",
-                          theme,
-                        ),
+                        _buildInfoColumn("Stock", "${weight.toStringAsFixed(1)} kg", theme),
+                        _buildInfoColumn("Price", "RM ${price.toStringAsFixed(2)}", theme),
+                        _buildInfoColumn("Min", "${minWeight.toStringAsFixed(1)} kg", theme),
                       ],
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
 
+                    // ✨ Smaller footer text
                     Text(
                       "Cat ID: ${item.categoryId} • Updated: $dateFormatted",
-                      style: TextDesign.smallText(color: theme.hint),
+                      style: TextStyle(color: theme.hint, fontSize: 10),
                     ),
                   ],
                 ),
               ),
 
-              // ACTIONS
+              // ACTIONS (Slightly smaller icons to match text size)
               Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -417,15 +409,17 @@ class _AdminInventoryState extends State<AdminInventory> {
                       context,
                       Routes.adminUpdateInventory,
                       arguments: item,
-                    ).then((_) => _loadInventory()), // Reload data on return
-                    icon: Icon(Icons.edit_note_rounded, color: theme.warning),
+                    ).then((_) => _loadInventory()),
+                    icon: Icon(Icons.edit_note_rounded, color: theme.warning, size: 22),
+                    constraints: const BoxConstraints(), // Removes extra default padding
+                    padding: const EdgeInsets.all(8),
                   ),
+                  const SizedBox(height: 12),
                   IconButton(
                     onPressed: () => _confirmDelete(item, theme),
-                    icon: Icon(
-                      Icons.delete_outline_rounded,
-                      color: theme.error,
-                    ),
+                    icon: Icon(Icons.delete_outline_rounded, color: theme.error, size: 22),
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(8),
                   ),
                 ],
               ),
@@ -444,7 +438,7 @@ class _AdminInventoryState extends State<AdminInventory> {
           label,
           style: TextStyle(
             color: theme.hint,
-            fontSize: 10,
+            fontSize: 9, // Reduced label size
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -453,7 +447,7 @@ class _AdminInventoryState extends State<AdminInventory> {
           value,
           style: TextStyle(
             color: theme.onSurface,
-            fontSize: 13,
+            fontSize: 11, // Reduced value size (was 13)
             fontWeight: FontWeight.bold,
           ),
         ),

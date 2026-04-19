@@ -30,26 +30,22 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
 
   // --- DATABASE FETCH ---
   Future<void> _fetchData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
       final data = await RecyclePurchasesModel().fetchAllPurchases();
-      if (mounted) {
-        setState(() {
-          _allPurchases = data;
-          _isLoading = false;
-        });
-      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _allPurchases = List.from(data); // force new reference
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
     }
   }
 
