@@ -6,7 +6,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import '../../../controller/admin/submission_controller.dart';
 import '../../../provider/UserProvider.dart';
-import '../appeal/appeal_form_screen.dart'; // Import AppealPage for routing
+import '../appeal/appeal_form_screen.dart';
 
 class AllUserSubmission extends StatefulWidget {
   const AllUserSubmission({super.key});
@@ -20,12 +20,7 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
 
   String _searchQuery = "";
   String _selectedFilter = "All";
-  final List<String> _filterOptions = [
-    "All",
-    "Pending",
-    "Approved",
-    "Rejected"
-  ];
+  final List<String> _filterOptions = ["All", "Pending", "Approved", "Rejected"];
 
   List<Map<String, dynamic>> _mySubmissions = [];
   bool _isLoading = true;
@@ -46,9 +41,7 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
     });
 
     try {
-      final user = context
-          .read<UserProvider>()
-          .user;
+      final user = context.read<UserProvider>().user;
       final userId = user?.userId;
 
       if (userId == null) {
@@ -84,17 +77,13 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
     return _mySubmissions.where((sub) {
       final subId = sub['submission_id']?.toString() ?? "";
       final userId = sub['user_id']?.toString() ?? "";
-      final status = sub['status']?.toString().toLowerCase().trim() ??
-          "pending";
+      final status = sub['status']?.toString().toLowerCase().trim() ?? "pending";
 
-      // 1. Search Filter
       final query = _searchQuery.toLowerCase();
       final matchesSearch = query.isEmpty ||
           subId.toLowerCase().contains(query) ||
           userId.toLowerCase().contains(query);
 
-      // 2. Status Filter
-      // We check for both "reject" and "rejected" just in case!
       bool matchesStatus = false;
       if (_selectedFilter == "All") {
         matchesStatus = true;
@@ -111,9 +100,12 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
   @override
   Widget build(BuildContext context) {
     final theme = AppThemes.color;
-
-    // ✨ Grab the filtered list!
     final displayData = _filteredSubmissions;
+
+    // ✨ ADAPTIVE SIZING LOGIC
+    // Get screen width to dynamically adjust margins
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth > 600 ? 32.0 : 16.0;
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -123,64 +115,63 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Search Bar
-          _buildSearchBar(theme),
+      // ✨ SafeArea prevents clipping on notches/dynamic islands
+      body: SafeArea(
+        child: Center(
+          // ✨ ConstrainedBox stops the UI from looking ridiculously wide on iPads/Tablets
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchBar(theme, horizontalPadding),
+                _buildFilterRow(theme, horizontalPadding),
 
-          // 2. Filter Row
-          _buildFilterRow(theme),
+                Padding(
+                  padding: EdgeInsets.only(left: horizontalPadding + 4.0, top: 16.0, bottom: 8.0),
+                  child: Text("All History", style: TextDesign.headingThree()),
+                ),
 
-          Padding(
-            padding: const EdgeInsets.only(left: 20.0, top: 16.0, bottom: 8.0),
-            child: Text("All History", style: TextDesign.headingThree()),
-          ),
-
-          // 3. Submissions List
-          Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: theme.primary))
-                : _errorMessage != null
-                ? Center(child: Text(_errorMessage!,
-                style: TextDesign.normalText(color: theme.error)))
-                : displayData.isEmpty
-                ? Center(child: Text("No submissions found.",
-                style: TextDesign.normalText(color: theme.hint)))
-                : RefreshIndicator(
-              onRefresh: _fetchMySubmissions,
-              color: theme.primary,
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 8),
-                itemCount: displayData.length,
-                itemBuilder: (context, index) {
-                  // ✨ Use your custom card builder
-                  return _buildSubmissionCard(displayData[index], theme);
-                },
-              ),
+                Expanded(
+                  child: _isLoading
+                      ? Center(child: CircularProgressIndicator(color: theme.primary))
+                      : _errorMessage != null
+                      ? Center(child: Text(_errorMessage!, style: TextDesign.normalText(color: theme.error)))
+                      : displayData.isEmpty
+                      ? Center(child: Text("No submissions found.", style: TextDesign.normalText(color: theme.hint)))
+                      : RefreshIndicator(
+                    onRefresh: _fetchMySubmissions,
+                    color: theme.primary,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+                      itemCount: displayData.length,
+                      itemBuilder: (context, index) {
+                        return _buildSubmissionCard(displayData[index], theme);
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
   // --- UI COMPONENTS ---
 
-  Widget _buildSearchBar(AppColors theme) {
+  Widget _buildSearchBar(AppColors theme, double padding) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: EdgeInsets.fromLTRB(padding, 16, padding, 8),
       child: Container(
         height: 50,
         decoration: BoxDecoration(
           color: theme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 4))
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))
           ],
           border: Border.all(color: theme.border.withOpacity(0.5)),
         ),
@@ -199,10 +190,10 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
     );
   }
 
-  Widget _buildFilterRow(AppColors theme) {
+  Widget _buildFilterRow(AppColors theme, double padding) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: padding, vertical: 8),
       child: Row(
         children: _filterOptions.map((filter) {
           final isSelected = _selectedFilter == filter;
@@ -212,22 +203,19 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
               onTap: () => setState(() => _selectedFilter = filter),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected ? theme.primary : theme.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? theme.primary : theme.border
-                        .withOpacity(0.5),
+                    color: isSelected ? theme.primary : theme.border.withOpacity(0.5),
                   ),
                 ),
                 child: Text(
                   filter,
                   style: TextStyle(
                     color: isSelected ? Colors.white : theme.onSurface,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight
-                        .normal,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     fontSize: 13,
                   ),
                 ),
@@ -239,18 +227,26 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
     );
   }
 
-  Widget _buildSubmissionCard(Map<String, dynamic> submission,
-      AppColors theme) {
-    final status = submission['status']?.toString().toLowerCase().trim() ??
-        'pending';
+  Widget _buildSubmissionCard(Map<String, dynamic> submission, AppColors theme) {
+    final status = submission['status']?.toString().toLowerCase().trim() ?? 'pending';
     final weight = submission['weight']?.toString() ?? '0.0';
     final points = submission['point_award']?.toString() ?? '0';
     final subId = submission['submission_id']?.toString();
 
+    // Date Logic
+    final submittedAtStr = submission['submitted_at']?.toString() ?? submission['submissionAt']?.toString();
+    DateTime? submittedDate;
+    String dateFormatted = "Unknown Date";
+
+    if (submittedAtStr != null) {
+      submittedDate = DateTime.tryParse(submittedAtStr);
+      if (submittedDate != null) {
+        dateFormatted = "${submittedDate.day.toString().padLeft(2, '0')}/${submittedDate.month.toString().padLeft(2, '0')}/${submittedDate.year}";
+      }
+    }
+
     final isRejected = status == 'rejected' || status == 'reject';
     final isApproved = status == 'approved';
-
-    // ✨ NEW: Both Rejected and Approved items can now be appealed!
     final canAppeal = isRejected || isApproved;
 
     // Determine status colors
@@ -268,63 +264,35 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
       decoration: BoxDecoration(
         color: isRejected ? theme.error.withOpacity(0.05) : theme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: isRejected ? theme.error.withOpacity(0.3) : theme.border
-                .withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 4))
-        ],
+        border: Border.all(color: isRejected ? theme.error.withOpacity(0.3) : theme.border.withOpacity(0.5)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            // --- 1. PENDING CONSTRAINT ---
             if (status == 'pending') {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: const Text(
-                        "You cannot appeal an item that is still under review."),
-                    backgroundColor: theme.warning
-                ),
+                SnackBar(content: const Text("You cannot appeal an item that is still under review."), backgroundColor: theme.warning),
               );
               return;
             }
 
-            // --- 2. THE 7-DAY APPEAL CONSTRAINT ---
             if (canAppeal && subId != null) {
-              final submittedAtStr = submission['submitted_at']?.toString();
-
-              if (submittedAtStr != null) {
-                final submittedAt = DateTime.tryParse(submittedAtStr);
-                if (submittedAt != null) {
-                  final daysPassed = DateTime
-                      .now()
-                      .difference(submittedAt)
-                      .inDays;
-
-                  if (daysPassed > 7) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: const Text(
-                              "Appeals must be submitted within 7 days of the original submission."),
-                          backgroundColor: theme.error
-                      ),
-                    );
-                    return; // Stop them from going to the appeal page!
-                  }
+              if (submittedDate != null) {
+                final daysPassed = DateTime.now().difference(submittedDate).inDays;
+                if (daysPassed > 7) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: const Text("Appeals must be submitted within 7 days of the original submission."), backgroundColor: theme.error),
+                  );
+                  return;
                 }
               }
 
-              // --- 3. ALL CONSTRAINTS PASSED -> ROUTE TO APPEAL PAGE ---
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => AppealPage(submissionId: subId),
-                ),
+                MaterialPageRoute(builder: (_) => AppealPage(submissionId: subId)),
               );
             }
           },
@@ -342,29 +310,30 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isApproved ? Icons.check_circle : isRejected ? Icons
-                        .error_outline : Icons.access_time,
+                    isApproved ? Icons.check_circle : isRejected ? Icons.error_outline : Icons.access_time,
                     color: statusColor,
                     size: 24,
                   ),
                 ),
                 const SizedBox(width: 16),
 
-                // Text Info
+                // Text Info (Wrapped in Expanded so it never overflows)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "$weight kg",
-                        style: TextDesign.normalText().copyWith(
-                            fontWeight: FontWeight.bold),
+                      "${(double.tryParse(weight.toString()) ?? 0).toStringAsFixed(1)} kg • $dateFormatted",
+                        style: TextDesign.smallText().copyWith(fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis, // Truncates gracefully on tiny screens
                       ),
                       const SizedBox(height: 4),
                       Text(
                         isRejected ? "Needs Review" : "Awarded: $points pts",
-                        style: TextDesign.smallText(
-                            color: isRejected ? theme.error : theme.hint),
+                        style: TextDesign.smallText(color: isRejected ? theme.error : theme.hint),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -375,20 +344,16 @@ class _AllUserSubmissionState extends State<AllUserSubmission> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         status.toUpperCase(),
-                        style: TextStyle(color: statusColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11),
+                        style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
                       ),
                     ),
-                    // ✨ Show the arrow for BOTH Approved and Rejected items now!
                     if (canAppeal) ...[
                       const SizedBox(width: 8),
                       Icon(Icons.chevron_right, size: 20, color: theme.hint),

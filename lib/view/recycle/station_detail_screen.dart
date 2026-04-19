@@ -134,7 +134,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
           },
         ];
 
-        capacity = ((total / maxCap) * 100).clamp(0, 100).toInt();
+        capacity = ((total / maxCap) * 100).clamp(0, 100).round();
         remainingKg = (maxCap - total).clamp(0, maxCap).toInt();
         isFull = full;
         co2Kg = co2;
@@ -160,6 +160,27 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 👇 返回按钮
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new,
+                            size: 30,
+                            color: Color(0xFF0D1F0D),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
 
                   _StationHeaderCard(
                     station: widget.station,

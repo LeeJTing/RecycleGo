@@ -451,7 +451,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
           pointAward: totalPointsEarned.toDouble(),
           categoryId: categoryId,
           status:
-          SubmissionStatus.pending.name,
+          SubmissionStatus.approved.name,
           photoUrl: uploadedPhotoUrl,
         );
 
