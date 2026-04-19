@@ -156,7 +156,7 @@ class _MainAppState extends State<MainApp> {
     super.initState();
     _initFCM();
     
-    // Safety delay to ensure base structure is rendered
+    // Step 1: Initialize the base app and wait for stability
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         _isAppReady.value = true;
@@ -175,8 +175,10 @@ class _MainAppState extends State<MainApp> {
   Future<void> _initDeepLinks() async {
     _appLinks = AppLinks();
 
+    // Handle links while app is in background/foreground
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
+        debugPrint('DEBUG: Received Link from Stream: $uri');
         _handleDeepLink(uri);
       },
       onError: (err) {
@@ -184,17 +186,25 @@ class _MainAppState extends State<MainApp> {
       },
     );
 
+    // Handle links that opened the app (Cold Start)
     try {
       final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
         debugPrint('DEBUG: Cold Start Link: $initialUri');
-        // Wait until app is ready before processing the cold start link
+        // We wait for the app to be ready before processing the cold start link
         if (_isAppReady.value) {
           _handleDeepLink(initialUri);
         } else {
-          _isAppReady.addListener(() {
-            if (_isAppReady.value) _handleDeepLink(initialUri);
-          });
+          late VoidCallback listener;
+
+          listener = () {
+            if (_isAppReady.value) {
+              _handleDeepLink(initialUri);
+              _isAppReady.removeListener(listener);
+            }
+          };
+
+          _isAppReady.addListener(listener);
         }
       }
     } catch (e) {
@@ -209,8 +219,9 @@ class _MainAppState extends State<MainApp> {
     final scheme = uri.scheme.toLowerCase();
     final path = uri.path.toLowerCase();
 
-    if ((host == 'recyclego' || scheme == 'recyclego') &&
-        (path.contains('reset-password') || host == 'reset-password')) {
+    // Supports recyclego://reset-password and https://recyclego/reset-password
+    if ((scheme == 'recyclego' && host == 'reset-password') ||
+        (scheme == 'https' && path == '/reset-password')) {
       final token = uri.queryParameters['token'];
 
       if (token != null && token.isNotEmpty && !_handledTokens.contains(token)) {
@@ -225,16 +236,8 @@ class _MainAppState extends State<MainApp> {
     
     _isNavigating = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Small delay ensures screen transitions don't conflict with build
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (_navigatorKey.currentState != null) {
-          _navigatorKey.currentState?.pushNamed(routeName, arguments: args).then((_) {
-            _isNavigating = false;
-          });
-        } else {
-          _isNavigating = false;
-        }
-      });
+      _navigatorKey.currentState?.pushNamed(routeName, arguments: args);
+      _isNavigating = false;
     });
   }
 

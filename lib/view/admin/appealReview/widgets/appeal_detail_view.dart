@@ -295,14 +295,6 @@ class _AppealDetailViewState extends State<AppealDetailView> {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  "ID: ${widget.appeal.submissionId.substring(0, 8).toUpperCase()}",
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
             ],
           ),
         ),

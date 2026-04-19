@@ -3,6 +3,7 @@ import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/controller/admin/admin_management_ctrl.dart';
 import 'package:recycle_go/models/Admins.dart';
+import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/services/email_service.dart';
 import 'package:recycle_go/utils/validators.dart';
 import 'package:recycle_go/view/autho/widgets/auth_label.dart';
@@ -77,6 +78,7 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
                     onChanged: (_) => _validateFields(),
                     hintText: 'Enter username',
                     prefixIcon: Icon(Icons.person_outline, color: theme.onHint, size: 20),
+                    borderColor: _usernameController.text.isNotEmpty && !_isUsernameValid ? theme.error : null,
                     errorText: _usernameController.text.isNotEmpty && !_isUsernameValid ? 'Only letters and spaces allowed' : null,
                   ),
                   const SizedBox(height: 20),
@@ -88,6 +90,7 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
                     hintText: 'Enter email',
                     keyboardType: TextInputType.emailAddress,
                     prefixIcon: Icon(Icons.email_outlined, color: theme.onHint, size: 20),
+                    borderColor: _emailController.text.isNotEmpty && !_isEmailValid ? theme.error : null,
                     errorText: _emailController.text.isNotEmpty && !_isEmailValid ? 'Please enter a valid email address' : null,
                   ),
                   const SizedBox(height: 20),
@@ -158,10 +161,26 @@ class _AddAdminScreenState extends State<AddAdminScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final email = _emailController.text.trim();
+
+      // Dual check email uniqueness across BOTH tables
+      final adminExists = await AdminsModel().emailIsExist(email);
+      final userExists = await UsersModel().emailIsExist(email);
+
+      if (adminExists || userExists) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This email is already registered.')),
+          );
+        }
+        return;
+      }
+
       // 1. Create Admin with placeholder password
       final tempAdmin = Admins(
         username: _usernameController.text.trim(),
-        email: _emailController.text.trim(),
+        email: email,
         adminStatus: 'active',
         role: _selectedRole,
         hashedPassword: 'TEMPORARY_PLACEHOLDER', // Will be reset via link
