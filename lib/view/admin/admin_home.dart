@@ -14,6 +14,7 @@ import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/models/Notifications.dart';
 import 'package:recycle_go/view/admin/admin_dashboard.dart';
 import 'appealReview/appeal_review_screen.dart';
+import 'package:recycle_go/view/admin/admin_station_registry.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -32,7 +33,7 @@ class _AdminHomeState extends State<AdminHome> {
     AdminDashboard(),
     AppealReviewScreen(),
     AdminInventory(),
-    AdminVoucherManagement(),
+    StationRegistryScreen(),
     AdminProfileScreen(),
   ];
 
@@ -140,9 +141,9 @@ class _AdminHomeState extends State<AdminHome> {
             ),
 
             SalomonBottomBarItem(
-              icon: const Icon(Icons.confirmation_number_outlined),
-              activeIcon: const Icon(Icons.confirmation_number),
-              title: const Text("Voucher"),
+              icon: const Icon(Icons.location_on_outlined),
+              activeIcon: const Icon(Icons.location_on),
+              title: const Text("Stations"),
             ),
 
             SalomonBottomBarItem(
@@ -161,7 +162,7 @@ class _AdminHomeState extends State<AdminHome> {
       case 0: return "Admin Dashboard";
       case 1: return "Appeal Review";
       case 2: return "Admin Inventory";
-      case 3: return "Admin Vouchers";
+      case 3: return "Station Registry";
       case 4: return "Admin Profile";
       default: return "";
     }
