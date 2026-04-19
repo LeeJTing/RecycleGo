@@ -26,6 +26,11 @@ class _AdminInventoryState extends State<AdminInventory> {
   void initState() {
     super.initState();
     _loadInventory();
+
+    // ✨ ADD THIS: Tell the provider to grab the categories when the screen loads!
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CategoryProvider>().fetchCategories();
+    });
   }
 
   Future<void> _loadInventory() async {

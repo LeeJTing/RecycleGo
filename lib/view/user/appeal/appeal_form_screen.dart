@@ -220,9 +220,9 @@ class _AppealPageState extends State<AppealPage> {
 
           _buildDetailRow("Current Status", status.toUpperCase(), theme, customColor: statusColor),
           const SizedBox(height: 8),
-          _buildDetailRow("Your Reason", appealData!['appeal_reason'] ?? '', theme),
+          _buildDetailRow("Your Reason", appealData?['appeal_reason'] ?? '', theme),
 
-          if (appealData!['admin_comment'] != null) ...[
+          if (appealData?['admin_comment'] != null) ...[
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 12),
@@ -231,7 +231,7 @@ class _AppealPageState extends State<AppealPage> {
 
           if (appealData!['points_given'] != null) ...[
             const SizedBox(height: 8),
-            _buildDetailRow("Points Awarded", "+${appealData!['points_given']}", theme, customColor: theme.success),
+            _buildDetailRow("Points Awarded", "+${appealData?['points_given']}", theme, customColor: theme.success),
           ],
         ],
       ),
@@ -277,13 +277,13 @@ class _AppealPageState extends State<AppealPage> {
         ),
         const SizedBox(height: 24),
 
-        if (appealData!['admin_comment'] != null) ...[
+        if (appealData?['admin_comment'] != null) ...[
           const SizedBox(height: 12),
           const Divider(),
           const SizedBox(height: 12),
           _buildDetailRow(
             "Admin Reply",
-            appealData!['admin_comment']?.toString().isNotEmpty == true
+            appealData?['admin_comment']?.toString().isNotEmpty == true
                 ? appealData!['admin_comment']
                 : "No response yet",
             theme,
