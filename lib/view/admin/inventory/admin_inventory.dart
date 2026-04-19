@@ -18,41 +18,61 @@ class _AdminInventoryState extends State<AdminInventory> {
   List<RecycleInventory> _inventoryItems = [];
   bool _isLoading = true;
   String _searchQuery = "";
-  String _selectedInventory = "All";
+
+  // Unified the filter variable to match your bottom sheet
   String _selectedCategory = "All";
 
   @override
   void initState() {
     super.initState();
     _loadInventory();
+
+    // ✨ ADD THIS: Tell the provider to grab the categories when the screen loads!
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CategoryProvider>().fetchCategories();
+    });
   }
 
   Future<void> _loadInventory() async {
     setState(() => _isLoading = true);
     try {
       final items = await InventoryController.getInventory(); // caching active
-      setState(() {
-        _inventoryItems = items;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _inventoryItems = items;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      e.toString();
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
   List<RecycleInventory> get _filteredItems {
+    final categoryProvider = context.read<CategoryProvider>();
+
     return _inventoryItems.where((item) {
+      // 1. Search Filter
       final searchLower = _searchQuery.toLowerCase().trim();
       final matchesSearch =
           searchLower.isEmpty ||
-          item.inventoryName.toLowerCase().contains(searchLower);
+              item.inventoryName.toLowerCase().contains(searchLower);
 
-      final matchesInventory =
-          _selectedInventory == "All" ||
-          item.inventoryName.trim().toLowerCase() ==
-              _selectedInventory.trim().toLowerCase();
+      // 2. Category Filter
+      bool matchesCategory = true;
+      if (_selectedCategory != "All") {
+        // Find the category ID that matches the selected name
+        final targetCategory = categoryProvider.categories.firstWhere(
+              (c) => c.categoryName == _selectedCategory,
+          orElse: () => categoryProvider.categories.first, // Fallback
+        );
+        matchesCategory = item.categoryId == targetCategory.categoryId;
+      }
 
-      return matchesSearch && matchesInventory;
+      return matchesSearch && matchesCategory;
     }).toList();
   }
 
@@ -72,41 +92,57 @@ class _AdminInventoryState extends State<AdminInventory> {
     final theme = AppThemes.color;
     final displayData = _filteredItems;
 
+    // Adaptive layout variables
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth > 600 ? 32.0 : 16.0;
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _inventoryItems.isEmpty
-          ? _buildNoDataState(theme)
-          : _filteredItems.isEmpty
-          ? _buildEmptyState(theme)
-          : Column(
+      backgroundColor: theme.background,
+      body: SafeArea(
+        child: _isLoading
+            ? Center(child: CircularProgressIndicator(color: theme.primary))
+            : Center(
+          // Constrains the list width on tablets so it doesn't stretch out
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: _inventoryItems.isEmpty
+                ? _buildNoDataState(theme)
+                : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSearchHeader(theme),
+                _buildSearchHeader(theme, horizontalPadding),
                 Padding(
-                  padding: const EdgeInsets.only(
-                    left: 28.0,
+                  padding: EdgeInsets.only(
+                    left: horizontalPadding + 12.0,
                     top: 12.0,
                     bottom: 8.0,
                   ),
                   child: Text("Items", style: TextDesign.headingThree()),
                 ),
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                  child: displayData.isEmpty
+                      ? _buildEmptyState(theme)
+                      : ListView.builder(
+                    padding: EdgeInsets.only(
+                      left: horizontalPadding,
+                      right: horizontalPadding,
+                      bottom: 80, // Padding for the FAB
                     ),
-                    itemCount: _filteredItems.length,
+                    itemCount: displayData.length,
                     itemBuilder: (context, index) =>
-                        _buildInventoryCard(_filteredItems[index], theme),
+                        _buildInventoryCard(displayData[index], theme),
                   ),
                 ),
               ],
             ),
+          ),
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, Routes.adminAddInventory),
+        onPressed: () => Navigator.pushNamed(context, Routes.adminAddInventory).then((_) {
+          // Reload inventory when returning from the Add screen
+          _loadInventory();
+        }),
         backgroundColor: theme.primary,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -140,9 +176,9 @@ class _AdminInventoryState extends State<AdminInventory> {
     );
   }
 
-  Widget _buildSearchHeader(AppColors theme) {
+  Widget _buildSearchHeader(AppColors theme, double padding) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: padding, vertical: 16),
       child: Row(
         children: [
           Expanded(
@@ -155,13 +191,13 @@ class _AdminInventoryState extends State<AdminInventory> {
               ),
               child: TextField(
                 onChanged: (value) => setState(() => _searchQuery = value),
-                style: TextDesign.normalText(), // predefined
+                style: TextDesign.normalText(),
                 decoration: InputDecoration(
                   hintText: "Search items...",
-                  hintStyle: TextDesign.hintText(), // predefined
+                  hintStyle: TextDesign.hintText(),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: theme.primary,
+                    color: theme.hint,
                     size: 20,
                   ),
                   border: InputBorder.none,
@@ -211,7 +247,7 @@ class _AdminInventoryState extends State<AdminInventory> {
     String dateFormatted = "Unknown";
     if (item.updatedAt != null) {
       dateFormatted =
-          "${item.updatedAt!.year}-${item.updatedAt!.month.toString().padLeft(2, '0')}-${item.updatedAt!.day.toString().padLeft(2, '0')}";
+      "${item.updatedAt!.year}-${item.updatedAt!.month.toString().padLeft(2, '0')}-${item.updatedAt!.day.toString().padLeft(2, '0')}";
     }
 
     return Container(
@@ -220,8 +256,16 @@ class _AdminInventoryState extends State<AdminInventory> {
         color: theme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: theme.border.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
       child: InkWell(
+        borderRadius: BorderRadius.circular(20),
         onTap: () => Navigator.pushNamed(
           context,
           Routes.adminViewInventory,
@@ -240,29 +284,29 @@ class _AdminInventoryState extends State<AdminInventory> {
                   color: theme.surfaceVariant,
                   child: item.imgPath.isNotEmpty
                       ? (item.imgPath.startsWith('http')
-                            ? Image.network(
-                                item.imgPath,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(
-                                  Icons.inventory_2_outlined,
-                                  color: theme.primary,
-                                  size: 36,
-                                ),
-                              )
-                            : Image.asset(
-                                'assets/images/${item.imgPath}',
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(
-                                  Icons.inventory_2_outlined,
-                                  color: theme.primary,
-                                  size: 36,
-                                ),
-                              ))
+                      ? Image.network(
+                    item.imgPath,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.inventory_2_outlined,
+                      color: theme.primary,
+                      size: 36,
+                    ),
+                  )
+                      : Image.asset(
+                    'assets/images/${item.imgPath}',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.inventory_2_outlined,
+                      color: theme.primary,
+                      size: 36,
+                    ),
+                  ))
                       : Icon(
-                          Icons.inventory_2_outlined,
-                          color: theme.primary,
-                          size: 36,
-                        ),
+                    Icons.inventory_2_outlined,
+                    color: theme.primary,
+                    size: 36,
+                  ),
                 ),
               ),
 
@@ -287,6 +331,7 @@ class _AdminInventoryState extends State<AdminInventory> {
                     // BADGES
                     Wrap(
                       spacing: 8,
+                      runSpacing: 4,
                       children: [
                         // STOCK BADGE
                         Container(
@@ -308,7 +353,7 @@ class _AdminInventoryState extends State<AdminInventory> {
                           ),
                         ),
 
-                        // STATUS BADGE (FIXED ENUM)
+                        // STATUS BADGE
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -365,13 +410,14 @@ class _AdminInventoryState extends State<AdminInventory> {
 
               // ACTIONS
               Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pushNamed(
                       context,
                       Routes.adminUpdateInventory,
                       arguments: item,
-                    ),
+                    ).then((_) => _loadInventory()), // Reload data on return
                     icon: Icon(Icons.edit_note_rounded, color: theme.warning),
                   ),
                   IconButton(
@@ -390,7 +436,6 @@ class _AdminInventoryState extends State<AdminInventory> {
     );
   }
 
-  // Helper widget to keep the layout clean
   Widget _buildInfoColumn(String label, String value, AppColors theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,59 +462,61 @@ class _AdminInventoryState extends State<AdminInventory> {
   }
 
   void _showFilterSheet(BuildContext context, AppColors theme) {
-    // 1. Read the provider correctly
     final categoryProvider = context.read<CategoryProvider>();
 
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.surface,
+      isScrollControlled: true, // Allows sheet to size properly if list is long
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-        // 2. Build the list dynamically using the provider's data
         final filterOptions = [
           "All",
-          // Map through the provider's list of categories
           ...categoryProvider.categories.map((c) => c.categoryName),
         ];
 
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column( // Optional: Good practice to wrap in a column for bottom sheets
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                  "Filter by Category",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold) // Use your TextDesign here
-              ),
-              const SizedBox(height: 16),
-              Flexible( // Use Flexible to prevent overflow if the list gets too long
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: filterOptions.length,
-                  itemBuilder: (context, index) {
-                    final cat = filterOptions[index];
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.6, // Prevents taking up whole screen
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Filter by Category",
+                    style: TextDesign.headingThree(),
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: filterOptions.length,
+                      itemBuilder: (context, index) {
+                        final cat = filterOptions[index];
+                        bool isSelected = _selectedCategory == cat;
 
-                    // Assuming _selectedCategory is your state variable (you had _selectedInventory)
-                    bool isSelected = _selectedCategory == cat;
-
-                    return ListTile(
-                      title: Text(cat),
-                      trailing: isSelected
-                          ? Icon(Icons.check_circle, color: theme.primary)
-                          : null,
-                      onTap: () {
-                        // Update the state in the parent widget
-                        setState(() => _selectedCategory = cat);
-                        // Close the bottom sheet using the specific context
-                        Navigator.pop(sheetContext);
+                        return ListTile(
+                          title: Text(cat, style: TextDesign.normalText()),
+                          trailing: isSelected
+                              ? Icon(Icons.check_circle, color: theme.primary)
+                              : null,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          onTap: () {
+                            setState(() => _selectedCategory = cat);
+                            Navigator.pop(sheetContext);
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
@@ -480,6 +527,7 @@ class _AdminInventoryState extends State<AdminInventory> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: theme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text("Remove Item?", style: TextDesign.headingThree()),
         content: Text(
@@ -499,15 +547,18 @@ class _AdminInventoryState extends State<AdminInventory> {
                 await InventoryController.deleteInventory(item.inventoryId!);
                 await _loadInventory();
               } catch (e) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+                }
               } finally {
-                setState(() => _isLoading = false);
+                if (mounted) setState(() => _isLoading = false);
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: theme.error),
-            child: const Text("Delete", style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.error,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text("Delete", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

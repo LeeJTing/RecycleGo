@@ -14,6 +14,7 @@ import '../../../app/app_theme.dart';
 import '../../../app/assets.dart';
 import '../../../models/Recycle_category.dart';
 import '../../../models/RecyclingSubmission.dart';
+import '../../../models/Users.dart';
 import '../../../provider/UserProvider.dart';
 import '../../../utils/async_task_runner.dart';
 import 'package:recycle_go/services/LocalStorageService.dart';
@@ -327,7 +328,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
         highestIndex = i;
       }
     }
-    if (highestScore > 0.60 && highestIndex < labels.length) {
+    if (highestScore > 0.75 && highestIndex < labels.length) {
       temp.add({
         "tag": labels[highestIndex],
         "w": 200.0,
@@ -354,21 +355,28 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
 
   // --- SUBMISSION ---
   Future<void> _submitAndCollectPoints(
-    double totalPoints,
-    Map<String, dynamic> stats,
-  ) async {
+      double totalPoints,
+      Map<String, dynamic> stats,
+      ) async {
+    final Map<String, dynamic>? station = await LocalStorageService.getStation();
+
+    final String stationId = station?['station_id'];
+
+    if (station == null || station['station_id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Station ID not found')),
+      );
+      return;
+    }
+
     final File? imageFile = capturedImage;
     if (imageFile == null) return;
-    // if (_stationId == null) {
-    //   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Station ID not found')));
-    //   return;
-    // }
 
     await TaskRunner.run(
       context: context,
       loadingMessage: "Saving your submission...",
       successMessage:
-          "Awesome! You earned ${totalPoints.toStringAsFixed(2)} points.",
+      "Awesome! You earned ${totalPoints.toStringAsFixed(2)} points.",
       task: () async {
         final supabase = Supabase.instance.client;
 
@@ -380,13 +388,13 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
         await supabase.storage
             .from(bucketName)
             .uploadBinary(
-              fileName,
-              fileBytes,
-              fileOptions: FileOptions(
-                contentType: 'image/$fileExtension',
-                upsert: true,
-              ),
-            );
+          fileName,
+          fileBytes,
+          fileOptions: FileOptions(
+            contentType: 'image/$fileExtension',
+            upsert: true,
+          ),
+        );
         final String uploadedPhotoUrl = supabase.storage
             .from(bucketName)
             .getPublicUrl(fileName);
@@ -438,12 +446,12 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
 
         final newSubmission = RecycleSubmission(
           userId: userId,
-          stationId: '33333333-3333-3333-3333-000000000001',
+          stationId: stationId,
           weight: totalWeightKg,
           pointAward: totalPointsEarned.toDouble(),
           categoryId: categoryId,
           status:
-              SubmissionStatus.pending.name,
+          SubmissionStatus.pending.name,
           photoUrl: uploadedPhotoUrl,
         );
 
@@ -451,6 +459,16 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
             .from('recyclingsubmission')
             .insert(newSubmission.toJsonForInsert());
 
+        await UsersModel().addUserPoints(userId, totalPointsEarned);
+
+        if (mounted) {
+          final userProvider = context.read<UserProvider>();
+          if (userProvider.user != null) {
+            final currentPoints = userProvider.user!.totalPoints;
+            userProvider.updateUserPoints(currentPoints + totalPointsEarned.toInt());
+          }
+          Navigator.pop(context, true);
+        }
         setState(() {
           _hasMadeSubmission = true;
           userWallet += totalPointsEarned;
@@ -743,10 +761,10 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   }
 
   Widget _buildCalculationBreakdown(
-    double points,
-    Map<String, dynamic> stats,
-    AppColors theme,
-  ) {
+      double points,
+      Map<String, dynamic> stats,
+      AppColors theme,
+      ) {
     return Positioned(
       bottom: 50,
       left: 15,
@@ -819,10 +837,10 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
   }
 
   Widget _buildPointsAwardedCard(
-    double points,
-    Map<String, dynamic> stats,
-    AppColors theme,
-  ) {
+      double points,
+      Map<String, dynamic> stats,
+      AppColors theme,
+      ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24.0),
@@ -870,7 +888,7 @@ class _VerifyRecycleItemState extends State<VerifyRecycleItem> {
             )
           else
             ...stats.entries.map(
-              (e) => Padding(
+                  (e) => Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
