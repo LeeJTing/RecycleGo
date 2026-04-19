@@ -156,6 +156,9 @@ class _QrScanScreenState extends State<QrScanScreen>
         onContinue: () async {
           Navigator.pop(context);
 
+          // ✅ 加这个：记录验证时间
+          station['verified_at'] = DateTime.now().toIso8601String();
+
           // ✅ 存 local
           await LocalStorageService.saveStation(station);
 
