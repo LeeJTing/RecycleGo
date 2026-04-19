@@ -1184,66 +1184,27 @@ class _UserPurchaseScreenState extends State<UserPurchaseScreen> {
   }
 
   Widget _buildItemImage(RecycleInventory item, AppColors theme) {
-    // Supabase configuration
-    const supabaseUrl = 'https://fwxzqucfgkqmupvhgrob.supabase.co';
-    const bucketName =
-        'product-images'; // CHANGE THIS TO YOUR ACTUAL BUCKET NAME
-
-    // Check if image URL exists and is not empty
-    if (item.imgPath != null && item.imgPath!.isNotEmpty) {
-      String imageUrl = item.imgPath!;
-
-      // Handle network images (URLs starting with http)
-      if (imageUrl.startsWith('http')) {
-        return Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            print('Network image error for ${item.imgPath}: $error');
-            return _buildFallbackIcon(theme);
-          },
-        );
-      }
-      // Handle Supabase Storage paths - just filename or partial path
-      else if (!imageUrl.startsWith('/')) {
-        // Convert to Supabase Storage URL:
-        // https://fwxzqucfgkqmupvhgrob.supabase.co/storage/v1/object/public/product-images/FILENAME.webp
-        imageUrl =
-            '$supabaseUrl/storage/v1/object/public/$bucketName/$imageUrl';
-
-        return Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            print('Supabase storage image error for ${item.imgPath}: $error');
-            print('Attempted URL: $imageUrl');
-            return _buildFallbackIcon(theme);
-          },
-        );
-      }
-      // Handle local assets
-      else {
-        return Image.asset(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            print('Asset image error for ${item.imgPath}: $error');
-            return _buildFallbackIcon(theme);
-          },
-        );
-      }
+    if (item.imgPath == null || item.imgPath!.isEmpty) {
+      return Icon(Icons.inventory_2_outlined, color: theme.primary, size: 36);
     }
-    // Fallback icon
-    return _buildFallbackIcon(theme);
-  }
 
-  Widget _buildFallbackIcon(AppColors theme) {
-    return Center(
-      child: Icon(
-        Icons.inventory_2,
-        size: 60,
-        color: theme.primary.withOpacity(0.5),
-      ),
-    );
+    // If it's a network URL, use Image.network
+    if (item.imgPath!.startsWith('http')) {
+      return Image.network(
+        item.imgPath!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            Icon(Icons.inventory_2_outlined, color: theme.primary, size: 36),
+      );
+    }
+    // Otherwise treat it as a local asset
+    else {
+      return Image.asset(
+        'assets/images/${item.imgPath}',
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            Icon(Icons.inventory_2_outlined, color: theme.primary, size: 36),
+      );
+    }
   }
 }
