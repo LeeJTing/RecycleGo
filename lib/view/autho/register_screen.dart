@@ -6,7 +6,6 @@ import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/utils/validators.dart';
 import 'package:recycle_go/view/autho/widgets/auth_label.dart';
 import 'package:recycle_go/view/autho/widgets/auth_text_field.dart';
-import 'package:recycle_go/view/autho/widgets/social_auth_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -58,22 +57,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  String _invalidPhoneMessage(String countryCode) {
+  String _invalidPhoneMessage(String value, String countryCode) {
+    if (value.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'Numbers only allowed';
+    }
     switch (countryCode) {
-      case '+60': // Malaysia: Mobile numbers are usually 9 or 10 digits after prefix
-        return 'Please enter a valid Malaysia phone number (length is 9 or 10 digits)';
-      case '+65': // Singapore: 8 digits
-        return 'Please enter a valid Singapore phone number (length is 8 digits)';
-      case '+1':  // USA/Canada: 10 digits
-        return 'Please enter a valid American or Canadian phone number (length is 10 digits)';
-      case '+44': // UK: 10 digits (mobile)
-        return 'Please enter a valid UK phone number (length is 10 digits)';
-      case '+86': // China: 11 digits
-        return 'Please enter a valid China phone number (length is 11 digits)';
-      case '+91': // India: 10 digits
-        return 'Please enter a valid India phone number (length is 10 digits)';
-      default:
-        return '';
+      case '+60': return 'Enter a valid Malaysia phone number (9-10 digits)';
+      case '+65': return 'Enter a valid Singapore phone number (8 digits)';
+      case '+1':  return 'Enter a valid American/Canadian phone number (10 digits)';
+      case '+44': return 'Enter a valid UK phone number (10 digits)';
+      case '+86': return 'Enter a valid China phone number (11 digits)';
+      case '+91': return 'Enter a valid India phone number (10 digits)';
+      default: return 'Invalid phone number';
     }
   }
 
@@ -106,7 +101,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                // Background Image
                 Image.asset(
                   '${imagePath}background_image/register_background.png',
                   width: double.infinity,
@@ -118,7 +112,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Center(child: Icon(Icons.image, size: 50, color: theme.hint)),
                   ),
                 ),
-                // Leaf Icon and Title Section
                 Positioned(
                   top: size.height * 0.08,
                   left: 0,
@@ -149,7 +142,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                 ),
-                // Card header overlap
                 Positioned(
                   bottom: -1,
                   left: 0,
@@ -179,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onChanged: (_) => _validateFields(),
                     hintText: 'Adam Lim',
                     prefixIcon: Icon(Icons.person_outline, color: theme.onHint, size: 20),
-                    borderColor: ctrl.nameCtrl.text.isNotEmpty && !_isNameValid ? theme.error.withOpacity(0.3) : null,
+                    borderColor: ctrl.nameCtrl.text.isNotEmpty && !_isNameValid ? theme.error.withValues(alpha: 0.3) : null,
                     errorText: ctrl.nameCtrl.text.isNotEmpty && !_isNameValid ? 'Only letters and spaces allowed' : null,
                   ),
                   const SizedBox(height: 16),
@@ -192,16 +184,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     keyboardType: TextInputType.emailAddress,
                     readOnly: _isEmailFromGoogle,
                     prefixIcon: Icon(Icons.email_outlined, color: theme.onHint, size: 20),
-                    borderColor: ctrl.emailCtrl.text.isNotEmpty && !_isEmailValid ? theme.error.withOpacity(0.3) : null,
+                    borderColor: ctrl.emailCtrl.text.isNotEmpty && !_isEmailValid ? theme.error.withValues(alpha: 0.3) : null,
                     errorText: ctrl.emailCtrl.text.isNotEmpty && !_isEmailValid ? 'Please enter a valid email address' : null,
                   ),
                   const SizedBox(height: 16),
 
-                  const AuthLabel(text: 'Phone Number (Optional)'),
+                  AuthLabel(text: 'Phone Number (Optional)', isValid: _isPhoneValid),
                   AuthTextField(
                     controller: ctrl.phoneCtrl,
                     hintText: '123456789',
-                    keyboardType: TextInputType.phone,
+                    keyboardType: TextInputType.number,
                     onChanged: (_) => _validateFields(),
                     prefixIcon: Container(
                       width: 80,
@@ -229,7 +221,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ],
                       ),
                     ),
-                    errorText: ctrl.phoneCtrl.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_selectedCountryCode) : null,
+                    errorText: ctrl.phoneCtrl.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(ctrl.phoneCtrl.text, _selectedCountryCode) : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -240,7 +232,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hintText: '••••••••',
                     obscureText: _obscurePassword,
                     prefixIcon: Icon(Icons.lock_outline, color: theme.onHint, size: 20),
-                    borderColor: ctrl.passwordCtrl.text.isNotEmpty && _passwordStrength < 3 ? theme.error.withOpacity(0.3) : null,
+                    borderColor: ctrl.passwordCtrl.text.isNotEmpty && _passwordStrength < 3 ? theme.error.withValues(alpha: 0.3) : null,
                     errorText: ctrl.passwordCtrl.text.isNotEmpty && _passwordStrength < 3
                         ? 'should 7-12 chars and include either 3 of them Upper, Lower, Number or Special'
                         : null,
@@ -251,7 +243,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 10),
                   
-                  // Password Strength Bar
                   Row(
                     children: List.generate(4, (index) {
                       Color barColor = theme.border;
@@ -289,12 +280,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hintText: '••••••••',
                     obscureText: _obscureConfirmPassword,
                     prefixIcon: Icon(Icons.lock_outline, color: theme.onHint, size: 20),
-                    borderColor: ctrl.confirmPasswordCtrl.text.isNotEmpty && !_passwordsMatch ? theme.error.withOpacity(0.4) : null,
+                    borderColor: ctrl.confirmPasswordCtrl.text.isNotEmpty && !_passwordsMatch ? theme.error.withValues(alpha: 0.4) : null,
                     errorText: ctrl.confirmPasswordCtrl.text.isNotEmpty && !_passwordsMatch ? 'Passwords must match' : null,
                   ),
                   const SizedBox(height: 16),
 
-                  // Terms and Conditions
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -304,7 +294,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: Checkbox(
                           value: _agreeToTerms,
                           activeColor: theme.primary,
-                          side: BorderSide(color: theme.onHint.withOpacity(0.5)),
+                          side: BorderSide(color: theme.onHint.withValues(alpha: 0.5)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                           onChanged: (val) {
                             setState(() => _agreeToTerms = val ?? false);
@@ -337,7 +327,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Create Account Button
                   SizedBox(
                     width: double.infinity,
                     height: 55,
@@ -363,7 +352,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   
                   const SizedBox(height: 24),
-                  // Login Link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

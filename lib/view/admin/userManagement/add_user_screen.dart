@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/controller/admin/user_management_ctrl.dart';
@@ -38,22 +39,18 @@ class _AddUserScreenState extends State<AddUserScreen> {
     });
   }
 
-  String _invalidPhoneMessage(String countryCode) {
+  String _invalidPhoneMessage(String value, String countryCode) {
+    if (value.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'Numbers only allowed';
+    }
     switch (countryCode) {
-      case '+60':
-        return 'Please enter a valid Malaysia phone number (9 or 10 digits)';
-      case '+65':
-        return 'Please enter a valid Singapore phone number (8 digits)';
-      case '+1':
-        return 'Please enter a valid American or Canadian phone number (10 digits)';
-      case '+44':
-        return 'Please enter a valid UK phone number (10 digits)';
-      case '+86':
-        return 'Please enter a valid China phone number (11 digits)';
-      case '+91':
-        return 'Please enter a valid India phone number (10 digits)';
-      default:
-        return 'Invalid phone number';
+      case '+60': return 'Enter a valid Malaysia phone number (9-10 digits)';
+      case '+65': return 'Enter a valid Singapore phone number (8 digits)';
+      case '+1':  return 'Enter a valid American/Canadian phone number (10 digits)';
+      case '+44': return 'Enter a valid UK phone number (10 digits)';
+      case '+86': return 'Enter a valid China phone number (11 digits)';
+      case '+91': return 'Enter a valid India phone number (10 digits)';
+      default: return 'Invalid phone number';
     }
   }
 
@@ -101,7 +98,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
                     onChanged: (_) => _validateFields(),
                     hintText: 'Enter username',
                     prefixIcon: Icon(Icons.person_outline, color: theme.onHint, size: 20),
-                    borderColor: _usernameController.text.isNotEmpty && !_isUsernameValid ? theme.error.withOpacity(0.3) : null,
+                    borderColor: _usernameController.text.isNotEmpty && !_isUsernameValid ? theme.error : null,
+                    errorText: _usernameController.text.isNotEmpty && !_isUsernameValid ? 'Only letters and spaces allowed' : null,
                   ),
                   const SizedBox(height: 20),
 
@@ -110,8 +108,10 @@ class _AddUserScreenState extends State<AddUserScreen> {
                     controller: _emailController,
                     onChanged: (_) => _validateFields(),
                     hintText: 'Enter email',
+                    keyboardType: TextInputType.emailAddress,
                     prefixIcon: Icon(Icons.email_outlined, color: theme.onHint, size: 20),
-                    borderColor: _emailController.text.isNotEmpty && !_isEmailValid ? theme.error.withOpacity(0.3) : null,
+                    borderColor: _emailController.text.isNotEmpty && !_isEmailValid ? theme.error : null,
+                    errorText: _emailController.text.isNotEmpty && !_isEmailValid ? 'Please enter a valid email address' : null,
                   ),
                   const SizedBox(height: 20),
 
@@ -119,7 +119,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
                   AuthTextField(
                     controller: _phoneController,
                     hintText: '123456789',
-                    keyboardType: TextInputType.phone,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     onChanged: (_) => _validateFields(),
                     prefixIcon: Container(
                       width: 80,
@@ -147,7 +148,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
                         ],
                       ),
                     ),
-                    errorText: _phoneController.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_selectedCountryCode) : null,
+                    borderColor: _phoneController.text.isNotEmpty && !_isPhoneValid ? theme.error : null,
+                    errorText: _phoneController.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_phoneController.text, _selectedCountryCode) : null,
                   ),
                   const SizedBox(height: 40),
 
@@ -155,7 +157,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submit,
+                      onPressed: (_isLoading || !_isUsernameValid || !_isEmailValid || !_isPhoneValid) ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         disabledBackgroundColor: theme.border,

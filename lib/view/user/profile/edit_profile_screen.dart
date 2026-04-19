@@ -44,14 +44,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
   }
 
-  String _invalidPhoneMessage(String countryCode) {
+  String _invalidPhoneMessage(String value, String countryCode) {
+    if (value.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(value)) {
+      return 'Numbers only allowed';
+    }
     switch (countryCode) {
-      case '+60': return 'Please enter a valid Malaysia phone number (9 or 10 digits)';
-      case '+65': return 'Please enter a valid Singapore phone number (8 digits)';
-      case '+1':  return 'Please enter a valid American/Canadian phone number (10 digits)';
-      case '+44': return 'Please enter a valid UK phone number (10 digits)';
-      case '+86': return 'Please enter a valid China phone number (11 digits)';
-      case '+91': return 'Please enter a valid India phone number (10 digits)';
+      case '+60': return 'Enter a valid Malaysia phone number (9-10 digits)';
+      case '+65': return 'Enter a valid Singapore phone number (8 digits)';
+      case '+1':  return 'Enter a valid American/Canadian phone number (10 digits)';
+      case '+44': return 'Enter a valid UK phone number (10 digits)';
+      case '+86': return 'Enter a valid China phone number (11 digits)';
+      case '+91': return 'Enter a valid India phone number (10 digits)';
       default: return 'Invalid phone number';
     }
   }
@@ -97,7 +100,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 onChanged: (_) => _validateFields(),
                 hintText: 'Adam Lim',
                 prefixIcon: Icon(Icons.person_outline, color: theme.onHint, size: 20),
-                borderColor: _nameController.text.isNotEmpty && !_isNameValid ? theme.error.withOpacity(0.3) : null,
+                borderColor: _nameController.text.isNotEmpty && !_isNameValid ? theme.error : null,
                 errorText: _nameController.text.isNotEmpty && !_isNameValid ? 'Only letters and spaces allowed' : null,
               ),
               const SizedBox(height: 20),
@@ -106,7 +109,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               AuthTextField(
                 controller: _phoneController,
                 hintText: '123456789',
-                keyboardType: TextInputType.phone,
+                keyboardType: TextInputType.number,
                 onChanged: (_) => _validateFields(),
                 prefixIcon: Container(
                   width: 80,
@@ -134,7 +137,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ],
                   ),
                 ),
-                errorText: _phoneController.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_selectedCountryCode) : null,
+                borderColor: _phoneController.text.isNotEmpty && !_isPhoneValid ? theme.error : null,
+                errorText: _phoneController.text.isNotEmpty && !_isPhoneValid ? _invalidPhoneMessage(_phoneController.text, _selectedCountryCode) : null,
               ),
               const SizedBox(height: 20),
               
@@ -145,7 +149,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 hintText: '',
                 prefixIcon: Icon(Icons.email_outlined, color: theme.onHint, size: 20),
                 filled: true,
-                fillColor: theme.surfaceVariant.withOpacity(0.5),
+                fillColor: theme.surfaceVariant.withValues(alpha: 0.5),
               ),
 
               const SizedBox(height: 40),
@@ -166,39 +170,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavigationTile({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    required AppColors theme,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: theme.surfaceVariant.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.border.withOpacity(0.5)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.primary, size: 24),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: TextDesign.mediumText(color: theme.onSurface),
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: theme.onHint, size: 16),
-          ],
         ),
       ),
     );

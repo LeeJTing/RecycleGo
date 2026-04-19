@@ -16,6 +16,7 @@ class AdminNotificationScreen extends StatefulWidget {
 class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
   List<Notifications> _notifications = [];
   bool _isLoading = true;
+  bool _isLoadingAction = false;
 
   @override
   void initState() {
@@ -47,11 +48,15 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
   }
 
   Future<void> _markAsRead(Notifications notification) async {
-    if (notification.notificationStatus == 'unread') {
-      await NotificationsModel().markAsRead(notification.notificationId!);
-      setState(() {
-         int index = _notifications.indexWhere((n) => n.notificationId == notification.notificationId);
-         if (index != -1) {
+    setState(() => _isLoadingAction = true);
+    
+    try {
+      if (notification.notificationStatus == 'unread') {
+        await NotificationsModel().markAsRead(notification.notificationId!);
+        
+        // Update local state
+        int index = _notifications.indexWhere((n) => n.notificationId == notification.notificationId);
+        if (index != -1) {
            _notifications[index] = Notifications(
              notificationId: notification.notificationId,
              userId: notification.userId,
@@ -62,54 +67,69 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
              notificationStatus: 'read',
              createdAt: notification.createdAt,
            );
-         }
-      });
-    }
-    
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(notification.title, style: TextDesign.headingThree()),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Sent by: ${notification.whoSend}',
-                style: TextDesign.smallText(color: AppThemes.color.primary).copyWith(fontWeight: FontWeight.bold),
+        }
+      }
+
+      if (mounted) {
+        setState(() => _isLoadingAction = false);
+        
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(notification.title, style: TextDesign.headingThree()),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sent by: ${notification.whoSend}',
+                  style: TextDesign.smallText(color: AppThemes.color.primary).copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  notification.createdAt != null
+                      ? DateFormat('dd MMM yyyy, HH:mm').format(notification.createdAt!)
+                      : 'Recently',
+                  style: TextDesign.smallText(color: AppThemes.color.hint),
+                ),
+                const SizedBox(height: 16),
+                Text(notification.message, style: TextDesign.normalText()),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteNotification(notification.notificationId!);
+                },
+                child: Text("Delete", style: TextStyle(color: AppThemes.color.error, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 4),
-              Text(
-                notification.createdAt != null
-                    ? DateFormat('dd MMM yyyy, HH:mm').format(notification.createdAt!)
-                    : 'Recently',
-                style: TextDesign.smallText(color: AppThemes.color.hint),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text("Close", style: TextStyle(color: AppThemes.color.primary, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 16),
-              Text(notification.message, style: TextDesign.normalText()),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Close", style: TextStyle(color: AppThemes.color.primary, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingAction = false);
+      debugPrint("Error marking as read: $e");
     }
   }
 
   Future<void> _deleteNotification(String id) async {
+    setState(() => _isLoadingAction = true);
     try {
       await NotificationsModel().deleteNotification(id);
       setState(() {
         _notifications.removeWhere((n) => n.notificationId == id);
+        _isLoadingAction = false;
       });
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoadingAction = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Failed to delete notification")),
         );
@@ -158,22 +178,31 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
             ),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: theme.primary))
-          : RefreshIndicator(
-              onRefresh: _loadNotifications,
-              color: theme.primary,
-              child: _notifications.isEmpty
-                  ? _buildEmptyState(theme)
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                      itemCount: _notifications.length,
-                      itemBuilder: (context, index) {
-                        final notification = _notifications[index];
-                        return _buildNotificationItem(notification, theme);
-                      },
-                    ),
+      body: Stack(
+        children: [
+          _isLoading
+              ? Center(child: CircularProgressIndicator(color: theme.primary))
+              : RefreshIndicator(
+                  onRefresh: _loadNotifications,
+                  color: theme.primary,
+                  child: _notifications.isEmpty
+                      ? _buildEmptyState(theme)
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                          itemCount: _notifications.length,
+                          itemBuilder: (context, index) {
+                            final notification = _notifications[index];
+                            return _buildNotificationItem(notification, theme);
+                          },
+                        ),
+                ),
+          if (_isLoadingAction)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(child: CircularProgressIndicator()),
             ),
+        ],
+      ),
     );
   }
 
@@ -308,7 +337,7 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
               const SizedBox(height: 6),
               Text(
                 notification.message,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextDesign.smallText(color: theme.onSurface.withOpacity(0.6)),
               ),
