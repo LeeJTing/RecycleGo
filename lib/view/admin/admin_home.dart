@@ -12,6 +12,8 @@ import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'package:recycle_go/app/routes.dart';
 import 'package:recycle_go/models/Notifications.dart';
+import 'package:recycle_go/view/admin/admin_station_registry.dart';
+import 'package:recycle_go/view/admin/MoreScreen.dart';
 
 // IMPORTANT: Import your dashboard file!
 import 'package:recycle_go/view/admin/admin_dashboard.dart';
@@ -29,12 +31,20 @@ class _AdminHomeState extends State<AdminHome> {
   String? _currentAdminId;
   StreamSubscription? _notificationSubscription;
 
-  final List<Widget> _pages = const [
-    AdminDashboard(),
-    AppealReviewScreen(),
-    AdminInventory(),
-    AdminVoucherManagement(),
-    AdminProfileScreen(),
+  void changeTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  List<Widget> get _pages => [
+    const AdminDashboard(),
+    const AppealReviewScreen(),
+    const AdminInventory(),
+    MoreScreen(onNavigate: changeTab),
+    const AdminVoucherManagement(),
+    const StationRegistryScreen(),
+    const AdminProfileScreen(),
   ];
 
   @override
@@ -141,15 +151,9 @@ class _AdminHomeState extends State<AdminHome> {
             ),
 
             SalomonBottomBarItem(
-              icon: const Icon(Icons.confirmation_number_outlined),
-              activeIcon: const Icon(Icons.confirmation_number),
-              title: const Text("Voucher"),
-            ),
-
-            SalomonBottomBarItem(
-              icon: const Icon(Icons.person_outline),
-              activeIcon: const Icon(Icons.person),
-              title: const Text("Profile"),
+              icon: const Icon(Icons.menu),
+              activeIcon: const Icon(Icons.menu_open),
+              title: const Text("More"),
             ),
           ],
         ),
@@ -161,9 +165,11 @@ class _AdminHomeState extends State<AdminHome> {
     switch (_currentIndex) {
       case 0: return "Admin Dashboard";
       case 1: return "Appeal Review";
-      case 2: return "Admin Inventory";
-      case 3: return "Admin Vouchers";
-      case 4: return "Admin Profile";
+      case 2: return "Inventory";
+      case 3: return "More";
+      case 4: return "Voucher Management";
+      case 5: return "Station Registry";
+      case 6: return "Admin Profile";
       default: return "";
     }
   }
@@ -254,7 +260,7 @@ class _AdminHomeState extends State<AdminHome> {
         Padding(
           padding: const EdgeInsets.only(right: 10),
           child: IconButton(
-            onPressed: () => setState(() => _currentIndex = 4),
+            onPressed: () => setState(() => _currentIndex = 5),
             icon: Consumer<AdminProvider>(
               builder: (context, adminProvider, _) {
                 final url = adminProvider.getProfileImageUrl();
