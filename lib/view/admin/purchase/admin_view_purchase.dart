@@ -421,13 +421,14 @@ class _AdminViewPurchaseState extends State<AdminViewPurchase> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => AdminPurchaseDetail(
+                        builder: (context) => status == 'pending'
+                            ? AdminPurchaseUpdate(purchase: purchase, items: [],)
+                            : AdminPurchaseDetail(
                           purchase: purchase,
-                          items: const [], // Update screen will fetch its own items!
+                          items: const [],
                         ),
                       ),
                     ).then((value) {
-                      // This forces the dashboard to refresh when you come back from updating!
                       if (value == true) {
                         _fetchData();
                       }
