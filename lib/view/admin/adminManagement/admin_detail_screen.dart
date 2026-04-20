@@ -101,6 +101,7 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
         _currentAdmin.adminId!,
         _currentAdmin.username,
         isInvite: false,
+        accountType: 'admin',
       );
 
       if (mounted) {
@@ -201,7 +202,7 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
                     ),
                     borderColor:
                         _usernameController.text.isNotEmpty && !_isUsernameValid
-                        ? theme.error.withOpacity(0.3)
+                        ? theme.error
                         : null,
                     errorText: _usernameController.text.isNotEmpty && !_isUsernameValid
                         ? 'Only letters and spaces allowed'
@@ -293,7 +294,7 @@ class _AdminDetailScreenState extends State<AdminDetailScreen> {
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _updateAdmin,
+                      onPressed: (_isLoading || !_isUsernameValid) ? null : _updateAdmin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.primary,
                         shape: RoundedRectangleBorder(

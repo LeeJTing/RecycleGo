@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/controller/admin/appeal_controller.dart';
-import 'package:recycle_go/models/Admins.dart';
 import 'package:recycle_go/models/Appeals.dart';
 import 'package:recycle_go/provider/AdminProvider.dart';
 
@@ -295,14 +294,6 @@ class _AppealDetailViewState extends State<AppealDetailView> {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  "ID: ${widget.appeal.submissionId.substring(0, 8).toUpperCase()}",
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
             ],
           ),
         ),
@@ -443,23 +434,6 @@ class _AppealDetailViewState extends State<AppealDetailView> {
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () {
-              // Logic to edit or recalculate points can be added here
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF8F9FA),
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              elevation: 0,
-            ),
-            child: const Text(
-              "Edit",
-              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-        ),
       ],
     );
   }

@@ -36,6 +36,25 @@ class _StationEditScreenState extends State<StationEditScreen> {
   bool get _isEdit => widget.station != null;
   late final TextEditingController _capacityCtrl;
 
+  Future<bool> _isQrDuplicate(String qrValue) async {
+    final client = Supabase.instance.client;
+
+    final res = await client
+        .from('recyclestation')
+        .select('station_id')
+        .eq('qr_code_value', qrValue)
+        .maybeSingle();
+
+    if (res == null) return false;
+
+    // ✅ 如果是 edit，要排除自己
+    if (_isEdit && res['station_id'] == widget.station!.stationId) {
+      return false;
+    }
+
+    return true;
+  }
+
   Future<File> generateQrImage(String data) async {
     final painter = QrPainter(
       data: data,
@@ -123,7 +142,9 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
     if (widget.station != null) {
       _status = widget.station!.stationStatus;
-      _capacitySlider = widget.station!.stationCapacity.clamp(1000, 50000);
+      _capacitySlider = widget.station!.stationCapacity
+          .clamp(1000, 50000)
+          .toDouble();
       _selectedMats.addAll(widget.station!.supportedMaterials);
       _imageUrl = widget.station!.imageUrl;
     }
@@ -157,11 +178,19 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
     String? finalImageUrl = _imageUrl;
 
-    // ✅ 先决定最终 QR value
     final uuid = Uuid();
     final finalQrValue = _qrCtrl.text.trim().isEmpty
         ? 'ECO-${uuid.v4()}'
         : _qrCtrl.text.trim();
+
+    final isDuplicate = await _isQrDuplicate(finalQrValue);
+
+    if (isDuplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('QR Code already exists ❌')),
+      );
+      return;
+    }
 
     final hash = md5.convert(utf8.encode(finalQrValue)).toString();
 
@@ -174,7 +203,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
     if (isQrChanged) {
       final qrFile = await generateQrImage(finalQrValue);
 
-      // ✅ 固定路径（关键）
       final path = 'qr/$hash.png';
 
       await storage.uploadImage(
@@ -183,7 +211,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
         file: qrFile,
       );
 
-      // ✅ CDN cache bust
       qrImageUrl = storage
           .getPublicUrl('station-images', path) +
           '?v=${DateTime.now().millisecondsSinceEpoch}';
@@ -196,7 +223,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
       final fileName = 'station_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final path = 'stations/$fileName';
 
-      // ✅ 先保存旧图
       final oldImageUrl = _imageUrl;
 
       try {
@@ -208,7 +234,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
 
         finalImageUrl = storage.getPublicUrl('station-images', path);
 
-        // ✅ 更新新图
         setState(() => _imageUrl = finalImageUrl);
 
       } catch (e) {
@@ -218,7 +243,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
         return;
       }
 
-      // ✅ 用 oldImageUrl 删除旧图（不是新图！）
       if (oldImageUrl != null && oldImageUrl.isNotEmpty) {
         try {
           final uri = Uri.parse(oldImageUrl);
@@ -335,10 +359,10 @@ class _StationEditScreenState extends State<StationEditScreen> {
       RecycleStation? result;
 
       if (_isEdit) {
-        // ❌ 修改 → 不通知
+
         result = await model.updateStation(station);
       } else {
-        // ✅ 新建 → 才通知
+
         result = await model.insertStation(station);
 
         if (result != null) {
@@ -391,7 +415,6 @@ class _StationEditScreenState extends State<StationEditScreen> {
                       OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          // 将颜色改为更明显的灰色或品牌绿
                           side: const BorderSide(color: Color(0xFF999999)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10)),
@@ -400,7 +423,7 @@ class _StationEditScreenState extends State<StationEditScreen> {
                         ),
                         child: const Text('CANCEL',
                             style: TextStyle(
-                                color: Color(0xFF444444), // 加深文字颜色
+                                color: Color(0xFF444444),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5)),
@@ -713,12 +736,30 @@ class _StationEditScreenState extends State<StationEditScreen> {
                               final v = double.tryParse(value);
                               if (v == null) return;
 
-                              // 👉 限制范围（很重要）
-                              if (v < 1000 || v > 50000) return;
+                              final clamped = v.clamp(1000, 50000).toDouble();
 
                               setState(() {
-                                _capacitySlider = v;
+                                _capacitySlider = clamped;
                               });
+                            },
+                            onEditingComplete: () {
+                              final v = double.tryParse(_capacityCtrl.text);
+                              if (v == null) return;
+
+                              final clamped = v.clamp(1000, 50000).toDouble();
+
+                              setState(() {
+                                _capacitySlider = clamped;
+
+                                _capacityCtrl.value = TextEditingValue(
+                                  text: clamped.toStringAsFixed(0),
+                                  selection: TextSelection.collapsed(
+                                    offset: clamped.toStringAsFixed(0).length,
+                                  ),
+                                );
+                              });
+
+                              FocusScope.of(context).unfocus(); // 收起键盘（可选）
                             },
                           ),
                           SliderTheme(
@@ -739,7 +780,12 @@ class _StationEditScreenState extends State<StationEditScreen> {
                               onChanged: (v) {
                                 setState(() {
                                   _capacitySlider = v;
-                                  _capacityCtrl.text = v.toStringAsFixed(0);
+                                  _capacityCtrl.value = TextEditingValue(
+                                    text: v.toStringAsFixed(0),
+                                    selection: TextSelection.collapsed(
+                                      offset: v.toStringAsFixed(0).length,
+                                    ),
+                                  );
                                 });
                               },
                             ),
@@ -1060,9 +1106,9 @@ class _StatusOption extends StatelessWidget {
       case StationStatus.active:
         return _green;
       case StationStatus.maintenance:
-        return const Color(0xFFF5A623); // 橙色
+        return const Color(0xFFF5A623);
       case StationStatus.offline:
-        return const Color(0xFFE53935); // 🔥 红色（error）
+        return const Color(0xFFE53935);
     }
   }
 
@@ -1152,7 +1198,6 @@ class _LivePreviewMap extends StatelessWidget {
               ),
             ),
 
-            // 👇 这个你保留
             Positioned(
               bottom: 12,
               left: 12,
@@ -1304,7 +1349,6 @@ class _PickLocationMapState extends State<_PickLocationMap> {
               _selectedLatLng = position;
             });
 
-            // 🔥 回传给表单
             widget.onLocationSelected(
               position.latitude,
               position.longitude,

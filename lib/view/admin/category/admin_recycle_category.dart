@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
-
-// IMPORTANT: Make sure this path matches where your model actually is!
 import '../../../models/Recycle_category.dart';
 
 class AdminRecycleCategory extends StatefulWidget {
@@ -21,7 +19,7 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
   @override
   void initState() {
     super.initState();
-    _fetchCategories(); // Fetch real data on load
+    _fetchCategories();
   }
 
   // --- DATABASE LOGIC ---
@@ -237,11 +235,18 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
   }
 
   // --- ADD / EDIT FORM ---
+  bool isValidCategoryName(String name) {
+    final regex = RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9\s\-/()&+]*$');
+    return regex.hasMatch(name);
+  }
+
 
   void _showCategoryFormDialog(BuildContext context, AppColors theme, RecycleCategory? existingCategory) {
     final bool isEdit = existingCategory != null;
 
-    // Setup controllers with existing data if Editing
+    final _formKey = GlobalKey<FormState>();
+
+    // Controllers
     final nameCtrl = TextEditingController(text: isEdit ? existingCategory.categoryName : '');
     final descCtrl = TextEditingController(text: isEdit ? existingCategory.description : '');
     final pointCtrl = TextEditingController(text: isEdit ? existingCategory.point?.toString() : '');
@@ -253,96 +258,185 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24, right: 24, top: 24,
+            left: 24,
+            right: 24,
+            top: 24,
           ),
           child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(isEdit ? "Edit Category" : "New Category", style: TextDesign.headingThree()),
-                const SizedBox(height: 20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(isEdit ? "Edit Category" : "New Category", style: TextDesign.headingThree()),
+                  const SizedBox(height: 20),
 
-                // Name & Label
-                Row(
-                  children: [
-                    Expanded(child: _buildTextField(nameCtrl, "Category Name *")),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildTextField(labelCtrl, "AI Label (Optional)")),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                  // NAME + LABEL
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          nameCtrl,
+                          "Category Name *",
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return "Category name is required";
+                            }
+                            if (!isValidCategoryName(val.trim())) {
+                              return "Only letters, numbers, spaces, -, /, (), & + allowed";
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildTextField(
+                          labelCtrl,
+                          "AI Label (Optional)",
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return null; // optional
 
-                // Numbers Row
-                Row(
-                  children: [
-                    Expanded(child: _buildTextField(pointCtrl, "Points", isNum: true)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildTextField(baseWeightCtrl, "Base Weight", isNum: true)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildTextField(densityCtrl, "Density", isNum: true)),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                            final regex = RegExp(r'^[a-zA-Z0-9\s\-/()&+]+$');
+                            if (!regex.hasMatch(val.trim())) {
+                              return "Invalid label";
+                            }
 
-                // Description
-                _buildTextField(descCtrl, "Description (Optional)", maxLines: 2),
-                const SizedBox(height: 24),
-
-                // Save Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (nameCtrl.text.trim().isEmpty) return; // Prevent empty names
-
-                      final supabase = Supabase.instance.client;
-
-                      // Build the data payload
-                      final payload = {
-                        'category_name': nameCtrl.text.trim(),
-                        'description': descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
-                        'label': labelCtrl.text.trim().isEmpty ? null : labelCtrl.text.trim(),
-                        'point': double.tryParse(pointCtrl.text.trim()),
-                        'base_weight': double.tryParse(baseWeightCtrl.text.trim()),
-                        'density': double.tryParse(densityCtrl.text.trim()),
-                      };
-
-                      try {
-                        if (isEdit) {
-                          // Update existing
-                          await supabase.from('recycle_category').update(payload).eq('category_id', existingCategory.categoryId);
-                        } else {
-                          // Insert new (Do not send category_id, it is Auto-Generated)
-                          await supabase.from('recycle_category').insert(payload);
-                        }
-
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          _fetchCategories(); // Refresh list after saving
-                        }
-                      } catch (e) {
-                        print("Save Error: $e");
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text("Save Category", style: TextDesign.buttonText()),
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 24),
-              ],
+                  const SizedBox(height: 16),
+
+                  // NUMBERS
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          pointCtrl,
+                          "Points",
+                          isNum: true,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return null;
+
+                            final num = double.tryParse(val.trim());
+                            if (num == null) return "Invalid number";
+                            if (num < 0) return "Must be ≥ 0";
+
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildTextField(
+                          baseWeightCtrl,
+                          "Base Weight",
+                          isNum: true,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return null;
+
+                            final num = double.tryParse(val.trim());
+                            if (num == null) return "Invalid number";
+                            if (num <= 0) return "Must be > 0";
+
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildTextField(
+                          densityCtrl,
+                          "Density",
+                          isNum: true,
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) return null;
+
+                            final num = double.tryParse(val.trim());
+                            if (num == null) return "Invalid number";
+                            if (num <= 0) return "Must be > 0";
+
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // DESCRIPTION
+                  _buildTextField(descCtrl, "Description (Optional)", maxLines: 2),
+                  const SizedBox(height: 24),
+
+                  // SAVE BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        // ✅ TRIGGER VALIDATION
+                        if (!_formKey.currentState!.validate()) return;
+
+                        final name = nameCtrl.text.trim();
+                        final supabase = Supabase.instance.client;
+
+                        final payload = {
+                          'category_name': name,
+                          'description': descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+                          'label': labelCtrl.text.trim().isEmpty ? null : labelCtrl.text.trim(),
+                          'point': double.tryParse(pointCtrl.text.trim()),
+                          'base_weight': double.tryParse(baseWeightCtrl.text.trim()),
+                          'density': double.tryParse(densityCtrl.text.trim()),
+                        };
+
+                        try {
+                          if (isEdit) {
+                            await supabase
+                                .from('recycle_category')
+                                .update(payload)
+                                .eq('category_id', existingCategory.categoryId);
+                          } else {
+                            await supabase
+                                .from('recycle_category')
+                                .insert(payload);
+                          }
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            _fetchCategories();
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text("Save Category", style: TextDesign.buttonText()),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         );
@@ -350,16 +444,22 @@ class _AdminRecycleCategoryState extends State<AdminRecycleCategory> {
     );
   }
 
-  // Helper widget for text fields in the bottom sheet
-  Widget _buildTextField(TextEditingController controller, String label, {bool isNum = false, int maxLines = 1}) {
-    return TextField(
+  Widget _buildTextField(
+      TextEditingController controller,
+      String label, {
+        bool isNum = false,
+        int maxLines = 1,
+        String? Function(String?)? validator,
+      }) {
+    return TextFormField(
       controller: controller,
+      validator: validator,
       maxLines: maxLines,
-      keyboardType: isNum ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+      keyboardType: isNum
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:recycle_go/app/TextDesign.dart';
 import 'package:recycle_go/app/app_theme.dart';
 import 'package:recycle_go/controller/admin/user_management_ctrl.dart';
+import 'package:recycle_go/models/Admins.dart';
 import 'package:recycle_go/models/Users.dart';
 import 'package:recycle_go/services/email_service.dart';
 import 'package:recycle_go/utils/validators.dart';
@@ -189,9 +190,25 @@ class _AddUserScreenState extends State<AddUserScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final email = _emailController.text.trim();
+
+      // Check if email exists in either table (Admins or Users)
+      final adminExists = await AdminsModel().emailIsExist(email);
+      final userExists = await UsersModel().emailIsExist(email);
+
+      if (adminExists || userExists) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This email is already registered.')),
+          );
+        }
+        return;
+      }
+
       final newUser = Users(
         userName: _usernameController.text.trim(),
-        email: _emailController.text.trim(),
+        email: email,
         accountStatus: 'active',
         countryCallingCode: _selectedCountryCode,
         phone: _phoneController.text.trim(),
