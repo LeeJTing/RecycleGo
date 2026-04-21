@@ -44,9 +44,8 @@ import 'package:recycle_go/view/admin/profile/admin_profile_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:recycle_go/services/notification_service.dart';
+import 'package:recycle_go/services/notification_services.dart';
 
-final FlutterLocalNotificationsPlugin notificationsPlugin = FlutterLocalNotificationsPlugin();
 
 Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -73,12 +72,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await SupabaseService.initialize();
+  await initNotifications();
+  await FirebaseMessaging.instance.requestPermission();
   FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
 
   const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
-
-  await notificationsPlugin.initialize(initSettings);
 
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
     'station_channel',
