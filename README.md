@@ -5,7 +5,7 @@ Mobile application assignment RSW Y2S3 G10
 Before the testing model classify the recycle item at the user part
 ensure you copy these code and find the function name and paste them because these can help the model more accurate
 
-**Function Name processImage**
+**Function Name processImage:**
 dynamic _processImage(img.Image imgData) {
   var buffer = Float32List(1 * 300 * 300 * 3);
   int idx = 0;
@@ -20,7 +20,7 @@ dynamic _processImage(img.Image imgData) {
   return buffer.reshape([1, 300, 300, 3]);
 }
 
-**Function Name _parseResults**
+**Function Name _parseResults:**
 void _parseResults(List<double> scores) {
   List<Map<String, dynamic>> temp = [];
   double highestScore = 0.0;
